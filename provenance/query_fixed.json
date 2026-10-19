@@ -1,0 +1,6 @@
+{
+  "main_commit": "a11939afb38344603345479efa32aa5f3e8e4fc2",
+  "openpi_commit": "b18c13ae06e05231bb52387989b691b783c57070",
+  "path_only_sanitized_files": [],
+  "notes": "trajectory_v2 overlays audited 2026-10-16 sources; query_fixed trainer includes audit-only additions. See HANDOFF."
+}

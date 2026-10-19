@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-19",
+  "python_ast_files": 664,
+  "python_ast_passed": true,
+  "unit_tests": 4,
+  "unit_tests_passed": true,
+  "train_cli_dryruns": [
+    {
+      "variant": "baseline",
+      "GPUs": 2,
+      "passed": true
+    },
+    {
+      "variant": "baseline",
+      "GPUs": 4,
+      "passed": true
+    },
+    {
+      "variant": "baseline",
+      "GPUs": 8,
+      "passed": true
+    },
+    {
+      "variant": "query_fixed",
+      "GPUs": 2,
+      "passed": true
+    },
+    {
+      "variant": "query_fixed",
+      "GPUs": 4,
+      "passed": true
+    },
+    {
+      "variant": "query_fixed",
+      "GPUs": 8,
+      "passed": true
+    },
+    {
+      "variant": "query3d_v2",
+      "GPUs": 2,
+      "passed": true
+    },
+    {
+      "variant": "query3d_v2",
+      "GPUs": 4,
+      "passed": true
+    },
+    {
+      "variant": "query3d_v2",
+      "GPUs": 8,
+      "passed": true
+    },
+    {
+      "variant": "embedding3d_v2",
+      "GPUs": 2,
+      "passed": true
+    },
+    {
+      "variant": "embedding3d_v2",
+      "GPUs": 4,
+      "passed": true
+    },
+    {
+      "variant": "embedding3d_v2",
+      "GPUs": 8,
+      "passed": true
+    }
+  ],
+  "formal_eval_shard_cli_dryruns": 13,
+  "one_gpu_smoke_cli_dryrun": true,
+  "shell_syntax_passed": true,
+  "source_manifest_files": 704,
+  "credential_and_old_private_path_scan_findings": 0,
+  "validation_limit": "CPU/static/CLI only. No destination Linux dependency installation, CUDA training, NCCL, save/restore GPU or EGL closed-loop execution has been performed for this portable package.",
+  "public_small_inputs_downloaded_and_verified": [
+    {
+      "bytes": 3208,
+      "sha256": "4aed1af411bd0e0f49d2b0e6d6832b11b8682917231a07173fbc30fd493bbdee",
+      "url": "https://huggingface.co/robocasa/robocasa365_checkpoints/resolve/916d8ec4aab4e6f930ba6b5b9bb8537ad16d4bb8/pi05_pretrain_human300/multitask_learning/75000/assets/norm_stats.json"
+    },
+    {
+      "bytes": 4264023,
+      "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+      "url": "https://storage.googleapis.com/big_vision/paligemma_tokenizer.model"
+    }
+  ],
+  "text_line_endings": "LF"
+}

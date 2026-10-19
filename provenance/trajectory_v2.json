@@ -1,0 +1,17 @@
+{
+  "main_commit": "a11939afb38344603345479efa32aa5f3e8e4fc2",
+  "openpi_commit": "b18c13ae06e05231bb52387989b691b783c57070",
+  "path_only_sanitized_files": [
+    "starVLA\\pri4r\\armobj_full_generate.py",
+    "starVLA\\pri4r\\armobj_full_pipeline.py",
+    "starVLA\\pri4r\\armobj_generate.py",
+    "starVLA\\pri4r\\contact_generate.py",
+    "starVLA\\pri4r\\contact_pipeline.py",
+    "starVLA\\pri4r\\contact_relay.py",
+    "starVLA\\pri4r\\contact_relay_bounded.py",
+    "starVLA\\pri4r\\contact_relay_windows.py",
+    "starVLA\\pri4r\\generate.py",
+    "starVLA\\pri4r\\source_relay.py"
+  ],
+  "notes": "trajectory_v2 overlays audited 2026-10-16 sources; query_fixed trainer includes audit-only additions. See HANDOFF."
+}

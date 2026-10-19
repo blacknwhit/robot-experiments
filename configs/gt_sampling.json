@@ -1,0 +1,54 @@
+{
+  "cube_half_extent_m": 2,
+  "base_body_name": "mobilebase0_base",
+  "num_points": 1024,
+  "seed": 20261010,
+  "sampling_rules": {
+    "version": "arm_direct_object_full_v1",
+    "num_points": 1024,
+    "seed": 20261010,
+    "cube_half_extent_m": 2.0,
+    "contact_max_distance_m": 0.003,
+    "minimum_contact_frames": 3,
+    "object_arm_background": [
+      512,
+      512,
+      0
+    ],
+    "no_contact_object_arm_background": [
+      0,
+      1024,
+      0
+    ],
+    "within_class": "clipped_physical_surface_area",
+    "motion_required": false,
+    "indirect_motion_selection": false,
+    "arm": "links1_to_7_hand_fingers_no_base",
+    "merged_housing_patch_fraction": [
+      1,
+      4
+    ],
+    "contact_patch_half_extent_m": 0.05,
+    "center_grid_m": 0.02,
+    "max_contact_centers": 16,
+    "merged_static_housing_classes": [
+      "Microwave",
+      "CoffeeMachine",
+      "Blender"
+    ],
+    "merged_housing_requires_control_geom_contact_frames": 3,
+    "structural_room_bodies_missing_from_metadata": "exclude_wall_floor_only",
+    "unknown_static_controls": "audit_error_until_geometry_semantics_reviewed",
+    "visibility_filter": false,
+    "selection_uses_whole_demonstration": true,
+    "boundary_shortfall": "same_rigid_object_global_crop_surface",
+    "seed_policy": "same_fixed_base_seed_per_episode"
+  },
+  "geom_groups": [
+    1
+  ],
+  "primitive_segments": 32,
+  "primitive_rings": 16,
+  "asset_root": "${ROBOT_EXPERIMENTS_HOME}",
+  "time_tolerance": 1e-05
+}
