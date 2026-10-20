@@ -2,12 +2,17 @@
 import argparse, hashlib, json, re
 from pathlib import Path
 import yaml
-from common import ROOT, VARIANTS, runtime, sha256
+from common import ROOT, VARIANTS, POSITION_VARIANTS, runtime, sha256
 
-def render(variant, home, run_id, world, stop=70000, smoke=False):
+def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=False):
     if world not in (2,4,8) or not 1 <= stop <= 70000:
         raise ValueError('Supported world sizes: 2/4/8; stop must be 1..70000')
     if not re.fullmatch(r'[A-Za-z0-9_.-]+',run_id): raise ValueError('run-id must be a simple directory name')
+    if smoke and engineering:
+        raise ValueError('Choose smoke or bounded engineering validation, not both')
+    if variant in POSITION_VARIANTS:
+        if not (smoke or engineering) or stop > (10 if smoke else 1500):
+            raise ValueError('V3 is currently authorized for smoke <=10 or engineering <=1500 only')
     home=Path(home).resolve(); r=runtime(variant).resolve()
     gt=home/'data/gt_armobj_full_v1'
     gt_hash=None
@@ -17,7 +22,8 @@ def render(variant, home, run_id, world, stop=70000, smoke=False):
     replacements={'OPENPI_ROOT':r/'playground/Code/openpi_robocasa365','BASE_WEIGHTS':home/'models/pi05_base_pytorch/model.safetensors',
         'NORM_ASSETS':home/'models/robocasa_norm','DATA_ROOT':home/'data/robocasa365',
         'REGISTRY_FILE':ROOT/'assets/dataset_registry.py','ARROW_CACHE':home/'cache/arrow',
-        'GT_ROOT':gt,'GT_CONFIG_SHA256':gt_hash or 'GENERATE_GT_FIRST', 'RUN_ID':run_id,'RUN_ROOT':home/('smoke_runs' if smoke else 'runs')}
+        'GT_ROOT':gt,'GT_CONFIG_SHA256':gt_hash or 'GENERATE_GT_FIRST', 'RUN_ID':run_id,
+        'RUN_ROOT':home/('smoke_runs' if smoke else ('engineering_runs' if engineering else 'runs'))}
     text=(ROOT/'configs'/f'{variant}.yaml').read_text()
     for key,val in replacements.items():text=text.replace('${'+key+'}',str(val))
     if '${' in text:raise ValueError('Unresolved template variable')
@@ -26,6 +32,8 @@ def render(variant, home, run_id, world, stop=70000, smoke=False):
     c['trainer']['stop_after_steps']=stop
     if smoke:c['trainer'].update(save_interval=1,logging_frequency=1)
     c['portable']={'variant':variant,'world_size':world,'smoke':smoke}
+    if engineering:
+        c['portable']['engineering'] = True
     # Same immutable code identity used by v2 checkpoint contracts on fresh/resumed runs.
     c['trajectory_release_sha256']=sha256(ROOT/'provenance/source_files.sha256')
     return c
@@ -33,8 +41,9 @@ def render(variant, home, run_id, world, stop=70000, smoke=False):
 def main():
     p=argparse.ArgumentParser();p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--home',required=True)
     p.add_argument('--run-id',required=True);p.add_argument('--gpus',type=int,choices=(2,4,8),required=True)
-    p.add_argument('--stop',type=int,default=70000);p.add_argument('--smoke',action='store_true');p.add_argument('--out',type=Path,required=True)
-    a=p.parse_args();c=render(a.variant,a.home,a.run_id,a.gpus,a.stop,a.smoke)
+    p.add_argument('--stop',type=int,default=70000);p.add_argument('--smoke',action='store_true')
+    p.add_argument('--engineering',action='store_true');p.add_argument('--out',type=Path,required=True)
+    a=p.parse_args();c=render(a.variant,a.home,a.run_id,a.gpus,a.stop,a.smoke,a.engineering)
     if a.out.exists():raise FileExistsError('Refusing to overwrite an existing resolved recipe')
     a.out.parent.mkdir(parents=True,exist_ok=True);a.out.write_text(yaml.safe_dump(c,sort_keys=False))
     print(a.out.resolve())

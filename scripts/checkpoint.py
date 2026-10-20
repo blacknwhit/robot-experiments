@@ -1,6 +1,7 @@
 """Read-only same-world native state validation. Never loads untrusted checkpoints."""
 from pathlib import Path
 import json,re
+from common import is_point_variant
 
 def required_files(world,fixed=False):
     return ['latest','custom_checkpoint_0.pkl','custom_checkpoint_1.pkl',
@@ -45,7 +46,7 @@ def validate(path,cfg,deep=True):
     if fixed:
         teacher=load(path/'custom_checkpoint_2.pkl')
         if int(teacher.get('updates',-1))!=step:raise ValueError('FIXED teacher clock differs')
-    if cfg['portable']['variant'].endswith('3d_v2'):
+    if is_point_variant(cfg['portable']['variant']):
         from starVLA.training.trajectory_contract import validate_contract
         validate_contract(path/'trajectory_contract.json',cfg,step)
     from safetensors import safe_open

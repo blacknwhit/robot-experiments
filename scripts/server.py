@@ -6,7 +6,7 @@ os.environ.setdefault('TORCH_COMPILE_DISABLE','1')
 import pyarrow
 import argparse,json,logging
 from pathlib import Path
-from common import activate,VARIANTS,sha256
+from common import activate,VARIANTS,POSITION_VARIANTS,is_point_variant,sha256
 def main():
     p=argparse.ArgumentParser();p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--config',required=True)
     p.add_argument('--checkpoint',required=True);p.add_argument('--port',type=int,required=True);a=p.parse_args();activate(a.variant)
@@ -29,12 +29,17 @@ def main():
             if framework.policy_metadata['action_output_space']!='environment':raise ValueError('Wrong action space')
             if (framework.action_horizon,framework.environment_action_dim,framework.environment_state_dim,framework.num_inference_steps)!=(50,12,16,10):raise ValueError('Policy dimensions differ')
             model=framework.policy_model
-            if a.variant.endswith('3d_v2'):
-                if model.point_track.objective_version!='adjacent_and_cumulative_v2':raise ValueError('Wrong trajectory objective')
+            if is_point_variant(a.variant):
+                expected = 'relative_position_and_difference_v3' if a.variant in POSITION_VARIANTS else 'adjacent_and_cumulative_v2'
+                if model.point_track.objective_version!=expected:raise ValueError('Wrong trajectory objective')
                 def forbidden(*args):raise RuntimeError('Point head executed at inference')
                 model.point_track_head.register_forward_pre_hook(forbidden)
                 if a.variant=='query3d_v2' and tuple(model.future_queries.shape)!=(1,50,2048):raise ValueError('Wrong Query50 shape')
-                if a.variant=='embedding3d_v2' and model.foresight.enabled:raise ValueError('Embedding must retain original prefix')
+                if (a.variant=='embedding3d_v2' or a.variant in POSITION_VARIANTS) and model.foresight.enabled:raise ValueError('Embedding must retain original prefix')
+                if a.variant in POSITION_VARIANTS:
+                    layers = 0 if a.variant == 'embedding3d_pos_a' else 2
+                    if model.point_track.temporal_layers != layers or model.point_track.temporal_rope:
+                        raise ValueError('Wrong V3 temporal decoder contract')
             elif a.variant=='query_fixed':
                 if tuple(model.future_queries.shape)!=(1,64,2048):raise ValueError('Wrong FIXED queries')
             self._proof={'variant':a.variant,'checkpoint_sha256':sha256(ckpt_path),'config_sha256':sha256(a.config),'strict_full_state':proof}

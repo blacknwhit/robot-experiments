@@ -3,12 +3,18 @@ from pathlib import Path
 import hashlib, os, sys
 
 ROOT = Path(__file__).resolve().parents[1]
-VARIANTS = ('baseline', 'query_fixed', 'query3d_v2', 'embedding3d_v2')
+POSITION_VARIANTS = ('embedding3d_pos_a', 'embedding3d_temporal_b')
+VARIANTS = ('baseline', 'query_fixed', 'query3d_v2', 'embedding3d_v2', *POSITION_VARIANTS)
+
+
+def is_point_variant(variant):
+    return variant.endswith('3d_v2') or variant in POSITION_VARIANTS
 
 def runtime(variant):
     if variant not in VARIANTS:
         raise ValueError(variant)
-    return ROOT / 'runtimes' / ('trajectory_v2' if variant.endswith('3d_v2') else variant)
+    name = 'trajectory_v3' if variant in POSITION_VARIANTS else ('trajectory_v2' if variant.endswith('3d_v2') else variant)
+    return ROOT / 'runtimes' / name
 
 def activate(variant, shim=True, overlay=True):
     r = runtime(variant)

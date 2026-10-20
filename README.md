@@ -4,6 +4,8 @@ PI0.5 / RoboCasa365 的可迁移实验代码：原始基线、最佳 Query-FIXED
 
 **完整操作文档：[新集群交接文档](HANDOFF.zh-CN.md)**。从公开数据与干净基座开始，包含环境、数据筛选、3D 标签生成、保存/恢复 smoke、70k 训练、4/2 GPU 正式评测和原始结果验收。
 
+当前开发分支增加了[Embedding位置监督A／因果时间解码B](docs/POSITION_V3.zh-CN.md)，使用独立`runtimes/trajectory_v3/`。两组尚无正式训练成绩；B不加RoPE，只做同一点沿时间交互。当前新入口仅开放有界工程验证。
+
 | 配置 | 方法 | 原实验 70k 结果，50 tasks × 50 trials |
 |---|---|---:|
 | `baseline` | 原 PI0.5，无 Query/辅助分支 | 391/2500，15.64% |
