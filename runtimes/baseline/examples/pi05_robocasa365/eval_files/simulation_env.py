@@ -104,6 +104,7 @@ def run_simulation(model: PolicyWrapper, args: argparse.Namespace) -> Tuple[str,
     active_success = [False] * args.n_envs
     observations, _ = env.reset()
     started = time.time()
+    args._rollout_started_at = started
     try:
         while completed < args.num_trials:
             action_dict = model.step(observations)["actions"]
@@ -120,6 +121,7 @@ def run_simulation(model: PolicyWrapper, args: argparse.Namespace) -> Tuple[str,
             model.finish_step(done)
             observations = next_observations
     finally:
+        args._rollout_finished_at = time.time()
         model.close()
         env.close()
 
@@ -174,6 +176,8 @@ def main() -> None:
         "episode_trace_sha256": episode_trace_hashes[: len(successes)],
         "success_rate": success_rate,
         "num_successes": int(sum(successes)),
+        "rollout_timing": {"started_at": args._rollout_started_at,
+                           "finished_at": args._rollout_finished_at},
         "num_trials": len(successes),
         "successes": [bool(value) for value in successes],
     }

@@ -176,6 +176,8 @@ $H/runs/<run-id>/checkpoints/steps_70000_model.safetensors
 
 可选加速：`--inference-backend cuda-graph` 保留单样本、精度和去噪协议；匹配smoke会对每个请求与eager逐位比较。使用方法、实测范围及限制见[CUDA Graph评测说明](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。默认仍为下面的eager流程。
 
+H100可进一步使用 `--tasks-per-gpu 2` 同卡运行两个独立任务，每路仍为原batch1/单环境协议，配合 `--policy-cpu-threads 4 --sim-cpu-threads 4`。先新建output并做匹配的同卡并发smoke；详见[共享GPU评测](docs/EVALUATION_SHARED_GPU.zh-CN.md)。下面默认4/2卡分片命令保持兼容，选择共享模式时按该文档调整GPU数量，所有分片与汇总都要带同样的设置。
+
 固定50 task，原task顺序和已经乘1.5的horizon保存在 `assets/eval_tasks.json`，**不能再乘1.5**。seed7，50 trials/task，单env，replan5，10次去噪，EGL，严格eager、TF32关闭、stateless_request_v1噪声与逐episode trace。
 
 ```bash

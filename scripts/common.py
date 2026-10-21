@@ -18,7 +18,9 @@ def activate(variant, shim=True, overlay=True):
     sys.path[:0] = [str(p) for p in parts]
     return r
 
-def environment(variant, shim=True, overlay=True):
+def environment(variant, shim=True, overlay=True, cpu_threads=4):
+    if type(cpu_threads) is not int or cpu_threads<1:
+        raise ValueError('CPU thread count must be a positive integer')
     r = runtime(variant)
     paths = ([r/'runtime'] if overlay else []) + [r, r/'playground/Code/openpi_robocasa365/src', r/'playground/Code/openpi_robocasa365/packages/openpi-client/src']
     if shim:
@@ -27,7 +29,7 @@ def environment(variant, shim=True, overlay=True):
     env = dict(os.environ, PYTHONPATH=os.pathsep.join(map(str,paths)), PYTHONUNBUFFERED='1',
                WANDB_MODE=os.environ.get('WANDB_MODE','offline'), JAX_PLATFORMS='cpu',
                TOKENIZERS_PARALLELISM='false', NO_ALBUMENTATIONS_UPDATE='1',
-               OMP_NUM_THREADS='4', MKL_NUM_THREADS='4', OPENBLAS_NUM_THREADS='1')
+               OMP_NUM_THREADS=str(cpu_threads), MKL_NUM_THREADS=str(cpu_threads), OPENBLAS_NUM_THREADS='1')
     return env
 
 def sha256(path):

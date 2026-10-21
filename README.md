@@ -22,6 +22,8 @@ export ROBOT_EXPERIMENTS_HOME=/your/absolute/shared/robot-experiments-data
 
 可选评测加速：[CUDA Graph使用与实测](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。保持原动作计算，通过对应smoke后显式启用；默认eager不变。
 
+H100闭环吞吐：[独立任务共用GPU](docs/EVALUATION_SHARED_GPU.zh-CN.md)。可选每卡两路独立评测，保持每路batch1及原回合协议，通过共享smoke后启用。
+
 布局：
 
 - `runtimes/baseline/`：独立历史基线源码，不是新版关闭 loss。
