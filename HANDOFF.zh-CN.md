@@ -204,6 +204,8 @@ PART=1
 
 **渲染绑卡与CPU线程：**策略server按`--gpu-ids`设置`CUDA_VISIBLE_DEVICES`；模拟器移除该CUDA变量，按对应EGL设备索引设置`MUJOCO_EGL_DEVICE_ID`，不会把每个模拟器都绑定到EGL 0。默认两类编号相同，例如`--gpu-ids 0,1`对应EGL 0、1。遇到Slurm、容器或UUID设备时，先在任务内核对CUDA与EGL所指GPU的UUID/PCI地址；如顺序不同，显式传`--gpu-ids 0,1 --egl-device-ids 2,5`。这里2、5仅为映射示例，不是可直接用于任意集群的编号。脚本不会自动验证物理GPU对应关系，`--dry-run`会显示两组选择。
 
+2026-10-21补充：本修复已在原SCO的真实双RTX5090上通过四回合完整smoke及CUDA/EGL物理UUID核验，详见[GPU验收记录](docs/EVALUATION_GPU_VALIDATION.zh-CN.md)。验收证明该配置下能够正确运行，不代表已测得提速或目标集群无需环境检查。
+
 两个子进程在导入数值库之前都强制设置`OMP_NUM_THREADS=4`、`MKL_NUM_THREADS=4`、`OPENBLAS_NUM_THREADS=1`，恢复旧SCO启动限制；不会继承外部过大的线程池设置。该限制由公共environment构造器设置，也适用于使用它的训练子进程。部署到新集群仍需做两卡并行短测，核对实际渲染GPU及耗时；CPU环境传递测试不等于EGL验收或已测得加速。推理去噪循环、compile/TF32、seed和replan协议保持原样。
 
 全片结束后汇总：
