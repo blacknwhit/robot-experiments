@@ -93,7 +93,7 @@ def validate_result(path,task,trials,checkpoint,identity=None):
         for k in ('variant','checkpoint_sha256','config_sha256'):
             if metadata.get(k)!=identity[k]:raise ValueError('Policy handshake identity differs: '+k)
         if metadata.get('strict_full_state',{}).get('all_loaded_values_exact_at_model_dtype') is not True:raise ValueError('Strict model load missing')
-        if identity.get('inference_backend')=='cuda-graph':
+        if identity.get('inference_backend') in ('cuda-graph','cuda-graph-pipeline'):
             for key in ('inference_backend','inference_backend_version'):
                 if metadata.get(key)!=identity[key]:raise ValueError('Inference backend identity differs: '+key)
             if trials==2 and metadata.get('cuda_graph_verify') is not True:raise ValueError('CUDA Graph smoke requires every-request action comparison')
