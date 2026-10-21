@@ -26,7 +26,8 @@ def environment(variant, shim=True, overlay=True):
     # Do not inherit another variant or the policy shim into the simulator.
     env = dict(os.environ, PYTHONPATH=os.pathsep.join(map(str,paths)), PYTHONUNBUFFERED='1',
                WANDB_MODE=os.environ.get('WANDB_MODE','offline'), JAX_PLATFORMS='cpu',
-               TOKENIZERS_PARALLELISM='false', NO_ALBUMENTATIONS_UPDATE='1', OMP_NUM_THREADS='4')
+               TOKENIZERS_PARALLELISM='false', NO_ALBUMENTATIONS_UPDATE='1',
+               OMP_NUM_THREADS='4', MKL_NUM_THREADS='4', OPENBLAS_NUM_THREADS='1')
     return env
 
 def sha256(path):
