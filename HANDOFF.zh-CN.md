@@ -174,6 +174,8 @@ $H/runs/<run-id>/checkpoints/steps_70000_model.safetensors
 
 ## 9. 先一片smoke，再全量：每task独占一张卡
 
+可选加速：`--inference-backend cuda-graph` 保留单样本、精度和去噪协议；匹配smoke会对每个请求与eager逐位比较。使用方法、实测范围及限制见[CUDA Graph评测说明](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。默认仍为下面的eager流程。
+
 固定50 task，原task顺序和已经乘1.5的horizon保存在 `assets/eval_tasks.json`，**不能再乘1.5**。seed7，50 trials/task，单env，replan5，10次去噪，EGL，严格eager、TF32关闭、stateless_request_v1噪声与逐episode trace。
 
 ```bash

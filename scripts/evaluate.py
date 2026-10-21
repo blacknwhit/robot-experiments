@@ -34,7 +34,16 @@ def validate_result(path,task,trials,checkpoint,identity=None):
         for k in ('variant','checkpoint_sha256','config_sha256'):
             if metadata.get(k)!=identity[k]:raise ValueError('Policy handshake identity differs: '+k)
         if metadata.get('strict_full_state',{}).get('all_loaded_values_exact_at_model_dtype') is not True:raise ValueError('Strict model load missing')
+        if identity.get('inference_backend')=='cuda-graph':
+            for key in ('inference_backend','inference_backend_version'):
+                if metadata.get(key)!=identity[key]:raise ValueError('Inference backend identity differs: '+key)
+            if trials==2 and metadata.get('cuda_graph_verify') is not True:raise ValueError('CUDA Graph smoke requires every-request action comparison')
     return d
+
+def server_backend_args(backend,smoke):
+    if backend not in ('eager','cuda-graph'):raise ValueError(backend)
+    if backend=='eager':return []
+    return ['--inference-backend','cuda-graph']+(['--cuda-graph-verify'] if smoke else [])
 
 def execute_slot(a,task,gpu,slot,identity,egl_device=None):
     if egl_device is None:_,devices=gpu_assignments(gpu);egl_device=devices[0]
@@ -47,6 +56,7 @@ def execute_slot(a,task,gpu,slot,identity,egl_device=None):
     with socket.socket() as probe:probe.bind(('127.0.0.1',port))
     env=environment(a.variant);env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONHASHSEED='7',OPENPI_DATA_HOME=str(a.home/'cache/openpi'))
     cmd=[sys.executable,str(ROOT/'scripts/server.py'),'--variant',a.variant,'--config',str(a.config),'--checkpoint',str(a.checkpoint),'--port',str(port)]
+    cmd+=server_backend_args(getattr(a,'inference_backend','eager'),a.smoke)
     with (out/(task['task']+'.server.log')).open('w') as log:
         server=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
         try:
@@ -89,6 +99,7 @@ def main():
     for key in ['config','checkpoint','sim-python','output']:p.add_argument('--'+key,type=Path,required=True)
     p.add_argument('--part',type=int,default=1);p.add_argument('--gpu-ids',default='0,1,2,3');p.add_argument('--port-base',type=int,default=10090)
     p.add_argument('--egl-device-ids',help='Comma-separated EGL indices paired with --gpu-ids; default assumes matching CUDA/EGL enumeration')
+    p.add_argument('--inference-backend',choices=('eager','cuda-graph'),default='eager',help='Opt-in exact-action CUDA Graph backend; run a matching smoke first')
     p.add_argument('--smoke',action='store_true');p.add_argument('--summarize',action='store_true');p.add_argument('--dry-run',action='store_true');a=p.parse_args()
     for k in ['home','config','checkpoint','sim_python','output']:setattr(a,k,getattr(a,k).resolve())
     tasks=tasks_for_part(a.part);gpus,egl_devices=gpu_assignments(a.gpu_ids,a.egl_device_ids)
@@ -101,6 +112,7 @@ def main():
     identity={'variant':a.variant,'checkpoint_sha256':sha256(a.checkpoint),'config_sha256':sha256(a.config),
               'source_manifest_sha256':sha256(ROOT/'provenance/source_files.sha256'),'protocol':'published_v1_0_0_strict_seed7_50x50',
               'sim_freeze_sha256':sha256(a.home/'receipts/sim.freeze.txt')}
+    if a.inference_backend=='cuda-graph':identity.update(inference_backend='cuda-graph',inference_backend_version='native_sampler_graph_v1')
     gate=a.output/'SMOKE_ACCEPTED.json'
     if a.summarize:
         results=[];traces=[]

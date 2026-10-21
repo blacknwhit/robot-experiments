@@ -9,7 +9,11 @@ from pathlib import Path
 from common import activate,VARIANTS,sha256
 def main():
     p=argparse.ArgumentParser();p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--config',required=True)
-    p.add_argument('--checkpoint',required=True);p.add_argument('--port',type=int,required=True);a=p.parse_args();activate(a.variant)
+    p.add_argument('--checkpoint',required=True);p.add_argument('--port',type=int,required=True)
+    p.add_argument('--inference-backend',choices=('eager','cuda-graph'),default='eager')
+    p.add_argument('--cuda-graph-verify',action='store_true',help='Require exact eager/graph actions on every request (smoke)')
+    a=p.parse_args();activate(a.variant)
+    if a.cuda_graph_verify and a.inference_backend!='cuda-graph':raise ValueError('--cuda-graph-verify requires CUDA Graph backend')
     from examples.pi05_robocasa365.eval_files import strict_pytorch_policy_server as strict
     from starVLA.model.framework.base_framework import build_framework
     from omegaconf import OmegaConf
@@ -38,6 +42,11 @@ def main():
             elif a.variant=='query_fixed':
                 if tuple(model.future_queries.shape)!=(1,64,2048):raise ValueError('Wrong FIXED queries')
             self._proof={'variant':a.variant,'checkpoint_sha256':sha256(ckpt_path),'config_sha256':sha256(a.config),'strict_full_state':proof}
+            if a.inference_backend=='cuda-graph':
+                from cuda_graph_policy import CheckedCudaGraphPolicy
+                backend=CheckedCudaGraphPolicy(framework,verify_every_request=a.cuda_graph_verify)
+                framework.predict_action=backend.predict_action
+                self._proof.update(inference_backend='cuda-graph',inference_backend_version='native_sampler_graph_v1',cuda_graph_verify=a.cuda_graph_verify)
         @property
         def metadata(self):return {**super().metadata,**self._proof}
     strict.PolicyServerWrapper=CheckedWrapper

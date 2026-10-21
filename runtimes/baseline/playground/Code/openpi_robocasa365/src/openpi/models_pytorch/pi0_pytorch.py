@@ -183,6 +183,19 @@ class PI0Pytorch(nn.Module):
         time = time_beta * 0.999 + 0.001
         return time.to(dtype=torch.float32, device=device)
 
+    def _inference_mask_tensor(self, values, *, dtype, device):
+        # Only the explicit CUDA-graph evaluation backend enables this cache.
+        # These masks encode fixed token layout, never observations or weights.
+        if not getattr(self, "_cuda_graph_mode", False):
+            return torch.tensor(values, dtype=dtype, device=device)
+        key = (tuple(values), dtype, str(device))
+        cache = self._cuda_graph_constants
+        if key not in cache:
+            if torch.cuda.is_current_stream_capturing():
+                raise RuntimeError("CUDA graph mask cache was not warmed for this shape")
+            cache[key] = torch.tensor(values, dtype=dtype, device=device)
+        return cache[key]
+
     def embed_prefix(
         self, images, img_masks, lang_tokens, lang_masks
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -226,7 +239,7 @@ class PI0Pytorch(nn.Module):
 
         embs = torch.cat(embs, dim=1)
         pad_masks = torch.cat(pad_masks, dim=1)
-        att_masks = torch.tensor(att_masks, dtype=torch.bool, device=pad_masks.device)
+        att_masks = self._inference_mask_tensor(att_masks, dtype=torch.bool, device=pad_masks.device)
 
         # Get batch size from the first dimension of the concatenated tensors
         bsize = pad_masks.shape[0]
@@ -308,7 +321,7 @@ class PI0Pytorch(nn.Module):
 
         embs = torch.cat(embs, dim=1)
         pad_masks = torch.cat(pad_masks, dim=1)
-        att_masks = torch.tensor(att_masks, dtype=embs.dtype, device=embs.device)
+        att_masks = self._inference_mask_tensor(att_masks, dtype=embs.dtype, device=embs.device)
         att_masks = att_masks[None, :].expand(bsize, len(att_masks))
 
         return embs, pad_masks, att_masks, adarms_cond
@@ -399,12 +412,16 @@ class PI0Pytorch(nn.Module):
             use_cache=True,
         )
 
+        graph_safe = getattr(self, "_cuda_graph_mode", False)
         dt = -1.0 / num_steps
-        dt = torch.tensor(dt, dtype=torch.float32, device=device)
+        dt = (torch.full((), dt, dtype=torch.float32, device=device) if graph_safe
+              else torch.tensor(dt, dtype=torch.float32, device=device))
 
         x_t = noise
-        time = torch.tensor(1.0, dtype=torch.float32, device=device)
-        while time >= -dt / 2:
+        time = (torch.ones((), dtype=torch.float32, device=device) if graph_safe
+                else torch.tensor(1.0, dtype=torch.float32, device=device))
+        step = 0
+        while (step < num_steps if graph_safe else time >= -dt / 2):
             expanded_time = time.expand(bsize)
             v_t = self.denoise_step(
                 state,
@@ -417,6 +434,7 @@ class PI0Pytorch(nn.Module):
             # Euler step - use new tensor assignment instead of in-place operation
             x_t = x_t + dt * v_t
             time += dt
+            step += 1
         return x_t
 
     def denoise_step(
