@@ -1,0 +1,14 @@
+{
+  "scope": "baseline70k RTX5090 engineering validation; not a benchmark accuracy or three-hour utilization guarantee",
+  "tested_runtime_commit": "598fc7adfc210ef1b3fce7066d0bf80bf4807e9c",
+  "frozen_input_comparisons": 48,
+  "diagnostic_live_shadow_requests": 270,
+  "public_smoke_episodes": 2,
+  "public_smoke_requests": 360,
+  "public_smoke_unique_traces": 2,
+  "action_comparison": "bitwise_equal",
+  "public_source_manifest_entries": 706,
+  "public_cpu_tests": 9,
+  "artifact_transport_sha256": "dac0d0bb2294f583f4a35fb48c0f1a9d637a1a1b0d119a90af3e969ab3996f90",
+  "outer_private_controller_issue": "Private controller incorrectly expected one unique trace; raw public smoke independently verified to have two. Original HOLD retained."
+}
