@@ -178,7 +178,7 @@ $H/runs/<run-id>/checkpoints/steps_70000_model.safetensors
 
 H100可进一步使用 `--tasks-per-gpu 2` 同卡运行两个独立任务，每路仍为原batch1/单环境协议，配合 `--policy-cpu-threads 4 --sim-cpu-threads 4`。先新建output并做匹配的同卡并发smoke；详见[共享GPU评测](docs/EVALUATION_SHARED_GPU.zh-CN.md)。下面默认4/2卡分片命令保持兼容，选择共享模式时按该文档调整GPU数量，所有分片与汇总都要带同样的设置。
 
-如果保持**每卡一个task**，使用[固定同批场景的多环境流水线](docs/EVALUATION_SINGLE_TASK.zh-CN.md)新入口 `evaluate_task.py`。先在目标集群录制统一回合集，再用4/8环境重放；所有模型共享集合SHA。不能直接提高旧入口n_envs后声称场景一致，也不能将新集合结果与其它模型历史串行随机链结果混合比较。
+如果保持**每卡一个task且与历史评测内容一致**，按[历史兼容评测操作](docs/EVALUATION_LEGACY_EXACT.zh-CN.md)使用 `evaluate_task.py`。首次默认原生串行场景链，实际评测同时记录计划；已有同checkpoint/config的原生计划才用4/8环境重放并核对全部回合轨迹。跨模型统一集合需显式选择`shared-scenes`，属于另一共同场景协议，不能直接混入其他模型历史串行分数。此前84–85%利用率来自已有计划重放，不代表新checkpoint首次评测。
 
 固定50 task，原task顺序和已经乘1.5的horizon保存在 `assets/eval_tasks.json`，**不能再乘1.5**。seed7，50 trials/task，单env，replan5，10次去噪，EGL，严格eager、TF32关闭、stateless_request_v1噪声与逐episode trace。
 

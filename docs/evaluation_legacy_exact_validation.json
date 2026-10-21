@@ -1,0 +1,128 @@
+{
+  "status": "BOUNDED_GPU_ACCEPTED",
+  "runtime_commit": "9b5e55d543e33a7a3d983877c13cdc5d0528dae0",
+  "source_manifest_sha256": "04beb798becbd2b9ef3f1d9d895631020246134987e943b92ba3d9430ce6caba",
+  "source_files": 712,
+  "hardware": "one NVIDIA H100 80GB HBM3 at a time; replay rerun after CCI suspension used another H100",
+  "variant": "baseline",
+  "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+  "protocol": {
+    "scene_protocol": "legacy",
+    "seed": 7,
+    "denoise_steps": 10,
+    "replan_steps": 5,
+    "batch_size": 1,
+    "precision": "native BF16; TF32 disabled"
+  },
+  "cpu_tests": {
+    "linux_passed": 30,
+    "windows_passed": 29,
+    "windows_linux_socket_skip": 1
+  },
+  "public_cli_checks": [
+    {
+      "mode": "capture_rgb",
+      "n_envs": 1,
+      "complete_action_requests_exact": 720,
+      "historical_trace_prefix_exact": 2,
+      "rgb_reference_checked": true,
+      "gate_sha256": "3a0f99bd7459670a551441ff213c146a59fd8f55f897237469825a7f3d62fe4a"
+    },
+    {
+      "mode": "legacy_replay",
+      "n_envs": 8,
+      "complete_action_requests_exact": 1440,
+      "historical_trace_prefix_exact": 8,
+      "rgb_reference_checked": false,
+      "gate_sha256": "9e69b390099f0013eb199f8eac38d983e0eaa6d3825b3bd54f0a59a02ea4f0f2"
+    }
+  ],
+  "rgb_probe": {
+    "tasks": [
+      "CloseBlenderLid",
+      "CloseFridge"
+    ],
+    "episodes_per_run": 2,
+    "runs": 5,
+    "physical_control_steps_per_run": 1800,
+    "exact_checks": [
+      "initial observation and MuJoCo state hashes",
+      "pre/post reset RNG",
+      "policy input and executed action trace",
+      "every control step physical state/reward/done/success hash"
+    ],
+    "rendered_per_optimized_run": 1080,
+    "reused_per_optimized_run": 4320,
+    "performance": [
+      {
+        "label": "blender_reference",
+        "rollout_seconds": 125.76358151435852,
+        "util": 16.1984126984127,
+        "samples": 126,
+        "phase_seconds": 156.6332883834839,
+        "phase_util": 13.083333333333334
+      },
+      {
+        "label": "blender_rgb_a",
+        "rollout_seconds": 118.07999014854431,
+        "util": 15.364406779661017,
+        "samples": 118,
+        "phase_seconds": 147.3138370513916,
+        "phase_util": 12.324324324324325
+      },
+      {
+        "label": "blender_rgb_b",
+        "rollout_seconds": 115.50163149833679,
+        "util": 17.120689655172413,
+        "samples": 116,
+        "phase_seconds": 144.3729383945465,
+        "phase_util": 13.972222222222221
+      },
+      {
+        "label": "fridge_reference",
+        "rollout_seconds": 153.6141722202301,
+        "util": 20.818181818181817,
+        "samples": 154,
+        "phase_seconds": 182.4123330116272,
+        "phase_util": 17.55191256830601
+      },
+      {
+        "label": "fridge_rgb",
+        "rollout_seconds": 134.72087574005127,
+        "util": 16.83582089552239,
+        "samples": 134,
+        "phase_seconds": 163.39601469039917,
+        "phase_util": 13.993865030674847
+      }
+    ]
+  },
+  "artifacts": {
+    "rgb_export_sha256": "49fb56c36626e5e3cf487b5d568b199a31446bb31c56322ea02fae0ab370e747",
+    "public_interrupted_export_sha256": "53aaf9a3d623b3db0a222158a4401538deee26ebc888f164ac681b2a4623dc11",
+    "public_recovery_export_sha256": "28a206103e9200d19206d6c7696182e768c301499f0fa130519dca17a6af0e13"
+  },
+  "interruption": {
+    "platform_state": "SUSPENDED; zero instances",
+    "time_utc": "2026-10-21T20:46:56Z",
+    "cause": "unknown",
+    "interrupted_replay_not_accepted": true,
+    "completed_native_smoke_reused": true,
+    "recreated_simulator_recheck": {
+      "packages_equal": true,
+      "overlay_manifest_sha256": "8feb0e19c32f1728b985d51e22a41fe1f86397211fa8eb9064435ced8649f910",
+      "tracked_files_verified": {
+        "robocasa": 844,
+        "robosuite": 1342
+      }
+    }
+  },
+  "limitations": [
+    "Bounded baseline tests, not all variants or 50 tasks.",
+    "Historical trace reference used here is the existing native 8-episode probe, not a completed 2500-episode reevaluation.",
+    "A new checkpoint without its own serial reset plan still requires native serial evaluation for its old model-dependent scene chain.",
+    "RGB optimization reduced measured rollout wall time but did not reliably raise utilization.",
+    "RGB timings are sequential bounded probes; the first Blender reference includes first-request Graph construction, so its timing difference is not an isolated steady-state causal estimate.",
+    "Previously measured 84-85 percent rollout utilization applies to replay of an already available same-policy plan, not first evaluation.",
+    "Not a 3-hour per-card utilization guarantee."
+  ]
+}

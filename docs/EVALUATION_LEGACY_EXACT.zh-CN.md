@@ -1,6 +1,6 @@
 # 保留历史评测内容：一张卡一个 task
 
-本页是需要与之前评测公平可比时的推荐入口。保持原任务清单、每任务50回合、seed=7、原生串行reset顺序、各任务horizon、每5步重规划、10次去噪、原精度与成功判定。CUDA Graph只减少调度开销；smoke对每次请求的完整50步预测动作与eager逐位比较。不会改变采样数或删除慢场景来提高利用率。
+本页是需要与之前评测公平可比时的推荐入口。保持原任务清单、每任务50回合、seed=7、原生串行reset顺序、各任务horizon、每5步重规划、10次去噪、原精度与成功判定。CUDA Graph只减少调度开销；smoke对每次请求的完整50步预测动作与eager逐值完全比较。完整预测动作使用np.array_equal检查，不使用误差容限；实际执行轨迹另外做SHA比较。不会改变采样数或删除慢场景来提高利用率。
 
 ## 先区分两种情况
 
@@ -27,6 +27,10 @@ COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
   --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" \
   --output "$HOME_DIR/eval-legacy-$VARIANT" --scene-protocol legacy --n-envs 1)
 
+# 可选：要使用本轮验证的中间RGB优化，在第一次smoke前加这一项。
+# COMMON+=(--rgb-last-frame)
+# 这会在smoke中额外运行原生对照；通过后正式/汇总沿用相同COMMON。
+
 # 一个任务的应用smoke通过即可，不要求50个任务全部先smoke。
 "$POLICY_PY" scripts/evaluate_task.py "${COMMON[@]}" \
   --task CloseBlenderLid --gpu-id 0 --egl-device-id 0 --port 19090 --smoke
@@ -50,6 +54,8 @@ COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
 如果有该模型历史原始任务JSON，可以在COMMON加入`--historical-results /absolute/old-results`。支持旧`atomic_seen/`等子目录，但同一task出现两份会拒绝。每次选中回合的成功数组及轨迹必须与历史相同；少于正式50回合的参考不能通过正式验收。旧记录缺checkpoint SHA时会明确标注未验证，不能据此声称权重身份已核实。只允许带相同checkpoint SHA的旧Query/Embedding名称别名。
 
 ## 已有自己场景计划时使用多环境
+
+这里“重放”的是记录的初始化条件；每一步仍重新调用当前模型、执行真实仿真并判分，不回放存好的动作，也不复用旧success。原生轨迹只作为一致性验收参考。
 
 ```bash
 COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
@@ -75,6 +81,19 @@ COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
 
 只支持当前三RGB相机、无深度/分割/录像、单帧观测、默认无噪声/滤波/延迟的配置，条件不满足立即报错。该模式smoke先跑原生版本，再跑优化版本，要求动作轨迹、成功数组、reset RNG和初始场景一致。正式结果必须记录实际缓存/渲染计数。它不是提高利用率的保证：渲染只占部分耗时，减少GPU渲染工作甚至可能降低GPU-util，但提升有效吞吐仍是优化。
 
+本轮H100、baseline70k、每次2完整回合，原版已经启用CUDA Graph：
+
+| task | 原版rollout | 可选RGB优化 | 耗时减少 | 优化后rollout平均util |
+|---|---:|---:|---:|---:|
+| CloseBlenderLid | 125.76秒 | 118.08 / 115.50秒 | 6.1% / 8.2% | 15.36% / 17.12% |
+| CloseFridge | 153.61秒 | 134.72秒 | 12.3% | 16.84% |
+
+包含回合reset，不含模型加载及环境首次构建。这是顺序运行的有限探针；第一项Blender原版还包含首次Graph构建，不能将其全部差值解释为隔离后的稳态收益。原版util分别16.20%、20.82%；观察到耗时下降，但不能称为util提升。每次优化少做4320次未读RGB渲染，保留1080次实际渲染；1800个控制步的物理状态、奖励、done/success轨迹SHA和全部场景/RNG检查相同。
+
+公开入口另外通过原生/优化各2回合及8环境重放的应用smoke：共2160次完整50步动作输出均与eager逐值完全一致，8环境重放仍匹配原生8回合参考。Linux30项CPU测试与712项源文件SHA通过。GPU运行代码为`9b5e55d543e33a7a3d983877c13cdc5d0528dae0`；发布后续仅补文档和验收摘要。
+
+第一次公开重放检查途中CCI容器被外部挂起，原因不明；该未完成前缀不算通过。恢复已有容器后核对pip包版本和仿真overlay所有已登记文件SHA，在另一张H100上重跑未完成的8环境检查。已经完成的原生/优化smoke保留，最终2160请求计数只包括完整通过的阶段。
+
 具体H100实测与公开入口验收见[evaluation_legacy_exact_validation.json](evaluation_legacy_exact_validation.json)。这里的有限smoke不等于四种模型、全部50任务或整个3小时窗口都已复测。新集群/模型必须通过自己的smoke。
 
 最终优先看相同内容的有效回合/秒，并同时记录真实每卡util；不要使用空转或重复推理“填满”卡。若新checkpoint首次评测仍受串行CPU物理仿真限制，不能在保持旧场景链的前提下承诺70–80%util。
@@ -83,4 +102,4 @@ COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
 
 `--scene-protocol shared-scenes`才允许跨模型使用共同计划，详见[共同场景实验](EVALUATION_SINGLE_TASK.zh-CN.md)。它可支持新实验内部的统一场景对比，但不能将其他模型自己的旧分数直接并入。默认`legacy`不允许这种混用。
 
-旧`episode_trace_sha256`覆盖策略输入和实际执行的5步动作块；完整50步预测动作的逐位一致由独立eager/Graph校验提供，不把两者混称为同一种证据。
+旧`episode_trace_sha256`覆盖策略输入和实际执行的5步动作块；完整50步预测动作的逐值完全一致由独立eager/Graph校验提供，不把两者混称为同一种证据。
