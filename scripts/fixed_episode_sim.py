@@ -98,6 +98,10 @@ def replay(a):
             if p.is_alive():raise RuntimeError('Could not stop an owned simulator')
 
 def capture(a):
+    rgb_report=None
+    if a.rgb_last_frame:
+        from rgb_last_frame import install
+        rgb_report=install()
     recorder=Recorder(a.plan)
     try:
         sys.argv=['simulation_env','--host',a.host,'--port',str(a.port),'--env-name',a.task,'--env-split','pretrain','--num-trials',str(a.trials),
@@ -105,13 +109,17 @@ def capture(a):
             '--profile','published_v1_0_0','--protocol-comparable','0','--horizon-multiplier','1.5','--strict-determinism','1',
             '--trace-determinism','1','--renderer-backend','egl','--result-out-path',str(a.output/'result.json')]
         runpy.run_module('examples.pi05_robocasa365.eval_files.simulation_env',run_name='__main__')
-        result=json.loads((a.output/'result.json').read_text());recorder.finalize(result,a.sim_freeze_sha256)
+        result=json.loads((a.output/'result.json').read_text())
+        if rgb_report:
+            result['simulation_optimization']=rgb_report();atomic_json(a.output/'result.json',result)
+        recorder.finalize(result,a.sim_freeze_sha256)
     finally:recorder.close()
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--capture',action='store_true');p.add_argument('--plan',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--task',required=True);p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,required=True);p.add_argument('--trials',type=int,required=True)
     p.add_argument('--n-envs',type=int,default=1);p.add_argument('--horizon',type=int);p.add_argument('--checkpoint',type=Path);p.add_argument('--sim-freeze-sha256')
+    p.add_argument('--rgb-last-frame',action='store_true')
     p.add_argument('--barrier',action='store_true',help='Validation only: synchronize initial resets, never per-step');p.add_argument('--timeout',type=int,default=14400);a=p.parse_args()
     if a.capture:capture(a)
     else:replay(a)

@@ -4,12 +4,20 @@ from pathlib import Path
 from common import ROOT,VARIANTS,activate,environment,sha256,runtime
 from evaluate import TASKS,gpu_assignments,validate_result
 from episode_plan import atomic_json,load_plan,file_sha,load_plan_set,build_plan_set
+from legacy_contract import require_same_policy,require_same_trajectories,historical_inventory,check_historical
 
 def check_port_available(port):
     with socket.socket() as check:
         # Match asyncio's server behavior: TIME_WAIT is reusable, a live listener is not.
         check.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         check.bind(('127.0.0.1',port))
+
+def validate_rgb(data,trials,horizon):
+    proof=data.get('simulation_optimization',{})
+    if (proof.get('version')!='native_last_frame_rgb_v1'
+        or proof.get('control_steps')!=trials*horizon
+        or proof.get('rgb_reused',0)<=0 or proof.get('rgb_rendered',0)<=0):
+        raise ValueError('Missing selective RGB execution evidence')
 
 def validate_fixed(data,plan,plan_sha,trials,n_envs,identity,verify=False):
     expected={'complete':True,'env':plan['env'],'episode_protocol':'frozen_scene_plan_v1','episode_plan_sha256':plan_sha,
@@ -35,17 +43,24 @@ def main():
     p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--home',type=Path,required=True)
     for k in ('config','checkpoint','sim-python','output'):p.add_argument('--'+k,type=Path,required=True)
     p.add_argument('--task',choices=[x['task'] for x in TASKS]);p.add_argument('--gpu-id',default='0');p.add_argument('--egl-device-id')
-    p.add_argument('--port',type=int,default=19090);p.add_argument('--n-envs',type=int,choices=(1,2,4,8),default=4)
+    p.add_argument('--port',type=int,default=19090);p.add_argument('--n-envs',type=int,choices=(1,2,4,8),default=1)
+    p.add_argument('--scene-protocol',choices=('legacy','shared-scenes'),default='legacy')
+    p.add_argument('--historical-results',type=Path,help='Optional old raw task results; every selected trajectory must match')
+    p.add_argument('--rgb-last-frame',action='store_true',help='Experimental: skip unread intermediate RGB while preserving native clocks')
     p.add_argument('--capture-plan',action='store_true',help='Run the original serial episode stream and record reusable initializations')
-    p.add_argument('--plan-dir',type=Path,help='Captured plans shared by every compared model')
+    p.add_argument('--plan-dir',type=Path,help='Legacy: this exact checkpoint/config own captured serial plans')
     p.add_argument('--smoke',action='store_true');p.add_argument('--summarize',action='store_true');p.add_argument('--dry-run',action='store_true')
     a=p.parse_args()
     for k in ('home','config','checkpoint','sim_python','output'):setattr(a,k,getattr(a,k).resolve())
     if a.plan_dir:a.plan_dir=a.plan_dir.resolve()
+    if a.historical_results:a.historical_results=a.historical_results.resolve()
+    if a.scene_protocol=='shared-scenes' and a.historical_results:p.error('Shared scenes do not certify the old model-dependent scene sequence')
+    if not a.plan_dir and a.scene_protocol=='legacy':a.capture_plan=True
     if a.capture_plan:
-        if a.n_envs!=1:p.error('--capture-plan requires --n-envs 1')
+        if a.n_envs!=1:p.error('Legacy first evaluation requires --n-envs 1; multiple environments need this checkpoint own existing serial plan')
         if a.plan_dir:p.error('--capture-plan does not consume a plan-dir')
     elif not a.plan_dir:p.error('Replay requires --plan-dir')
+    if a.rgb_last_frame and not a.capture_plan:p.error('--rgb-last-frame currently supports native serial capture only')
     if not a.summarize and not a.task:p.error('--task is required')
     gpu,egl=gpu_assignments(a.gpu_id,a.egl_device_id)
     if len(gpu)!=1:p.error('This entry uses exactly one GPU for one task')
@@ -59,11 +74,18 @@ def main():
     identity={'variant':a.variant,'checkpoint_sha256':sha256(a.checkpoint),'config_sha256':sha256(a.config),
         'source_manifest_sha256':sha256(ROOT/'provenance/source_files.sha256'),'sim_freeze_sha256':sha256(a.home/'receipts/sim.freeze.txt'),
         'inference_backend':'cuda-graph-pipeline','inference_backend_version':'cpu_gpu_pipeline_batch1_v1',
-        'episode_protocol':'capture_legacy_serial_v1' if a.capture_plan else 'frozen_scene_plan_v1','n_envs':a.n_envs}
+        'episode_protocol':'capture_legacy_serial_v1' if a.capture_plan else 'frozen_scene_plan_v1','n_envs':a.n_envs,
+        'scene_protocol':a.scene_protocol,'rgb_last_frame':a.rgb_last_frame}
+    history=None
+    if a.historical_results:
+        history,identity['historical_results_sha256']=historical_inventory(a.historical_results,TASKS)
+        if a.task and a.task not in history:raise ValueError('Task missing from historical results')
     plan_set=None
     if not a.capture_plan:
         plan_set,identity['episode_plan_set_sha256']=load_plan_set(a.plan_dir)
         if a.task and a.task not in plan_set:raise ValueError('Task is absent from the frozen plan set')
+        if a.scene_protocol=='legacy':
+            for name in plan_set:require_same_policy(load_plan(a.plan_dir/(name+'.json')),identity)
     a.output.mkdir(parents=True,exist_ok=True);gate=a.output/'SMOKE_ACCEPTED.json'
     if a.summarize:
         results=[];plan_hashes={}
@@ -73,7 +95,11 @@ def main():
             path=(a.output/'plans' if a.capture_plan else a.plan_dir)/(t['task']+'.json');plan=load_plan(path,'robocasa/'+t['task'],50)
             result_path=a.output/'formal'/(t['task']+'.json');d=json.loads(result_path.read_text())
             if a.capture_plan:validate_result(result_path,t,50,a.checkpoint,identity)
-            else:validate_fixed(d,plan,file_sha(path),50,a.n_envs,identity)
+            else:
+                validate_fixed(d,plan,file_sha(path),50,a.n_envs,identity)
+                if a.scene_protocol=='legacy':require_same_trajectories(d,plan['reference_result'],50)
+            if history:check_historical(a.historical_results,history,t['task'],d,identity,50)
+            if a.rgb_last_frame:validate_rgb(d,50,t['horizon'])
             if receipt['episode_plan_sha256']!=file_sha(path):raise ValueError('Plan changed after evaluation')
             plan_hashes[t['task']]=file_sha(path);results.append(d)
         traces=[h for d in results for h in d['episode_trace_sha256']]
@@ -94,7 +120,12 @@ def main():
             old=json.loads(receipt_path.read_text())
             if old['identity']!=identity or old['episode_plan_sha256']!=file_sha(plan_path):raise ValueError('Existing result identity differs')
             if a.capture_plan:validate_result(result_path,task,50,a.checkpoint,identity)
-            else:validate_fixed(json.loads(result_path.read_text()),load_plan(plan_path),file_sha(plan_path),50,a.n_envs,identity)
+            else:
+                existing=json.loads(result_path.read_text());existing_plan=load_plan(plan_path)
+                validate_fixed(existing,existing_plan,file_sha(plan_path),50,a.n_envs,identity)
+                if a.scene_protocol=='legacy':require_same_trajectories(existing,existing_plan['reference_result'],50)
+            if history:check_historical(a.historical_results,history,a.task,json.loads(result_path.read_text()),identity,50)
+            if a.rgb_last_frame:validate_rgb(json.loads(result_path.read_text()),50,task['horizon'])
             print('Already complete:',a.task);return
         attempt=a.output/('smoke' if a.smoke else 'runs')/a.task/uuid.uuid4().hex;attempt.mkdir(parents=True)
         if a.smoke and gate.exists():
@@ -130,17 +161,27 @@ def main():
                 if a.smoke and metadata.get('cuda_graph_verify') is not True:raise ValueError('Smoke requires every-request exact action verification')
                 simenv=environment(a.variant,shim=False,overlay=False);simenv.pop('CUDA_VISIBLE_DEVICES',None)
                 simenv.update(PYTHONPATH=os.pathsep.join((str(ROOT/'scripts'),str(runtime(a.variant)))),PYTHONHASHSEED='7',MUJOCO_GL='egl',PYOPENGL_PLATFORM='egl',MUJOCO_EGL_DEVICE_ID=egl[0])
-                def run(label,workers,capture=False):
+                def run(label,workers,capture=False,selected_plan=None,rgb=None):
                     target=attempt/label
-                    cmd=[str(a.sim_python),str(ROOT/'scripts/fixed_episode_sim.py'),'--plan',str(plan_path),'--output',str(target),
+                    cmd=[str(a.sim_python),str(ROOT/'scripts/fixed_episode_sim.py'),'--plan',str(selected_plan or plan_path),'--output',str(target),
                         '--task','robocasa/'+a.task,'--port',str(a.port),'--trials',str(trials),'--n-envs',str(workers)]
                     if capture:cmd+=['--capture','--horizon',str(task['horizon']),'--checkpoint',str(a.checkpoint),'--sim-freeze-sha256',identity['sim_freeze_sha256']]
                     elif a.smoke:cmd.append('--barrier')
+                    if (a.rgb_last_frame if rgb is None else rgb):cmd.append('--rgb-last-frame')
                     with (attempt/(label+'.log')).open('w') as log:subprocess.run(cmd,env=simenv,stdout=log,stderr=subprocess.STDOUT,check=True)
                     return json.loads((target/'result.json').read_text())
                 if a.capture_plan:
+                    original_plan_path=attempt/'unoptimized-plan.json'
+                    if a.rgb_last_frame and a.smoke:
+                        original=run('serial-original',1,True,original_plan_path,False)
+                        validate_result(attempt/'serial-original/result.json',task,trials,a.checkpoint,identity)
                     result=run('capture',1,True);validate_result(attempt/'capture/result.json',task,trials,a.checkpoint,identity)
                     captured=load_plan(plan_path,'robocasa/'+a.task,trials)
+                    if a.rgb_last_frame:
+                        validate_rgb(result,trials,task['horizon'])
+                        if a.smoke:
+                            require_same_trajectories(result,original,trials)
+                            if captured['resets']!=load_plan(original_plan_path)['resets']:raise ValueError('Selective RGB changed initial scenes or reset RNG')
                 else:
                     reference=None
                     if a.smoke:
@@ -150,16 +191,19 @@ def main():
                         else:
                             reference=run('serial-reference',1);validate_fixed(reference,plan,file_sha(plan_path),trials,1,identity,True)
                     result=run('parallel-replay',a.n_envs);validate_fixed(result,plan,file_sha(plan_path),trials,a.n_envs,identity,a.smoke)
+                    if a.scene_protocol=='legacy':require_same_trajectories(result,plan['reference_result'],trials)
                     if a.smoke:
                         if any(result[k]!=reference[k] for k in ('successes','episode_trace_sha256')):raise ValueError('Parallel trajectories differ from single-environment reference')
                         workers=[json.loads(p.read_text()) for p in (attempt/'parallel-replay').glob('worker[0-9].json')]
                         if len(workers)!=a.n_envs or min(w['ended'] for w in workers)<=max(w['started'] for w in workers):raise ValueError('Workers did not overlap')
                 if not a.capture_plan and load_plan_set(a.plan_dir)!=(plan_set,identity['episode_plan_set_sha256']):raise ValueError('Plan set changed during evaluation')
+                historical_proof=check_historical(a.historical_results,history,a.task,result,identity,trials) if history else None
                 if a.smoke:
                     atomic_json(gate,{'identity':identity,'task':a.task,'trials':trials,'episode_plan_sha256':file_sha(plan_path),
-                        'evidence':str(attempt.relative_to(a.output)),'application_smoke_passed':True,'trajectory_parity':not a.capture_plan})
+                        'evidence':str(attempt.relative_to(a.output)),'application_smoke_passed':True,'trajectory_parity':not a.capture_plan,
+                        'historical_proof':historical_proof,'rgb_reference_checked':a.rgb_last_frame and a.capture_plan})
                 else:
-                    atomic_json(result_path,result);atomic_json(receipt_path,{'identity':identity,'episode_plan_sha256':file_sha(plan_path),'evidence':str(attempt.relative_to(a.output))})
+                    atomic_json(result_path,result);atomic_json(receipt_path,{'identity':identity,'episode_plan_sha256':file_sha(plan_path),'evidence':str(attempt.relative_to(a.output)),'historical_proof':historical_proof})
             finally:
                 server.terminate()
                 try:server.wait(timeout=30)

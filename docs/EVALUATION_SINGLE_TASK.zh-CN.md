@@ -1,4 +1,6 @@
-# 一张 H100、一个 task、多环境评测
+# 共同场景集合的多环境评测（不同于每个模型的旧场景链）
+
+> 若要求保留之前的评测内容，使用[历史兼容入口](EVALUATION_LEGACY_EXACT.zh-CN.md)。本页跨模型共享集合必须显式选择`--scene-protocol shared-scenes`，不能据此宣称复现其他模型的历史场景。
 
 使用新入口 `scripts/evaluate_task.py`。一个 task 的多个环境异步向同一份模型发请求，GPU仍逐请求执行原生batch=1；CPU图像预处理和GPU执行形成流水线。它与 `evaluate.py --tasks-per-gpu 2` 的“不同task共卡”是两种设置，不能叠加解释本页结果。
 
@@ -10,7 +12,7 @@
 
 随后所有模型共用同一份冻结的 `PLAN_SET.json` 和各task的计划。无论n_envs=1、4还是8，都恰好评测全局episode ID 0…49一次；物理worker编号不进入策略的随机种子，仍使用原logical environment index=0和原episode/replan编号。每次reset后检查实际初始场景SHA，不一致即终止。输出按episode ID排序，不取“最快结束的50个回合”。
 
-同一checkpoint的smoke核对单环境和并行的完整轨迹SHA、成功数组，并对每次模型请求比较完整50步动作与原eager结果，要求逐位相同。不同checkpoint应在同一批场景上比较成功率，不要求它们产生同样动作。场景集合SHA参与smoke和正式结果身份，替换计划后不能沿用旧smoke。
+同一checkpoint的smoke核对单环境和并行的策略输入/实际执行动作轨迹SHA、成功数组，并对每次模型请求比较完整50步动作与原eager结果，要求逐位相同。不同checkpoint应在同一批场景上比较成功率，不要求它们产生同样动作。场景集合SHA参与smoke和正式结果身份，替换计划后不能沿用旧smoke。
 
 **新固定场景评测不能与其他模型的历史串行分数直接混为同一批回合。** 所有待比较模型应重放同一集合；历史数字继续保留为历史结果。
 
@@ -24,7 +26,7 @@ H10080GB，baseline70k，CloseBlenderLid；原生BF16、TF32关闭、10次去噪
 | 4，异步流水线，连续两轮分配 | 8 | 144.66秒 | 57.41% | 15,674 MiB |
 | 8，异步流水线，两次 | 8 | 105.23 / 105.60秒 | 84.01 / 85.24% | 22,201 MiB |
 
-8回合的原串行参考由前4回合及真实续接的后4回合组成，rollout合计469.66秒；发布版8环境约快4.45–4.46倍。所有回合初始场景和完整轨迹均一致。公开入口capture2及replay8共1800次完整动作逐位对照通过；随后正式计算方式共4320请求，仅首请求执行一次对照，其他请求没有重复双算。4环境×8回合覆盖了同一个worker领取后续回合的情况。
+8回合的原串行参考由前4回合及真实续接的后4回合组成，rollout合计469.66秒；发布版8环境约快4.45–4.46倍。所有回合初始场景和策略输入/实际执行动作轨迹均一致。公开入口capture2及replay8共1800次完整动作逐位对照通过；随后正式计算方式共4320请求，仅首请求执行一次对照，其他请求没有重复双算。4环境×8回合覆盖了同一个worker领取后续回合的情况。
 
 计入环境首次构建后，8环境这两次短测为137.36 / 138.86秒，平均GPU-util **65.77 / 66.03%**，模型加载另计。不能把84–85%的rollout平均值称为整个任务的平均值。原始数值与验收范围见[验证记录](evaluation_single_task_validation.json)。Linux23项CPU测试和710项源码SHA检查通过；实际GPU代码为 `15fd76968e2d4270c74d5e2421be4e39e3ca77af`，后续发布提交仅增加文档和验收记录。
 
@@ -65,7 +67,7 @@ COMMON=(--variant baseline --home "$HOME_DIR" --config "$CONFIG" \
 COMMON=(--variant baseline --home "$HOME_DIR" --config "$CONFIG" \
   --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" \
   --output "$HOME_DIR/baseline-fixed-scenes-n8" \
-  --plan-dir "$HOME_DIR/baseline-scene-capture/plans" --n-envs 8)
+  --scene-protocol shared-scenes --plan-dir "$HOME_DIR/baseline-scene-capture/plans" --n-envs 8)
 
 "$POLICY_PY" scripts/evaluate_task.py "${COMMON[@]}" \
   --task CloseBlenderLid --gpu-id 0 --egl-device-id 0 --port 19090 --smoke
@@ -82,4 +84,4 @@ smoke使用8个回合。若计划录制模型与当前模型相同，使用计�
 
 两卡可同时跑两个task，四卡可同时跑四个task，各task内部n_envs=8；模型仅一份/卡。CUDA ordinal和EGL ordinal的映射需按实际UUID/PCI核实，不能把所有渲染器都固定到全局EGL0。不同GPU运行使用不同端口。同一模型/集合/n_envs使用同一个output，不同模型或n_envs使用独立output。
 
-若CPU或显存不足，使用n_envs=4及新的output重新smoke。精度、去噪步数和重规划频率保持不变。旧 `evaluate.py` 默认行为保持，只有显式选用新入口才采用固定场景协议。
+若CPU或显存不足，使用n_envs=4及新的output重新smoke。精度、去噪步数和重规划频率保持不变。旧 `evaluate.py` 默认行为保持，新入口默认legacy；只有显式选用shared-scenes才允许跨模型共用计划。
