@@ -1,12 +1,23 @@
-import ast,concurrent.futures,copy,json,random,sys,tempfile,threading,time,unittest
+import ast,concurrent.futures,copy,json,random,socket,sys,tempfile,threading,time,unittest
 from pathlib import Path
 from types import SimpleNamespace
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'scripts'))
 from episode_plan import rng_snapshot,restore_rng,load_plan,build_plan_set,load_plan_set
-from evaluate_task import validate_fixed
+from evaluate_task import validate_fixed,check_port_available
 
 class FixedEpisodeTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith('linux'),'Linux deployment socket semantics')
+    def test_reuses_time_wait_but_rejects_live_listener(self):
+        with socket.socket() as listener:
+            listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+            listener.bind(('127.0.0.1',0));port=listener.getsockname()[1];listener.listen()
+            with self.assertRaises(OSError):check_port_available(port)
+            with socket.create_connection(('127.0.0.1',port)) as client:
+                connection,_=listener.accept()
+                with connection:connection.shutdown(socket.SHUT_WR)
+                self.assertEqual(client.recv(1),b'')
+        check_port_available(port)
     def test_json_rng_roundtrip_preserves_all_three_streams(self):
         env=SimpleNamespace(rng=np.random.default_rng(7));random.seed(19);np.random.seed(23)
         snapshot=json.loads(json.dumps(rng_snapshot(env)))

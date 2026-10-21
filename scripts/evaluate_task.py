@@ -5,6 +5,12 @@ from common import ROOT,VARIANTS,activate,environment,sha256,runtime
 from evaluate import TASKS,gpu_assignments,validate_result
 from episode_plan import atomic_json,load_plan,file_sha,load_plan_set,build_plan_set
 
+def check_port_available(port):
+    with socket.socket() as check:
+        # Match asyncio's server behavior: TIME_WAIT is reusable, a live listener is not.
+        check.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        check.bind(('127.0.0.1',port))
+
 def validate_fixed(data,plan,plan_sha,trials,n_envs,identity,verify=False):
     expected={'complete':True,'env':plan['env'],'episode_protocol':'frozen_scene_plan_v1','episode_plan_sha256':plan_sha,
         'num_trials':trials,'n_envs':n_envs,'logical_environment_index':0,'episode_ids':list(range(trials)),
@@ -102,7 +108,7 @@ def main():
             if file_sha(plan_path)!=plan_set[a.task]:raise ValueError('Plan changed after collection validation')
             if plan['sim_freeze_sha256']!=identity['sim_freeze_sha256'] or plan['max_episode_steps']!=task['horizon']:raise ValueError('Simulator or horizon differs from scene plan')
         activate(a.variant)
-        with socket.socket() as check:check.bind(('127.0.0.1',a.port))
+        check_port_available(a.port)
         env=environment(a.variant);env.update(CUDA_VISIBLE_DEVICES=gpu[0],PYTHONHASHSEED='7',OPENPI_DATA_HOME=str(a.home/'cache/openpi'))
         cmd=[sys.executable,str(ROOT/'scripts/server.py'),'--variant',a.variant,'--config',str(a.config),'--checkpoint',str(a.checkpoint),'--port',str(a.port),'--inference-backend','cuda-graph-pipeline']
         if a.smoke:cmd.append('--cuda-graph-verify')
