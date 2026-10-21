@@ -24,6 +24,8 @@ export ROBOT_EXPERIMENTS_HOME=/your/absolute/shared/robot-experiments-data
 
 H100闭环吞吐：[独立任务共用GPU](docs/EVALUATION_SHARED_GPU.zh-CN.md)。可选每卡两路独立评测，保持每路batch1及原回合协议，通过共享smoke后启用。
 
+一张卡一个task：[固定同一批场景的多环境流水线](docs/EVALUATION_SINGLE_TASK.zh-CN.md)。先录制统一回合集，所有模型共享，再用4或8环境异步重放；H100有限实测8环境rollout平均GPU-util84.0–85.2%（含首次环境构建约66%，模型加载另计），完整轨迹一致。
+
 布局：
 
 - `runtimes/baseline/`：独立历史基线源码，不是新版关闭 loss。
