@@ -202,6 +202,10 @@ PART=1
 
 一张可用debug卡也可smoke：`--smoke --gpu-ids 0`。分片可重运行：已完成结果必须identity匹配并再次验收才跳过，失败结果不会混入其它checkpoint。多个variant要用不同output，并用不同port-base或隔离网络命名空间。端口按part偏移，运行前检查占用，连接后校验模型SHA/variant/config；不凭TCP通了就承认模型正确。
 
+**渲染绑卡与CPU线程：**策略server按`--gpu-ids`设置`CUDA_VISIBLE_DEVICES`；模拟器移除该CUDA变量，按对应EGL设备索引设置`MUJOCO_EGL_DEVICE_ID`，不会把每个模拟器都绑定到EGL 0。默认两类编号相同，例如`--gpu-ids 0,1`对应EGL 0、1。遇到Slurm、容器或UUID设备时，先在任务内核对CUDA与EGL所指GPU的UUID/PCI地址；如顺序不同，显式传`--gpu-ids 0,1 --egl-device-ids 2,5`。这里2、5仅为映射示例，不是可直接用于任意集群的编号。脚本不会自动验证物理GPU对应关系，`--dry-run`会显示两组选择。
+
+两个子进程在导入数值库之前都强制设置`OMP_NUM_THREADS=4`、`MKL_NUM_THREADS=4`、`OPENBLAS_NUM_THREADS=1`，恢复旧SCO启动限制；不会继承外部过大的线程池设置。该限制由公共environment构造器设置，也适用于使用它的训练子进程。部署到新集群仍需做两卡并行短测，核对实际渲染GPU及耗时；CPU环境传递测试不等于EGL验收或已测得加速。推理去噪循环、compile/TF32、seed和replan协议保持原样。
+
 全片结束后汇总：
 
 ```bash
