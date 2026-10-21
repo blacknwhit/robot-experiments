@@ -20,6 +20,8 @@ export ROBOT_EXPERIMENTS_HOME=/your/absolute/shared/robot-experiments-data
 # 按 HANDOFF.zh-CN.md 顺序准备环境、数据、基座、smoke，然后训练/评测。
 ```
 
+可选评测加速：[CUDA Graph使用与实测](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。保持原动作计算，通过对应smoke后显式启用；默认eager不变。
+
 布局：
 
 - `runtimes/baseline/`：独立历史基线源码，不是新版关闭 loss。
