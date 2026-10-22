@@ -12,6 +12,23 @@ def check_port_available(port):
         check.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         check.bind(('127.0.0.1',port))
 
+def bind_output_identity(output,identity):
+    """Parallel shards share one immutable model/config/scene/run identity."""
+    import fcntl
+    with (output/'EVALUATION_IDENTITY.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        path=output/'EVALUATION_IDENTITY.json'
+        if path.exists():
+            if json.loads(path.read_text())!=identity:raise ValueError('Output identity differs; use a new output directory')
+            return
+        previous=output/'SMOKE_ACCEPTED.json'
+        if previous.exists() and json.loads(previous.read_text()).get('identity')!=identity:
+            raise ValueError('Output identity differs from previous smoke; use a new output directory')
+        for receipt in (output/'formal').glob('*.identity.json'):
+            if json.loads(receipt.read_text()).get('identity')!=identity:
+                raise ValueError('Output identity differs from existing results; use a new output directory')
+        atomic_json(path,identity)
+
 def validate_rgb(data,trials,horizon):
     proof=data.get('simulation_optimization',{})
     if (proof.get('version')!='native_last_frame_rgb_v1'
@@ -43,7 +60,7 @@ def main():
     p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--home',type=Path,required=True)
     for k in ('config','checkpoint','sim-python','output'):p.add_argument('--'+k,type=Path,required=True)
     p.add_argument('--task',choices=[x['task'] for x in TASKS]);p.add_argument('--gpu-id',default='0');p.add_argument('--egl-device-id')
-    p.add_argument('--port',type=int,default=19090);p.add_argument('--n-envs',type=int,choices=(1,2,4,8),default=1)
+    p.add_argument('--port',type=int,default=19090);p.add_argument('--n-envs',type=int,choices=range(1,51),default=1)
     p.add_argument('--scene-protocol',choices=('legacy','shared-scenes'),default='legacy')
     p.add_argument('--historical-results',type=Path,help='Optional old raw task results; every selected trajectory must match')
     p.add_argument('--rgb-last-frame',action='store_true',help='Experimental: skip unread intermediate RGB while preserving native clocks')
@@ -55,6 +72,7 @@ def main():
     if a.plan_dir:a.plan_dir=a.plan_dir.resolve()
     if a.historical_results:a.historical_results=a.historical_results.resolve()
     if a.scene_protocol=='shared-scenes' and a.historical_results:p.error('Shared scenes do not certify the old model-dependent scene sequence')
+    if a.scene_protocol=='shared-scenes' and a.capture_plan:p.error('Shared scenes require an existing plan-dir; capture-plan is legacy only')
     if not a.plan_dir and a.scene_protocol=='legacy':a.capture_plan=True
     if a.capture_plan:
         if a.n_envs!=1:p.error('Legacy first evaluation requires --n-envs 1; multiple environments need this checkpoint own existing serial plan')
@@ -110,7 +128,10 @@ def main():
             plan_set_sha=identity['episode_plan_set_sha256']
         atomic_json(a.output/'FINAL_ACCEPTED.json',{'identity':identity,'episode_plan_set_sha256':plan_set_sha,'plans':plan_hashes,
             'trials':2500,'successes':sum(d['num_successes'] for d in results),'tasks':[{'env':d['env'],'successes':d['num_successes']} for d in results]});return
-    if not a.smoke and (not gate.exists() or json.loads(gate.read_text()).get('identity')!=identity or json.loads(gate.read_text()).get('application_smoke_passed') is not True):raise ValueError('Run one matching task --smoke first')
+    if not a.smoke:
+        if a.scene_protocol=='legacy' and (not gate.exists() or json.loads(gate.read_text()).get('identity')!=identity or json.loads(gate.read_text()).get('application_smoke_passed') is not True):
+            raise ValueError('Run one matching task --smoke first')
+    bind_output_identity(a.output,identity)
     import fcntl
     with (a.output/(a.task+'.lock')).open('a+') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -194,7 +215,7 @@ def main():
                     if a.scene_protocol=='legacy':require_same_trajectories(result,plan['reference_result'],trials)
                     if a.smoke:
                         if any(result[k]!=reference[k] for k in ('successes','episode_trace_sha256')):raise ValueError('Parallel trajectories differ from single-environment reference')
-                        workers=[json.loads(p.read_text()) for p in (attempt/'parallel-replay').glob('worker[0-9].json')]
+                        workers=[json.loads((attempt/'parallel-replay'/f'worker{i}.json').read_text()) for i in range(a.n_envs)]
                         if len(workers)!=a.n_envs or min(w['ended'] for w in workers)<=max(w['started'] for w in workers):raise ValueError('Workers did not overlap')
                 if not a.capture_plan and load_plan_set(a.plan_dir)!=(plan_set,identity['episode_plan_set_sha256']):raise ValueError('Plan set changed during evaluation')
                 historical_proof=check_historical(a.historical_results,history,a.task,result,identity,trials) if history else None
