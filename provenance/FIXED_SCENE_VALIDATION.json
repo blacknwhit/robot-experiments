@@ -1,7 +1,7 @@
 {
   "format": "robot_experiments_fixed_scene_validation_v1",
   "date": "2026-10-22",
-  "status": "bounded_application_accepted_full_cohort_preparing",
+  "status": "accepted",
   "benchmark_result": false,
   "tested_source_commit": "4df04a72a8af8868e6d2dc3e5913e28b423496fa",
   "source_manifest_sha256": "f30df835e6fde72a7ea05059c543aea2b67fa7c35cfd41ed5c9b1b4d4fc8e870",
@@ -124,6 +124,18 @@
     "Normal performance covers one task and baseline70k, not all50 tasks or all models.",
     "Wall timing includes simulator startup, excludes policy model loading.",
     "No continuous three-hour utilization guarantee.",
-    "Historical benchmark scores are not paired with this new scene cohort."
-  ]
+    "Historical benchmark scores are not paired with this new scene cohort.",
+    "Scene generation and evaluation must use matching simulator/rendering environments. An ACP versus debug-container observation mismatch was rejected; identical hardware labels and pip freeze alone do not certify visual compatibility."
+  ],
+  "full_cohort": {
+    "prepared_tasks": 50,
+    "scored_episodes": 2500,
+    "initialization_records": 2550,
+    "reference_directory": "provenance/fixed_scene_reference_v2",
+    "episode_plan_set_sha256": "c6866f8a233fdf0a064fe4e78a2292fad11fb1e521d0e2c0450c57ab3443dd9c",
+    "successful_task_receipts": 50,
+    "replacement_worker_initialization_checks": 82,
+    "raw_evidence_archive_sha256": "2b1ff2a7c48a339f8906f4047845d67f1e1d4db316284c2760b5ef604896c18e",
+    "target_cluster_protocol": "Prepare one local immutable plan set using the published definition, then share that exact set across all evaluated checkpoints and environment counts."
+  }
 }

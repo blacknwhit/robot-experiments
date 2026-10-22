@@ -18,15 +18,19 @@ PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v2"
 
 创建GPU容器/任务时设置 **`NVIDIA_DRIVER_CAPABILITIES=all`**，让计算与EGL渲染所需的驱动库一起暴露给容器；仅在已经启动的缺库容器内临时export不能补挂驱动库。`MUJOCO_GL=egl`、`PYOPENGL_PLATFORM=egl`及逐卡`MUJOCO_EGL_DEVICE_ID`由以下入口设置。
 
+**场景准备和正式评测使用同一套任务镜像、模拟器、驱动与渲染配置。** 在正式评测所用的作业环境中执行下面的准备命令，再让所有分片共享其`PLANS`。不要在另一种调试容器中准备后直接假定正式作业兼容；相同GPU型号、驱动版本和pip freeze也不足以证明初始图像完全相同。本次曾实际拦截过这种观测哈希不一致，原因未确定，没有放宽校验。遇到不一致应保留日志并停止，不删除或覆盖已封存清单，不把不同初始化结果混入同一集合。
+
 ## 2. 一次性准备固定场景，不跑模型
 
 ```bash
 "$SIM_PY" scripts/scene_suite.py \
-  --home "$HOME_DIR" --output "$PLANS" --egl-device-id 0 --workers 4
+  --home "$HOME_DIR" --output "$PLANS" --egl-device-id 0 --workers 8
 "$POLICY_PY" scripts/evaluate_frozen.py --plan-dir "$PLANS" --check-only
 ```
 
 这一步需要一张可渲染的GPU，只创建环境并reset，不加载权重、不执行策略动作、不生成成功率；不需要先串行评测一遍基线。准备阶段独占其分配的资源，不与正式评测争用GPU。
+
+完整50个task、2500个计分场景已在验收环境实际初始化并封存，[参考清单](../provenance/fixed_scene_reference_v2/PLAN_SET.json)及[验证记录](../provenance/FIXED_SCENE_VALIDATION.json)随仓库保存。正式评测使用目标集群按上述命令一次性生成的`PLANS`，其中绑定该环境的真实依赖与EGL观测哈希；以后所有模型及环境数复用同一目录。保持公开种子定义不变，也不要为每个checkpoint重新建集合。
 
 - [固定种子清单](../assets/eval_scene_seeds_v1.json)规定50个task各50个计分场景；每task额外一个reset哨兵不计分。
 - 每回合关闭旧环境并创建全新环境；构造前固定Python/NumPy种子，环境构造种子使用该回合的scene_seed。生成和评测共用同一初始化函数，避免只恢复随机数却残留前回合内部状态。新计划格式为`robocasa_seeded_episode_plan_v2`，不能复用早期未验收v1草案。

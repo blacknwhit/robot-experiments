@@ -12,3 +12,4 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: bash -n scripts/setup_policy.sh && bash -n scripts/setup_sim.sh
       - run: sha256sum -c provenance/source_files.sha256
+      - run: python scripts/evaluate_frozen.py --plan-dir provenance/fixed_scene_reference_v2 --check-only

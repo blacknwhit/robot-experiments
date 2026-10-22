@@ -1,0 +1,331 @@
+{
+  "format": "robocasa_seeded_episode_plan_v2",
+  "complete": true,
+  "env": "robocasa/PickPlaceCounterToStove",
+  "env_split": "pretrain",
+  "seed": 7,
+  "n_action_steps": 5,
+  "max_episode_steps": 600,
+  "num_trials": 50,
+  "robocasa_version": "1.0.0",
+  "robosuite_version": "1.5.2",
+  "sim_freeze_sha256": "e6e5389f907be91b575971800865782e0d8c9c9a31095d2c8ad5ee1c47c79afa",
+  "suite_definition_sha256": "b1c5243b89f4d6283f01cb950bb93911269e8b9068f334062a869d604dca1c9b",
+  "generation_protocol": "fresh_environment_stable_regions_v1",
+  "resets": [
+    {
+      "episode": 0,
+      "scene_seed": 1196253618,
+      "initial_observation_sha256": "33b67fab97668d1452c4ae6e9369cb637490dfa3f513ccf3bfee9c270071198f",
+      "initial_state_sha256": "f3dd82bdce16185900ac0379c46cb1a42a92ab54e9f0b15eb9c4fa5b208a8696"
+    },
+    {
+      "episode": 1,
+      "scene_seed": 3912855406,
+      "initial_observation_sha256": "dee2d79799e5d34057406fe68a2e534b4eedbdb271d3bc6c02aa04b45149b3da",
+      "initial_state_sha256": "5c25f1546e545fdf7575e2dea04b45d06c8a2441dbc349e37527b1996f508a9e"
+    },
+    {
+      "episode": 2,
+      "scene_seed": 3664276121,
+      "initial_observation_sha256": "022e0c63add1a368cd2292f3f16506345d90f1638601e69ebd702e61794c49cc",
+      "initial_state_sha256": "13c338fc047b450cf8d9ae9309378b0f62a5e7d9ba474022f6a47ee79df7b57b"
+    },
+    {
+      "episode": 3,
+      "scene_seed": 1662087007,
+      "initial_observation_sha256": "392e8216d041dce6ff21bc06e6623bce85d623d25e70b2a1a105445ee872ee4d",
+      "initial_state_sha256": "28038fe2facf8c53b59ef284b556864a99789b7f90e2af1a6bc42f093e684618"
+    },
+    {
+      "episode": 4,
+      "scene_seed": 1789976026,
+      "initial_observation_sha256": "5c01e3e7295ce5c93f5c5845718ed00b4983f57849dafd13532075b129e637f4",
+      "initial_state_sha256": "3897c229af9513b0decca9ffac579bda6e73591c8c22769dbd4235a70f5fa10d"
+    },
+    {
+      "episode": 5,
+      "scene_seed": 1703653840,
+      "initial_observation_sha256": "bf7e998bf928f84f86367f479ae59769dd1b0be5e40889bffc4fde2d7fe11d07",
+      "initial_state_sha256": "efdf8add12547ee540e1b61f803ae8c21da9bf3fd8be735e2936903f90a29a75"
+    },
+    {
+      "episode": 6,
+      "scene_seed": 1020317797,
+      "initial_observation_sha256": "851a2bd536cebe9ec8ada3c225c35a74a4e00699239c1d3fca41c14e849ed32b",
+      "initial_state_sha256": "438b176ae27fbe7db5794e6c24c6751ca8fcf280095c9c08b43c60f896a019e3"
+    },
+    {
+      "episode": 7,
+      "scene_seed": 208125910,
+      "initial_observation_sha256": "60659aac59e9f97bc5119bfcac16943d4f0bae3d7ec7fa88ee04be2d061fa99f",
+      "initial_state_sha256": "9df18cc91970f355544713f41fd0a4cd148165d87140a0053ba2808898199e17"
+    },
+    {
+      "episode": 8,
+      "scene_seed": 1291995228,
+      "initial_observation_sha256": "bdf00ff5feae3e37c395a1faad156edef4c5b74506a79223d239091730f0b528",
+      "initial_state_sha256": "2d3d8963ab7d404e885d418c45e38c3be3c45617a460841979e41b3b86c66bbe"
+    },
+    {
+      "episode": 9,
+      "scene_seed": 1310579093,
+      "initial_observation_sha256": "81aa134c8924858177b6bdc2ebeb5fadffcaa88079c7eb725d7e9358534f7100",
+      "initial_state_sha256": "9d51fb1f19ec9d64c0533105c9a81aeb0b145e30a5076721216d30ff2b01842e"
+    },
+    {
+      "episode": 10,
+      "scene_seed": 2026868245,
+      "initial_observation_sha256": "01243922bfb30fe95e9823784d5aecdb8d228ca2044659795707ce8597876d95",
+      "initial_state_sha256": "67a2d28fac1dec1d2a17d8e8cdacf015e849c4790ca1b4c918d6316e7fca8c80"
+    },
+    {
+      "episode": 11,
+      "scene_seed": 586990244,
+      "initial_observation_sha256": "d39c6cb57abd4abab794870193ec12323486b3453b6125332fc2954010d99715",
+      "initial_state_sha256": "5db6630919679ccc599caf9e2c4b674bea28a33583b150a7436fa79f7277c70d"
+    },
+    {
+      "episode": 12,
+      "scene_seed": 562550202,
+      "initial_observation_sha256": "fa9455a3e3ebd0fa26177cf185c96b2c90bbeeed653495ec194e07cf4b1d43c2",
+      "initial_state_sha256": "437e3ebd4aad0a7f29aacab9606db436cfa189fb5b50087061ce8e108dd32d47"
+    },
+    {
+      "episode": 13,
+      "scene_seed": 2073759760,
+      "initial_observation_sha256": "1c8da535f95e7773e44d6130a2fa4b7694874661270e203860cb040132dfa364",
+      "initial_state_sha256": "457222e9791855e94b88d597ccb013f2c7be59f6c62ec435ca50d08e2e117d55"
+    },
+    {
+      "episode": 14,
+      "scene_seed": 2190200509,
+      "initial_observation_sha256": "0f6c01f00f21d323f0c7d5a647a01a58dba347fddcb568d39c729311f0b0972c",
+      "initial_state_sha256": "9bdcf069bb7835c076895d9ef99286887914f30bbb02b487eae3e631e551ee01"
+    },
+    {
+      "episode": 15,
+      "scene_seed": 3357839567,
+      "initial_observation_sha256": "7c6d17a4b84c7f8ba81e71fd515aca7ff9859ce7094905fccf2560838a881f92",
+      "initial_state_sha256": "b6908185c7e5be246e117ed59bc6039e69e729ab1753dc53aa7a435507982487"
+    },
+    {
+      "episode": 16,
+      "scene_seed": 1284112357,
+      "initial_observation_sha256": "0c798d075a24f31fc6a0e6484e2f7ae5350102d1500ae66708e2aa61b869a6d8",
+      "initial_state_sha256": "b56aaacfd87f545806687e5117ebbc1d23a266371fc875872b4ccb11fb03c449"
+    },
+    {
+      "episode": 17,
+      "scene_seed": 3200132443,
+      "initial_observation_sha256": "b9af8fee367d20292b2956a99d63426989480ca3c7895048f1c1126a1fc22178",
+      "initial_state_sha256": "8d13eeff226380538806be8081eb4f4ab85857158797f74ff10991971e45363e"
+    },
+    {
+      "episode": 18,
+      "scene_seed": 2915714929,
+      "initial_observation_sha256": "986fb4f6409b8199ac1265196b1a1270be6df9f17ca2690a10827be692f8f57d",
+      "initial_state_sha256": "7dd6b3f3054afffeeae01afbf3fdd240ae7dae8bb1083e3e6cf8768102330223"
+    },
+    {
+      "episode": 19,
+      "scene_seed": 2775185765,
+      "initial_observation_sha256": "bb2289f1660e5fec8ffd2ee9448c35dd64dd2f1ee2b8458eb552319ddb764671",
+      "initial_state_sha256": "c14ad68874307f88df717fea85b15698fbc7f6ded721038211333ed00b39d43e"
+    },
+    {
+      "episode": 20,
+      "scene_seed": 2616544445,
+      "initial_observation_sha256": "f7012f0f5e0d31669a6d558db2ee0466de97100afca0adf0cb440d3235e8d8ea",
+      "initial_state_sha256": "3e22ac078075b87ebce31a8b43426c6b2f528bafeb89b5646e3f4b0ec3468077"
+    },
+    {
+      "episode": 21,
+      "scene_seed": 1449794008,
+      "initial_observation_sha256": "bbe20ce93db9c723196d519a47708a9b52249a531dcf951f111453310c544fd6",
+      "initial_state_sha256": "435781f12815404bb4e6f65043e27141b38ebbea0296be8eb73a8c6e4f64a7d9"
+    },
+    {
+      "episode": 22,
+      "scene_seed": 1266505310,
+      "initial_observation_sha256": "25770d8224028239c81414c7c4550587b039b9e0afe4f7d839f45f89af17e46d",
+      "initial_state_sha256": "d62614c24d0ffe22b2dbfee7baabcb2cea8ba004d54ae9c3527afba3ef45c7c2"
+    },
+    {
+      "episode": 23,
+      "scene_seed": 864052201,
+      "initial_observation_sha256": "b2d9382027afedcf4c823c23d9aeb5a42508bb99136756faffcdd7585bd59cd4",
+      "initial_state_sha256": "1be27097ec7b502345b32a522f4c33edfde444fb4fb570a07a0baec0e0468d33"
+    },
+    {
+      "episode": 24,
+      "scene_seed": 35534493,
+      "initial_observation_sha256": "19d0cae2545afd51cd1c43b03aa39a8be5a0e52ae52d12fdd201fc8265771bb8",
+      "initial_state_sha256": "5ff6f7b75a9d879ebf3b76c4a7077184a5eb9362f7d5d788d70cbc773307df3e"
+    },
+    {
+      "episode": 25,
+      "scene_seed": 916242942,
+      "initial_observation_sha256": "4d9029730a9939dc70cab5b22f42e5d7200b44a8444fc6a25f4750b9c9797643",
+      "initial_state_sha256": "6d420a72cf74095029b298736acc0092be35fdbc18ee520fa8928b98202bb6e9"
+    },
+    {
+      "episode": 26,
+      "scene_seed": 1307718154,
+      "initial_observation_sha256": "e0b06a8ec6de8058477fe063ebe2f436e3aad98036bc7c1d8cc097cb4c3715e8",
+      "initial_state_sha256": "2ed03470bc79aebb31be2a5b115731132aa96a9f1dd9fac9fa4f148c943c405d"
+    },
+    {
+      "episode": 27,
+      "scene_seed": 567807566,
+      "initial_observation_sha256": "9036a3ddfe83b2bb762a7bb1463371da2db0e29739f6153676d29087c8a00aa3",
+      "initial_state_sha256": "890502f5f523e64be10aaf199e3fff493071f54effcfdbdb5d5a6b348b6afb85"
+    },
+    {
+      "episode": 28,
+      "scene_seed": 3689204863,
+      "initial_observation_sha256": "b1ab8dc2d17c264f69afaaaf75d65188f24330d97fc0862992883a8d0e89d581",
+      "initial_state_sha256": "ae09eb2a4a164c547214bbca6643943edace07240796d9b2ac989ae0fc622c38"
+    },
+    {
+      "episode": 29,
+      "scene_seed": 1992687242,
+      "initial_observation_sha256": "0310691aa0f4dbd755284ff390a774f54fe86a4c3be88d045a9f757c061d193c",
+      "initial_state_sha256": "665074ac9557139cbbb499dba379f1ff0a159171402bc50679f524750d76f76a"
+    },
+    {
+      "episode": 30,
+      "scene_seed": 925905104,
+      "initial_observation_sha256": "03680569b74c2a6663563e0b59f57f4cbbe58f62e839cb5853159f1ed7210886",
+      "initial_state_sha256": "e7f59ce0f358fe775cc22c79315f1f6024a2112882fcf98cb828c893b3dfb00a"
+    },
+    {
+      "episode": 31,
+      "scene_seed": 4019370623,
+      "initial_observation_sha256": "f5b9b67a1136c6b8f953ad334dfb6111f41992271ccb7d6b95142ddc614518a4",
+      "initial_state_sha256": "a65bcd3b66a344708d1323259f7c2e47a92508ced8323b41054581d82cc829d5"
+    },
+    {
+      "episode": 32,
+      "scene_seed": 3671252127,
+      "initial_observation_sha256": "bb8e909b29992756d211430e254825f917a70a46af83c8644e224972cc5528da",
+      "initial_state_sha256": "ba4af4244c6edd7bd98f54c34a15ebfceebdbc0c4683962076de0cdfadb300ff"
+    },
+    {
+      "episode": 33,
+      "scene_seed": 1732803354,
+      "initial_observation_sha256": "55801752cdfa4a98ce9dd65ae7ef646babe752e2f4d1c629f75f88107e7025ec",
+      "initial_state_sha256": "8c6c6e65e34e2cbd58522556d708912527108ddfcb9731c501f4a6a4ee557671"
+    },
+    {
+      "episode": 34,
+      "scene_seed": 3180890780,
+      "initial_observation_sha256": "b762068cd53a2f43155453127cdc25ed26884659433b1e989242c874efb235f5",
+      "initial_state_sha256": "f5ef2831162e2431fc736f0f2d10cb1923acac7cbaa3bec8882db15ec32ff3b7"
+    },
+    {
+      "episode": 35,
+      "scene_seed": 2452167364,
+      "initial_observation_sha256": "c7d16049c4d615f8609dfbcc96893b33d6c26c5d75362c4c905472c20d0d0fb7",
+      "initial_state_sha256": "31585cbad4232963b4c9e3b570e743ba7e70abf19f6c6befdf973dd0fa8a580c"
+    },
+    {
+      "episode": 36,
+      "scene_seed": 2024931319,
+      "initial_observation_sha256": "482b0886b09abdab5ff8348ec5aaa89f26b5c3f22938c4d69a0ef54e39d7aa33",
+      "initial_state_sha256": "314487cf6a9f02f70981029e81900a443e3e2c673cdba6f7d9e35d87fa0451d3"
+    },
+    {
+      "episode": 37,
+      "scene_seed": 3962395373,
+      "initial_observation_sha256": "1c94d75ccc4b483f00e345f95cb4a8e58d08804b847236abde14fb7d9b72b2a2",
+      "initial_state_sha256": "54661946ca6f64c35203e9f729ad8bd98f925804dcb36af3f450f737db7983b0"
+    },
+    {
+      "episode": 38,
+      "scene_seed": 3448529104,
+      "initial_observation_sha256": "f30085266ad280c942d3110fd3d674e5ad360c68387687c3caf258dd6a1b4853",
+      "initial_state_sha256": "9b3533cc4154311e4147e659cbf0cedeb99d74c3cc01d95a5307e67bd32edc4f"
+    },
+    {
+      "episode": 39,
+      "scene_seed": 660535145,
+      "initial_observation_sha256": "e9f63c2e55c89daf01e0e9b3cbe5e68000e2ae301672ce4e5cab48b3385be122",
+      "initial_state_sha256": "cd08658c7b776f22d29dfd7998a34a3126ef1efc58ad9803e8e2a9ed068c5145"
+    },
+    {
+      "episode": 40,
+      "scene_seed": 1037709662,
+      "initial_observation_sha256": "d0e1667c0b9cf8e9e04cb940ba8f3c8161e1ab07e2e694c0f30b244579eb9476",
+      "initial_state_sha256": "56cb2c3eac3d57899baa955d45a02bc18a726d5253711dcc021bfbd46da8f876"
+    },
+    {
+      "episode": 41,
+      "scene_seed": 3813512489,
+      "initial_observation_sha256": "0a0ca275d180e8e8735b2b31381c09bc4aec60ab40a6d74f0d3df4c77f1fbc29",
+      "initial_state_sha256": "81dfd3c771e61d97708b9f456706469f3c623a17d92513eb1dbf67580aa4a180"
+    },
+    {
+      "episode": 42,
+      "scene_seed": 372914733,
+      "initial_observation_sha256": "ea98c3f51f6daac34282fcbda8abb75d78dc1d261aaf0cc879d731edcf899832",
+      "initial_state_sha256": "66f2b23e86ddd479f4cda1b1e925d272f9409f48f02fe76483471d86f71b2282"
+    },
+    {
+      "episode": 43,
+      "scene_seed": 2090308132,
+      "initial_observation_sha256": "b65d5a170a3cdfdcddf1d9f82fa3b18613610034e05bbca7caae037760f34b48",
+      "initial_state_sha256": "09c74bd100b0d891beaefe5a35e701a5627ed4861d12c61530094b1b473b1e21"
+    },
+    {
+      "episode": 44,
+      "scene_seed": 3656280480,
+      "initial_observation_sha256": "480dcfe56d5ebf91ec04f544d970df6f4061f38ad2ef6578727b304c903312c9",
+      "initial_state_sha256": "66b757fc4204112db0a91c23ea8451e7e23254091954b53afee46a9b8d2a16bd"
+    },
+    {
+      "episode": 45,
+      "scene_seed": 4175553497,
+      "initial_observation_sha256": "10cb667d3cfff12fff85dc2271b877759a455f522caf2cef9fb2bdd5bfc36513",
+      "initial_state_sha256": "d2ed40953c4cc26bf0b2471db9c270567fa4d7e4ed3e0896a9a730a6d65a2f0c"
+    },
+    {
+      "episode": 46,
+      "scene_seed": 2909583061,
+      "initial_observation_sha256": "0860e432b185c87db1228f5d492d9ad7bc7d30b968c3d5948e4ced8cc21ec492",
+      "initial_state_sha256": "ce4942a6649092660996d920ef491a5c0735e9cef1075d47e8519c8932814d6a"
+    },
+    {
+      "episode": 47,
+      "scene_seed": 4159465310,
+      "initial_observation_sha256": "49068ee8ec46be37a60b154c30e541c7bcb01a9cb913dd3358bed845749f1f4b",
+      "initial_state_sha256": "5fe210f8bd0f0fbe15e93618c9d91107e4b7c9b3bee3bff5275e17500dd330aa"
+    },
+    {
+      "episode": 48,
+      "scene_seed": 1360089065,
+      "initial_observation_sha256": "76c57322648e5b96dbe9913de97af344ad2ed03c0253306c0f8c02448514026c",
+      "initial_state_sha256": "a426204fc5a80cfcc5268d59e34ac851a2f7fe84bd26d25d4204f27210541f27"
+    },
+    {
+      "episode": 49,
+      "scene_seed": 1958927524,
+      "initial_observation_sha256": "aec263289316cbf08854ec7f4cecc0080d4b35aba86f0c04efa8b5381413f4da",
+      "initial_state_sha256": "e1895567f5595ab9808a4319322e1179061d1f3dd47111f1a9af07ea41970d9e"
+    },
+    {
+      "episode": 50,
+      "scene_seed": 2547137340,
+      "initial_observation_sha256": "39f667bfcf4ae77108f3a432c3ed88ecfbe555412e4b02857b4c3a654fc6d7ea",
+      "initial_state_sha256": "dd711693cc0124b559cb077e4a6853ee3287d69d1c6cfe9b8faed746faa55617"
+    }
+  ],
+  "scene_factory_sha256": "3a2f304be66d40fca03731a11e590f707ef9d25f8ee82c7408c58f36eb1b4054",
+  "python_version": "3.11.15",
+  "rng_algorithms": [
+    "PCG64",
+    "MT19937",
+    "python_random_v3"
+  ],
+  "generator_sha256": "cdc0a7a9078fa014718b2fe88f214480796f360591501fc72a253eae6ac28269"
+}

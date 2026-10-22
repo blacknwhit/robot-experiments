@@ -174,6 +174,8 @@ $H/runs/<run-id>/checkpoints/steps_70000_model.safetensors
 
 ## 9. 先一片smoke，再全量：每task独占一张卡
 
+**后续新评测请直接执行[远端Astra固定场景说明](docs/ASTRA_FIXED_SCENES.zh-CN.md)**：在正式作业环境一次性准备50×50场景，所有模型复用同一`PLANS`，每GPU一个task、`n_envs=8`、原生batch1异步流水线；每套权重通过一次smoke后运行12个四卡分片和1个两卡分片。无需先跑旧串行基线。下面的命令保留用于明确选择历史协议的复现，不要与新协议的场景、smoke或分数混用。
+
 可选加速：`--inference-backend cuda-graph` 保留单样本、精度和去噪协议；匹配smoke会对每个请求与eager逐位比较。使用方法、实测范围及限制见[CUDA Graph评测说明](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。默认仍为下面的eager流程。
 
 H100可进一步使用 `--tasks-per-gpu 2` 同卡运行两个独立任务，每路仍为原batch1/单环境协议，配合 `--policy-cpu-threads 4 --sim-cpu-threads 4`。先新建output并做匹配的同卡并发smoke；详见[共享GPU评测](docs/EVALUATION_SHARED_GPU.zh-CN.md)。下面默认4/2卡分片命令保持兼容，选择共享模式时按该文档调整GPU数量，所有分片与汇总都要带同样的设置。
