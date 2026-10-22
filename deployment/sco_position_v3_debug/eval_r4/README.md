@@ -26,3 +26,16 @@ Runtime overlay: eval_repair_r4_20261022, separate eight-file manifest. The
 the completed r3 original-entry diagnostic receipt instead of rerunning it,
 deep-validates A1500, requires the repaired A evaluation, and then continues
 the already-authorized B1500 short experiment. It never launches a 70k run.
+
+2026-10-22 23:50 ACP audit: `pt-xx84awzx` passed the port preflight, loaded all
+861 A1500 keys and entered real H100 EGL rendering. It then aborted inside
+`mujoco.mjr_readPixels` (`robosuite/utils/binding_utils.py:174`). The last
+persisted progress was 200 environment steps and 40 RPC calls, not an exact
+crash-step measurement. No complete evaluation result was produced. The
+controller entered HOLD, the worker exited, and SCO removed the native monitor
+after platform success. The writer lock is free; A1500 and B-smoke3 remain
+intact, while B1500 has not started. The fslgpu validation remains valid for
+that run only; it does not establish ACP rendering stability. Preserve the
+native crash evidence and obtain a native backtrace before another repair or
+retry. Neither the point loss nor a specific GPU/driver has been established
+as the cause. No code changes or resubmission were performed in this audit.
