@@ -1,8 +1,13 @@
 import copy
 import json
+import os
+import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +24,47 @@ import numpy as np
 
 
 class FrozenSuiteTests(unittest.TestCase):
+    def test_launch_error_stops_queued_work_and_records_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = SimpleNamespace(home=root, output=root, egl_device_id='0')
+            failed = threading.Event()
+            with patch('scene_suite.run_task_process', side_effect=OSError('test launch error')) as launch:
+                with self.assertRaises(OSError):
+                    scene_suite.generate_task_process(TASKS[0], args, {}, failed)
+                scene_suite.generate_task_process(TASKS[1], args, {}, failed)
+                self.assertEqual(launch.call_count, 1)
+            self.assertTrue(failed.is_set())
+            receipt = json.loads((root / '.generation' / (TASKS[0]['task'] + '.exit.json')).read_text())
+            self.assertIn('test launch error', receipt['error'])
+
+    @unittest.skipUnless(sys.platform == 'linux', 'POSIX process group and flock acceptance')
+    def test_timeout_and_coordinator_exit_leave_no_child_writer(self):
+        import fcntl
+        for leave_early in (False, True):
+            with self.subTest(leave_early=leave_early), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                child = root / 'child.py'
+                child.write_text('import fcntl, pathlib, sys, time\np=pathlib.Path(sys.argv[1])\n'
+                                 'with p.open("a+") as f:\n fcntl.flock(f,fcntl.LOCK_EX)\n'
+                                 ' p.with_suffix(".ready").touch()\n time.sleep(60)\n')
+                parent = root / 'parent.py'
+                parent.write_text('import pathlib, subprocess, sys, time\n'
+                                  'subprocess.Popen([sys.executable,sys.argv[1],sys.argv[2]])\n'
+                                  'while not pathlib.Path(sys.argv[2]).with_suffix(".ready").exists():time.sleep(.01)\n'
+                                  + ('' if leave_early else 'time.sleep(60)\n'))
+                lock = root / 'writer.lock'
+                with (root / 'console.log').open('w') as log:
+                    command = [sys.executable, str(parent), str(child), str(lock)]
+                    if leave_early:
+                        self.assertEqual(scene_suite.run_task_process(command, env=os.environ, log=log, timeout=3), 0)
+                    else:
+                        with self.assertRaises(subprocess.TimeoutExpired):
+                            scene_suite.run_task_process(command, env=os.environ, log=log, timeout=2)
+                self.assertTrue(lock.with_suffix('.ready').exists())
+                with lock.open('a+') as stream:
+                    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
     def test_chunked_initialization_covers_same_51_scenes_and_rejects_bad_chunks(self):
         task = TASKS[0];plan = self.seeded_plan(task);rows = []
         for start, count in chunk_ranges():
@@ -38,6 +84,8 @@ class FrozenSuiteTests(unittest.TestCase):
                 'seed': 7, 'n_action_steps': 5, 'env_split': 'pretrain', 'num_trials': 50,
                 'max_episode_steps': task['horizon'], 'robocasa_version': '1.0.0', 'robosuite_version': '1.5.2',
                 'sim_freeze_sha256': 'c' * 64, 'suite_definition_sha256': file_sha(DEFINITION),
+                'generator_sha256': file_sha(Path(scene_suite.__file__)), 'python_version': '3.11.14',
+                'rng_algorithms': ['PCG64', 'MT19937', 'python_random_v3'],
                 'generation_protocol': 'independent_rng_reset_only_v1', 'resets': [
                     {'episode': i, 'scene_seed': seed, 'initial_observation_sha256': 'd' * 64,
                      'initial_state_sha256': 'e' * 64} for i, seed in enumerate(seeds)]}
@@ -75,6 +123,19 @@ class FrozenSuiteTests(unittest.TestCase):
                 rows[i] = (env.rng.random(3).tolist(), np.random.random(3).tolist(), random.random())
             return rows
         self.assertEqual(observations(range(51), 1), observations(reversed(range(51)), 73))
+
+    def test_seeded_suite_rejects_mixed_generator_or_runtime(self):
+        for field in ('generator_sha256', 'python_version', 'rng_algorithms'):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for task in TASKS:
+                    plan = self.seeded_plan(task)
+                    if task['index'] == 49:
+                        plan[field] = 'different'
+                    (root / (task['task'] + '.json')).write_text(json.dumps(plan))
+                build_plan_set(root)
+                with self.assertRaises(ValueError):
+                    validate_suite(root)
 
     def write_suite(self, root, mutate=None):
         for task in TASKS:

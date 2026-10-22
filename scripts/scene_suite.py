@@ -11,6 +11,7 @@ import json
 import os
 import random
 import platform
+import signal
 import subprocess
 import sys
 import threading
@@ -67,6 +68,68 @@ def validate_seeded_plan(plan):
 
 
 CHUNK_SIZE = 8
+
+
+def stop_process_group(process):
+    """Drain our POSIX session, including a child whose coordinator already exited."""
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        process.wait()
+        return
+    try:
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait(timeout=10)
+    # Grandchildren may be reaped by init; zombies cannot hold a file lock or write.
+    deadline = time.monotonic() + 10
+    while True:
+        rows = subprocess.check_output(['ps', '-eo', 'pgid=,stat='], text=True).splitlines()
+        alive = any(int(fields[0]) == process.pid and not fields[1].startswith('Z')
+                    for row in rows if len(fields := row.split()) == 2)
+        if not alive:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError('Owned scene process group did not stop; do not resume generation')
+        time.sleep(0.05)
+
+
+def run_task_process(command, *, env, log, timeout):
+    process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
+                               start_new_session=True)
+    try:
+        return process.wait(timeout=timeout)
+    finally:
+        stop_process_group(process)
+
+
+def generate_task_process(task, args, env, failed):
+    if failed.is_set():
+        return
+    receipt = {'started': time.time(), 'returncode': None}
+    command = [sys.executable, str(Path(__file__).resolve()), '--home', str(args.home.resolve()),
+               '--output', str(args.output), '--egl-device-id', args.egl_device_id, '--task', task['task']]
+    try:
+        with (args.output / (task['task'] + '.generation.log')).open('a') as log:
+            receipt['returncode'] = run_task_process(command, env=env, log=log, timeout=7200)
+        if receipt['returncode']:
+            raise RuntimeError(task['task'] + ' initialization failed; see .generation and .chunks exit receipts')
+    except BaseException as error:
+        failed.set()
+        receipt.update(error=repr(error), timeout=isinstance(error, subprocess.TimeoutExpired))
+        raise
+    finally:
+        receipt['ended'] = time.time()
+        try:
+            atomic_json(args.output / '.generation' / (task['task'] + '.exit.json'), receipt)
+        except BaseException:
+            failed.set()
+            raise
 
 
 def chunk_ranges():
@@ -155,7 +218,9 @@ def generate_task(task, output, freeze_sha, home, egl):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if target.exists():
             old = load_plan(target)
-            if old['format'] != SEEDED_FORMAT or old['sim_freeze_sha256'] != freeze_sha:
+            if (old['format'] != SEEDED_FORMAT or old['sim_freeze_sha256'] != freeze_sha
+                    or old.get('generator_sha256') != file_sha(Path(__file__))
+                    or old.get('python_version') != platform.python_version()):
                 raise ValueError('Existing plan identity differs; do not overwrite it')
             return
         chunks = []
@@ -218,25 +283,9 @@ def main():
                PYTHONHASHSEED='7', MUJOCO_GL='egl', PYOPENGL_PLATFORM='egl', MUJOCO_EGL_DEVICE_ID=a.egl_device_id)
 
     failed = threading.Event()
-    def generate(task):
-        if failed.is_set():return
-        cmd = [sys.executable, str(Path(__file__).resolve()), '--home', str(a.home.resolve()),
-               '--output', str(a.output), '--egl-device-id', a.egl_device_id, '--task', task['task']]
-        try:
-            with (a.output / (task['task'] + '.generation.log')).open('a') as log:
-                result = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT, check=False, timeout=7200)
-        except subprocess.TimeoutExpired:
-            failed.set()
-            atomic_json(a.output / '.generation' / (task['task'] + '.exit.json'), {'returncode': None, 'timeout': True, 'ended': time.time()})
-            raise
-        atomic_json(a.output / '.generation' / (task['task'] + '.exit.json'), {'returncode': result.returncode, 'ended': time.time()})
-        if result.returncode:
-            failed.set()
-            raise RuntimeError(task['task'] + ' initialization failed; see .generation and .chunks exit receipts')
-
     with concurrent.futures.ThreadPoolExecutor(max_workers=a.workers) as pool:
-        jobs = [pool.submit(generate, task) for task in definition()['tasks']]
-        for job in jobs:
+        jobs = [pool.submit(generate_task_process, task, a, env, failed) for task in definition()['tasks']]
+        for job in concurrent.futures.as_completed(jobs):
             job.result()
     if file_sha(freeze) != freeze_sha:
         raise ValueError('Simulator receipt changed during scene generation')

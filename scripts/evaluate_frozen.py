@@ -28,7 +28,8 @@ def validate_suite(directory):
         if plan['num_trials'] != 50 or plan['max_episode_steps'] != task['horizon']:
             raise ValueError('Formal suite requires 50 episodes and the registered horizon: ' + task['task'])
         if plan['format'] == SEEDED_FORMAT:
-            source = {key: plan[key] for key in ('suite_definition_sha256', 'generation_protocol')}
+            source = {key: plan[key] for key in ('suite_definition_sha256', 'generation_protocol',
+                                               'generator_sha256', 'python_version', 'rng_algorithms')}
         else:
             metadata = plan['reference_result'].get('policy_server_metadata', {})
             require_same_trajectories(plan['reference_result'], plan['reference_result'], 50)
