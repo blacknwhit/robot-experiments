@@ -110,6 +110,9 @@ def main():
         return output, cfgpath
 
     try:
+        for v in VARIANTS:
+            run([sys.executable, str(REPO / "scripts/import_preflight.py"), "--config",
+                 str(ROOT / "configs" / f"{v}_smoke_2.yaml")], f"{v}_imports.log", environment(v))
         phase("cuda_environment_preflight")
         run([sys.executable, str(ROOT / "cuda_environment_probe.py"), "--output",
              str(attempt_dir / "cuda_environment.json")], "cuda_environment.log")

@@ -26,5 +26,21 @@ checkpoint existed was r1 deployed and submitted.
 
 Remote evidence and release manifests are stored in the experiment root's
 `control/` and `repair_r1/`. The immutable r0 archive and its manifest are
-retained separately. The r1 manifest covers 964 deployed files. Actual GPU,
-save/restore, action-inference and EGL acceptance remain pending.
+retained separately. The r1 manifest covers 964 deployed files.
+
+Revision r2, 2026-10-22: the actual r1 worker verified the CUDA correction with
+separate old/fixed subprocesses and passed a two-H100 NCCL all-reduce. It then
+failed before the first training update because the real RoboCasa overlay
+preceded the policy import shim during lazy model construction. The policy
+environment consequently attempted to import MuJoCo. V3 policy paths now put
+the shim first; simulator calls still exclude it and import the real simulator.
+Historical variants retain their previous import order.
+
+The exact lazy OpenPI configuration/model imports pass on SCO for both A and B;
+the simulator also imports under evaluate.py's actual subprocess environment.
+Local validation passes 21 repository tests and two collector regression tests.
+The corrected smoke and short run names end in `_r2`; the old zero-update
+recipe remains preserved. No learned state was discarded. The r2 remote
+manifest covers 965 files. GPU training/save-restore, action inference and EGL
+rendering remain pending. The collector can audit a terminal last-known job
+after native monitor removal without claiming it has a live recovery owner.
