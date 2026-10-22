@@ -1,5 +1,7 @@
 # 共同场景集合的多环境评测（不同于每个模型的旧场景链）
 
+> 新评测推荐[固定种子、只reset准备2500场景的执行文档](ASTRA_FIXED_SCENES.zh-CN.md)，无需先评测基线。本页保留原先从真实串行策略运行录制计划的流程与历史工程证据。
+
 > 若要求保留之前的评测内容，使用[历史兼容入口](EVALUATION_LEGACY_EXACT.zh-CN.md)。本页跨模型共享集合必须显式选择`--scene-protocol shared-scenes`，不能据此宣称复现其他模型的历史场景。
 
 使用新入口 `scripts/evaluate_task.py`。一个 task 的多个环境异步向同一份模型发请求，GPU仍逐请求执行原生batch=1；CPU图像预处理和GPU执行形成流水线。它与 `evaluate.py --tasks-per-gpu 2` 的“不同task共卡”是两种设置，不能叠加解释本页结果。

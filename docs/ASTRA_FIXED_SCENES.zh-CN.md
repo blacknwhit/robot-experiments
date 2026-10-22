@@ -110,7 +110,8 @@ PART=1
 作业内可在独立终端持续记录本作业分配GPU，结束后停止采样：
 
 ```bash
-nvidia-smi --query-gpu=timestamp,uuid,utilization.gpu,memory.used,power.draw \
+ALLOCATED_GPU_UUIDS=GPU-your-assigned-uuid  # 多卡填本作业已核实的UUID逗号列表
+nvidia-smi --id "$ALLOCATED_GPU_UUIDS" --query-gpu=timestamp,uuid,utilization.gpu,memory.used,power.draw \
   --format=csv -l 1 > "$OUT/gpu-util-part-${PART}.csv"
 ```
 
