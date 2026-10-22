@@ -17,11 +17,12 @@ import sys
 import threading
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 from common import ROOT, activate, environment, runtime
-from episode_plan import SEEDED_FORMAT, atomic_json, build_plan_set, file_sha, load_plan, restore_rng
+from episode_plan import SEEDED_FORMAT, atomic_json, build_plan_set, file_sha, load_plan
+import fresh_scene
+from fresh_scene import PROTOCOL
 
 DEFINITION = ROOT / 'assets/eval_scene_seeds_v1.json'
 
@@ -60,8 +61,10 @@ def validate_seeded_plan(plan):
         raise ValueError('Seeded plan belongs to another scene definition')
     if plan['num_trials'] != 50 or plan['max_episode_steps'] != spec['horizon']:
         raise ValueError('Seeded plan episode count or horizon changed')
-    if plan.get('generation_protocol') != 'independent_rng_reset_only_v1':
+    if plan.get('generation_protocol') != PROTOCOL:
         raise ValueError('Unknown scene generation protocol')
+    if plan.get('scene_factory_sha256') != file_sha(Path(fresh_scene.__file__)):
+        raise ValueError('Scene factory changed')
     for row, seed in zip(plan['resets'], data['scene_seeds'][task]):
         if row.get('scene_seed') != seed or 'pre_reset_rng' in row:
             raise ValueError('Seeded plan RNG differs from the published definition')
@@ -141,7 +144,8 @@ def validate_chunk(chunk, task, freeze_sha, start, count):
     expected = {'format': 'robocasa_scene_chunk_v1', 'complete': True, 'env': 'robocasa/' + task,
                 'chunk_start': start, 'chunk_count': count, 'max_episode_steps': spec['horizon'],
                 'suite_definition_sha256': file_sha(DEFINITION), 'sim_freeze_sha256': freeze_sha,
-                'generator_sha256': file_sha(Path(__file__)), 'generation_protocol': 'independent_rng_reset_only_v1'}
+                'generator_sha256': file_sha(Path(__file__)), 'generation_protocol': PROTOCOL,
+                'scene_factory_sha256': file_sha(Path(fresh_scene.__file__))}
     for key, value in expected.items():
         if chunk.get(key) != value:
             raise ValueError('Scene chunk identity mismatch: ' + key)
@@ -166,44 +170,25 @@ def generate_chunk(task, output, freeze_sha, start):
     import robocasa
     import robosuite
     import resource
-    from examples.pi05_robocasa365.eval_files.simulation_env import create_single_env
-    from robocasa.wrappers.gym_wrapper import RoboCasaGymEnv
-    from episode_plan import observation_hash, mujoco_state_hash
-    random.seed(7)
-    np.random.seed(7)
-    args = SimpleNamespace(env_name='robocasa/' + task, env_split='pretrain', seed=7,
-                           video_out_path=None, n_action_steps=5, max_episode_steps=spec['horizon'])
     rows = []
-    original = RoboCasaGymEnv.reset
-
-    def reset(obj, *a, **kw):
-        episode = start + len(rows)
+    for episode in range(start, start + count):
         seed = data['scene_seeds'][task][episode]
-        state = seeded_rng(seed)
-        restore_rng(obj.env, state)
-        obs, info = original(obj, *a, **kw)
-        rows.append({'episode': episode, 'scene_seed': seed,
-                     'initial_observation_sha256': observation_hash(obs),
-                     'initial_state_sha256': mujoco_state_hash(obj.env)})
-        return obs, info
-
-    RoboCasaGymEnv.reset = reset
-    env = None
-    try:
-        env = create_single_env(args, 0)
-        for _ in range(count):
-            env.reset()
-            atomic_json(target.with_suffix('.inprogress.json'), {'complete': False, 'resets': rows,
-                        'max_rss_kib': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, 'pid': os.getpid()})
-    finally:
-        RoboCasaGymEnv.reset = original
-        if env is not None:
+        env, observation, _ = fresh_scene.create_scene('robocasa/' + task, spec['horizon'], seed)
+        try:
+            hashes = fresh_scene.fingerprints(env, observation)
+            rows.append({'episode': episode, 'scene_seed': seed,
+                         'initial_observation_sha256': hashes['observation_sha256'],
+                         'initial_state_sha256': hashes['state_sha256']})
+        finally:
             env.close()
-    plan = {'format': 'robocasa_scene_chunk_v1', 'complete': True, 'env': args.env_name, 'env_split': 'pretrain',
+        atomic_json(target.with_suffix('.inprogress.json'), {'complete': False, 'resets': rows,
+                    'max_rss_kib': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, 'pid': os.getpid()})
+    plan = {'format': 'robocasa_scene_chunk_v1', 'complete': True, 'env': 'robocasa/' + task, 'env_split': 'pretrain',
             'seed': 7, 'n_action_steps': 5, 'max_episode_steps': spec['horizon'], 'num_trials': 50,
             'robocasa_version': robocasa.__version__, 'robosuite_version': robosuite.__version__,
             'sim_freeze_sha256': freeze_sha, 'suite_definition_sha256': file_sha(DEFINITION),
-            'generation_protocol': 'independent_rng_reset_only_v1', 'resets': rows,
+            'generation_protocol': PROTOCOL, 'resets': rows,
+            'scene_factory_sha256': file_sha(Path(fresh_scene.__file__)),
             'python_version': platform.python_version(), 'rng_algorithms': ['PCG64', 'MT19937', 'python_random_v3'],
             'chunk_start': start, 'chunk_count': count, 'generator_sha256': file_sha(Path(__file__))}
     validate_chunk(plan, task, freeze_sha, start, count)

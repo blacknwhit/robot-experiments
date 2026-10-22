@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 FORMAT='robocasa_frozen_episode_plan_v1'
-SEEDED_FORMAT='robocasa_seeded_episode_plan_v1'
+SEEDED_FORMAT='robocasa_seeded_episode_plan_v2'
 SET_FORMAT='robocasa_frozen_episode_plan_set_v1'
 
 def atomic_json(path,data):
@@ -44,9 +44,8 @@ def load_plan(path,task=None,trials=None):
         if data['format']==FORMAT and set(row['pre_reset_rng'])!={'env','numpy','python'}:raise ValueError('Missing RNG state')
     if data['format']==SEEDED_FORMAT:
         if 'reference_result' in data:raise ValueError('Seeded plans must not claim policy reference results')
-        from scene_suite import validate_seeded_plan,seeded_rng
+        from scene_suite import validate_seeded_plan
         validate_seeded_plan(data)
-        for row in rows:row['pre_reset_rng']=seeded_rng(row['scene_seed'])
         return data
     ref=data['reference_result']
     if ref['num_trials']!=n or len(ref['successes'])!=n or len(ref['episode_trace_sha256'])!=n:raise ValueError('Invalid reference result')

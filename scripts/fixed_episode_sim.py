@@ -2,13 +2,59 @@
 import argparse,json,multiprocessing as mp,random,time,traceback,runpy,sys
 from pathlib import Path
 import numpy as np
-from episode_plan import atomic_json,load_plan,restore_rng,observation_hash,mujoco_state_hash,Recorder,file_sha
+from episode_plan import atomic_json,load_plan,restore_rng,observation_hash,mujoco_state_hash,Recorder,file_sha,SEEDED_FORMAT
 
 def select_episode(model,episode):
     model._ensure_counters(1);model._episode_indices[0]=episode;model._replan_indices[0]=0
     model._trace_hashers[0]=model._new_trace_hasher(0)
 
+def replay_fresh_worker(slot,ids,plan,plan_path,plan_sha,output,host,port,barrier):
+    from fresh_scene import create_scene,fingerprints,verify_scene,batch_observation,unbatch_action
+    from examples.pi05_robocasa365.eval_files.model2pi05_robocasa365_interface import PolicyWrapper
+    import robocasa,robosuite
+    model=env=None
+    rows=[];initial=[];started=None
+    try:
+        if file_sha(plan_path)!=plan_sha:raise ValueError('Plan changed during worker startup')
+        if (robocasa.__version__,robosuite.__version__)!=(plan['robocasa_version'],plan['robosuite_version']):raise ValueError('Simulator version changed')
+        model=PolicyWrapper(host=host,port=port,task_name=plan['env'],base_seed=plan['seed'],strict_determinism=True,trace_determinism=True)
+        for episode in ids:
+            row=plan['resets'][episode]
+            env,observation,_=create_scene(plan['env'],plan['max_episode_steps'],row['scene_seed'])
+            actual=fingerprints(env,observation)
+            atomic_json(output/f'worker{slot}.initial.json',{'episode':episode,'expected':row,'actual':actual})
+            verify_scene(row,actual)
+            initial.append({'episode':episode,**actual})
+            select_episode(model,episode)
+            if started is None:
+                if barrier is not None:barrier.wait(timeout=900)
+                started=time.time()
+            success=False;requests=0
+            while True:
+                actions=model.step(batch_observation(observation))['actions']
+                observation,reward,terminated,truncated,_=env.step(unbatch_action(actions))
+                done=bool(terminated or truncated)
+                success|=bool(reward);requests+=1;model.finish_step(np.asarray([done]))
+                if done:break
+            rows.append({'episode':episode,'success':success,'trace':model.episode_trace_hashes[-1],'requests':requests})
+            env.close();env=None
+            atomic_json(output/f'worker{slot}.progress.json',{'complete':False,'slot':slot,'ids':ids,'rows':rows,'initial_scenes':initial})
+        if file_sha(plan_path)!=plan_sha:raise ValueError('Plan changed during evaluation')
+        atomic_json(output/f'worker{slot}.json',{'slot':slot,'ids':ids,'rows':rows,'initial_scenes':initial,'started':started,'ended':time.time(),'metadata':model.server_metadata})
+    except BaseException:
+        atomic_json(output/f'worker{slot}.error.json',{'traceback':traceback.format_exc(),'completed_episodes':[r['episode'] for r in rows]})
+        if barrier is not None:barrier.abort()
+        raise
+    finally:
+        try:
+            if model is not None:model.close()
+        finally:
+            if env is not None:env.close()
+
 def replay_worker(slot,ids,plan_path,plan_sha,output,host,port,barrier):
+    plan=load_plan(plan_path)
+    if plan['format']==SEEDED_FORMAT:
+        return replay_fresh_worker(slot,ids,plan,plan_path,plan_sha,output,host,port,barrier)
     model=env=None
     try:
         import gymnasium as gym
@@ -86,7 +132,7 @@ def replay(a):
             'seed':plan['seed'],'n_action_steps':plan['n_action_steps'],'max_episode_steps':plan['max_episode_steps'],
             'successes':[r['success'] for r in rows],'num_successes':sum(r['success'] for r in rows),'episode_trace_sha256':traces,
             'requests':sum(r['requests'] for r in rows),'policy_server_metadata':metadata,
-            'initial_scenes':sorted((r for w in workers for r in w['initial_scenes'][:-1]),key=lambda r:r['episode']),
+            'initial_scenes':sorted((r for w in workers for r in w['initial_scenes'] if r['episode'] in w['ids']),key=lambda r:r['episode']),
             'rollout_timing':{'started_at':min(w['started'] for w in workers),'finished_at':max(w['ended'] for w in workers)},
             'wall_timing':{'started_at':started,'finished_at':time.time()}}
         atomic_json(a.output/'result.json',result)

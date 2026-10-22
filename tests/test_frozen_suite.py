@@ -18,6 +18,7 @@ from evaluate_frozen import child_commands, validate_suite
 from episode_plan import SEEDED_FORMAT, load_plan, restore_rng, file_sha
 from scene_suite import DEFINITION, definition, seeded_rng, chunk_ranges, validate_chunk
 import scene_suite
+import fresh_scene
 from legacy_contract import require_same_policy
 import random
 import numpy as np
@@ -86,7 +87,7 @@ class FrozenSuiteTests(unittest.TestCase):
                 'sim_freeze_sha256': 'c' * 64, 'suite_definition_sha256': file_sha(DEFINITION),
                 'generator_sha256': file_sha(Path(scene_suite.__file__)), 'python_version': '3.11.14',
                 'rng_algorithms': ['PCG64', 'MT19937', 'python_random_v3'],
-                'generation_protocol': 'independent_rng_reset_only_v1', 'resets': [
+                'scene_factory_sha256': file_sha(Path(fresh_scene.__file__)), 'generation_protocol': fresh_scene.PROTOCOL, 'resets': [
                     {'episode': i, 'scene_seed': seed, 'initial_observation_sha256': 'd' * 64,
                      'initial_state_sha256': 'e' * 64} for i, seed in enumerate(seeds)]}
 
@@ -100,7 +101,7 @@ class FrozenSuiteTests(unittest.TestCase):
             path = root / (TASKS[0]['task'] + '.json')
             plan = load_plan(path)
             self.assertNotIn('reference_result', plan)
-            self.assertIn('pre_reset_rng', plan['resets'][0])
+            self.assertNotIn('pre_reset_rng', plan['resets'][0])
             with self.assertRaisesRegex(ValueError, 'Legacy'):
                 require_same_policy(plan, {})
             for mutate in (lambda p: p['resets'][0].update(scene_seed=0),

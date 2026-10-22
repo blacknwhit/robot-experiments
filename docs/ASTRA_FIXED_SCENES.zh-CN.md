@@ -11,7 +11,7 @@ git pull --ff-only origin main
 POLICY_PY=/absolute/path/to/policy/python
 SIM_PY=/absolute/path/to/simulator/python
 HOME_DIR=/absolute/path/to/robot-experiments-data
-PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v1"
+PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v2"
 ```
 
 沿用[主交接文档](../HANDOFF.zh-CN.md)准备的环境和资产。`HOME_DIR/receipts/sim.freeze.txt`必须是当前仿真环境的真实记录，不能复制旧集群的freeze冒充兼容。CUDA与EGL编号应映射到同一物理GPU；以下以两者均为0为例，容器/调度器重映射时使用已经核实的对应编号。
@@ -29,10 +29,10 @@ PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v1"
 这一步需要一张可渲染的GPU，只创建环境并reset，不加载权重、不执行策略动作、不生成成功率；不需要先串行评测一遍基线。准备阶段独占其分配的资源，不与正式评测争用GPU。
 
 - [固定种子清单](../assets/eval_scene_seeds_v1.json)规定50个task各50个计分场景；每task额外一个reset哨兵不计分。
-- 每回合重设环境PCG64、NumPy和Python随机流，下一场景不依赖上一回合动作或模型。
+- 每回合关闭旧环境并创建全新环境；构造前固定Python/NumPy种子，环境构造种子使用该回合的scene_seed。生成和评测共用同一初始化函数，避免只恢复随机数却残留前回合内部状态。新计划格式为`robocasa_seeded_episode_plan_v2`，不能复用早期未验收v1草案。
 - 保存初始观测（图像、语言、状态）及MuJoCo状态SHA，再封存`PLAN_SET.json`。完整检查必须显示`tasks:50`、`scored_episodes:2500`。
 - 此后所有模型与n_envs共用同一个`PLANS`。不按checkpoint重新生成，不删除失败或慢场景。生成中断可重跑上述命令，已完整且身份一致的task会复用。
-- 初始化内部采用短进程，每个进程最多8次reset，完整块写入`.chunks/`后才合并为task计划；种子和episode编号不变。保留块及退出码记录，中断后可复用完整块，不拼接不完整记录。
+- 初始化内部采用短进程，每个进程最多创建8个独立场景，完整块写入`.chunks/`后才合并为task计划；种子和episode编号不变。保留块及退出码记录，中断后可复用完整块，不拼接不完整记录。
 - 保存集合SHA。同一比较的`episode_plan_set_sha256`必须一致；相同种子表不代表已经证明任意集群/版本逐位相同。跨集群搬运仍须通过仿真环境及实际初始化SHA校验，不能绕过。
 
 ## 3. 正式推荐设置及实现变化
@@ -60,7 +60,7 @@ PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v1"
 VARIANT=baseline
 CONFIG=/absolute/path/to/baseline-resolved.yaml
 CHECKPOINT=/absolute/path/to/trained-model.safetensors
-OUT="$HOME_DIR/eval/baseline-70k-fixed2500-v1-n8"
+OUT="$HOME_DIR/eval/baseline-70k-fixed2500-v2-n8"
 COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
   --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" --output "$OUT" \
   --plan-dir "$PLANS" --n-envs 8)
