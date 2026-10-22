@@ -1,0 +1,141 @@
+{
+  "format": "robot_experiments_fixed_scene_validation_v1",
+  "date": "2026-10-22",
+  "status": "accepted",
+  "benchmark_result": false,
+  "tested_source_commit": "4df04a72a8af8868e6d2dc3e5913e28b423496fa",
+  "source_manifest_sha256": "f30df835e6fde72a7ea05059c543aea2b67fa7c35cfd41ed5c9b1b4d4fc8e870",
+  "source_files": 718,
+  "scene_definition_sha256": "b1c5243b89f4d6283f01cb950bb93911269e8b9068f334062a869d604dca1c9b",
+  "scene_plan_format": "robocasa_seeded_episode_plan_v2",
+  "counter_original_method_sha256": "3a70cf8f230155ded44711da609746d97d1679426478b080671a166e14c6ea9e",
+  "initialization_checks": {
+    "targeted_counter_repair_repeats": 12,
+    "final_entry_forward_reverse_replays": 18,
+    "observation_and_state_hashes_exact": true
+  },
+  "cpu_checks": {
+    "linux_tests_passed": 44,
+    "workflow_run": 39765655138
+  },
+  "hardware": "one NVIDIA H100 80GB HBM3",
+  "task": "CloseBlenderLid",
+  "horizon": 900,
+  "policy_seed": 7,
+  "n_action_steps": 5,
+  "inference_batch": 1,
+  "smokes": {
+    "baseline": {
+      "episode_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "exact_full_action_requests": 2880,
+      "initial_scene_and_trajectory_parity": true,
+      "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+      "full_action_comparison": "zero-tolerance array equality",
+      "trajectory_comparison": "exact input and executed-action SHA256"
+    },
+    "query_fixed": {
+      "episode_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "exact_full_action_requests": 2880,
+      "initial_scene_and_trajectory_parity": true,
+      "checkpoint_sha256": "fa5c5078afb8efa807a7af6129ff969ab1c0c4ccebf9e10180bb18c2a1d855a2",
+      "full_action_comparison": "zero-tolerance array equality",
+      "trajectory_comparison": "exact input and executed-action SHA256"
+    }
+  },
+  "normal_performance": {
+    "variant": "baseline",
+    "episodes": 8,
+    "requests": 4320,
+    "every_request_eager_duplication": false,
+    "runs": [
+      {
+        "n_envs": 4,
+        "rollout_timing": {
+          "seconds": 154.1118049621582,
+          "samples": 101,
+          "gpu_util_mean": 58.336633663366335,
+          "gpu_util_median": 63.0,
+          "peak_memory_mib": 15650.0
+        },
+        "wall_timing": {
+          "seconds": 190.33929634094238,
+          "samples": 125,
+          "gpu_util_mean": 47.568,
+          "gpu_util_median": 51.0,
+          "peak_memory_mib": 15650.0
+        }
+      },
+      {
+        "n_envs": 8,
+        "rollout_timing": {
+          "seconds": 102.58449530601501,
+          "samples": 67,
+          "gpu_util_mean": 89.35820895522389,
+          "gpu_util_median": 93.0,
+          "peak_memory_mib": 22464.0
+        },
+        "wall_timing": {
+          "seconds": 136.00508308410645,
+          "samples": 89,
+          "gpu_util_mean": 68.12359550561797,
+          "gpu_util_median": 92.0,
+          "peak_memory_mib": 22464.0
+        }
+      },
+      {
+        "n_envs": 8,
+        "rollout_timing": {
+          "seconds": 104.94780659675598,
+          "samples": 69,
+          "gpu_util_mean": 84.2463768115942,
+          "gpu_util_median": 93.0,
+          "peak_memory_mib": 22464.0
+        },
+        "wall_timing": {
+          "seconds": 139.11205458641052,
+          "samples": 93,
+          "gpu_util_mean": 63.365591397849464,
+          "gpu_util_median": 90.0,
+          "peak_memory_mib": 22464.0
+        }
+      }
+    ]
+  },
+  "evidence_archive_sha256": "63cd9099c1c509222430c535fbe74b5f5ee941e4211dd392129b0ad658152f89",
+  "limits": [
+    "Normal performance covers one task and baseline70k, not all50 tasks or all models.",
+    "Wall timing includes simulator startup, excludes policy model loading.",
+    "No continuous three-hour utilization guarantee.",
+    "Historical benchmark scores are not paired with this new scene cohort.",
+    "Scene generation and evaluation must use matching simulator/rendering environments. An ACP versus debug-container observation mismatch was rejected; identical hardware labels and pip freeze alone do not certify visual compatibility."
+  ],
+  "full_cohort": {
+    "prepared_tasks": 50,
+    "scored_episodes": 2500,
+    "initialization_records": 2550,
+    "reference_directory": "provenance/fixed_scene_reference_v2",
+    "episode_plan_set_sha256": "c6866f8a233fdf0a064fe4e78a2292fad11fb1e521d0e2c0450c57ab3443dd9c",
+    "successful_task_receipts": 50,
+    "replacement_worker_initialization_checks": 82,
+    "raw_evidence_archive_sha256": "2b1ff2a7c48a339f8906f4047845d67f1e1d4db316284c2760b5ef604896c18e",
+    "target_cluster_protocol": "Prepare one local immutable plan set using the published definition, then share that exact set across all evaluated checkpoints and environment counts."
+  }
+}

@@ -4,6 +4,8 @@ from pathlib import Path
 
 
 def require_same_policy(plan,identity):
+    if plan.get('format')!='robocasa_frozen_episode_plan_v1':
+        raise ValueError('Legacy replay cannot consume a new seeded scene suite')
     source=plan['reference_result'].get('policy_server_metadata',{})
     for key in ('variant','checkpoint_sha256','config_sha256'):
         if source.get(key)!=identity[key]:

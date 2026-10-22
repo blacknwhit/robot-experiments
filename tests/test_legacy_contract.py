@@ -15,6 +15,7 @@ class LegacyContractTests(unittest.TestCase):
 
     def test_foreign_checkpoint_and_config_cannot_use_legacy_plan(self):
         ref=self.reference();identity=ref['policy_server_metadata'];plan={'reference_result':ref}
+        plan['format']='robocasa_frozen_episode_plan_v1'
         require_same_policy(plan,identity)
         for key in identity:
             changed={**identity,key:'foreign'}
