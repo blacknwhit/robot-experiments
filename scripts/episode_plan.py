@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 
 FORMAT='robocasa_frozen_episode_plan_v1'
+SEEDED_FORMAT='robocasa_seeded_episode_plan_v1'
 SET_FORMAT='robocasa_frozen_episode_plan_set_v1'
 
 def atomic_json(path,data):
@@ -32,7 +33,7 @@ def file_sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 def load_plan(path,task=None,trials=None):
     data=json.loads(Path(path).read_text(encoding='utf-8'))
-    if data.get('format')!=FORMAT or data.get('complete') is not True:raise ValueError('Incomplete/unknown episode plan')
+    if data.get('format') not in (FORMAT,SEEDED_FORMAT) or data.get('complete') is not True:raise ValueError('Incomplete/unknown episode plan')
     n=data['num_trials'];rows=data['resets']
     if type(n) is not int or n<1 or len(rows)!=n+1 or [r['episode'] for r in rows]!=list(range(n+1)):raise ValueError('Missing/duplicate plan episodes')
     if task is not None and data['env']!=task:raise ValueError('Episode plan belongs to another task')
@@ -40,7 +41,13 @@ def load_plan(path,task=None,trials=None):
     if data['seed']!=7 or data['n_action_steps']!=5 or data['env_split']!='pretrain':raise ValueError('Episode protocol changed')
     for row in rows:
         if any(len(row[k])!=64 for k in ('initial_observation_sha256','initial_state_sha256')):raise ValueError('Invalid initial-state hash')
-        if set(row['pre_reset_rng'])!={'env','numpy','python'}:raise ValueError('Missing RNG state')
+        if data['format']==FORMAT and set(row['pre_reset_rng'])!={'env','numpy','python'}:raise ValueError('Missing RNG state')
+    if data['format']==SEEDED_FORMAT:
+        if 'reference_result' in data:raise ValueError('Seeded plans must not claim policy reference results')
+        from scene_suite import validate_seeded_plan,seeded_rng
+        validate_seeded_plan(data)
+        for row in rows:row['pre_reset_rng']=seeded_rng(row['scene_seed'])
+        return data
     ref=data['reference_result']
     if ref['num_trials']!=n or len(ref['successes'])!=n or len(ref['episode_trace_sha256'])!=n:raise ValueError('Invalid reference result')
     if any(type(x) is not bool for x in ref['successes']) or sum(ref['successes'])!=ref['num_successes']:raise ValueError('Invalid reference successes')

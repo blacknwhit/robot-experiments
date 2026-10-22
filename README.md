@@ -4,7 +4,7 @@ PI0.5 / RoboCasa365 的可迁移实验代码：原始基线、最佳 Query-FIXED
 
 **完整操作文档：[新集群交接文档](HANDOFF.zh-CN.md)**。从公开数据与干净基座开始，包含环境、数据筛选、3D 标签生成、保存/恢复 smoke、70k 训练、4/2 GPU 正式评测和原始结果验收。
 
-**远端 Astra 直接跑真实测试：[执行指令](docs/ASTRA_RUN_REAL_EVAL.zh-CN.md)**。使用现有环境和待测权重，完成一次必需smoke后直接全量评测。
+**远端 Astra 新固定场景评测：[执行指令](docs/ASTRA_FIXED_SCENES.zh-CN.md)**。一次性只初始化固定2500场景，之后同集合上一卡一个task、八环境异步评测；无需先跑基线录制，旧分数单列。
 
 | 配置 | 方法 | 原实验 70k 结果，50 tasks × 50 trials |
 |---|---|---:|

@@ -185,7 +185,7 @@ def main():
                 else:
                     reference=None
                     if a.smoke:
-                        source=plan['reference_result']['policy_server_metadata']
+                        source=plan.get('reference_result',{}).get('policy_server_metadata',{})
                         if all(source.get(k)==identity[k] for k in ('variant','checkpoint_sha256','config_sha256')):
                             reference={k:plan['reference_result'][k][:trials] for k in ('successes','episode_trace_sha256')}
                         else:
