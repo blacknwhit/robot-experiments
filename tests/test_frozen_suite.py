@@ -11,13 +11,27 @@ from episode_plan import build_plan_set
 from evaluate import TASKS
 from evaluate_frozen import child_commands, validate_suite
 from episode_plan import SEEDED_FORMAT, load_plan, restore_rng, file_sha
-from scene_suite import DEFINITION, definition, seeded_rng
+from scene_suite import DEFINITION, definition, seeded_rng, chunk_ranges, validate_chunk
+import scene_suite
 from legacy_contract import require_same_policy
 import random
 import numpy as np
 
 
 class FrozenSuiteTests(unittest.TestCase):
+    def test_chunked_initialization_covers_same_51_scenes_and_rejects_bad_chunks(self):
+        task = TASKS[0];plan = self.seeded_plan(task);rows = []
+        for start, count in chunk_ranges():
+            chunk = {**plan, 'format': 'robocasa_scene_chunk_v1', 'chunk_start': start, 'chunk_count': count,
+                     'generator_sha256': file_sha(Path(scene_suite.__file__)), 'resets': plan['resets'][start:start+count]}
+            validate_chunk(chunk, task['task'], 'c'*64, start, count)
+            self.assertLessEqual(count, 8);rows.extend(chunk['resets'])
+            for mutation in (lambda c: c.update(chunk_start=99), lambda c: c['resets'].pop(),
+                             lambda c: c.update(generator_sha256='f'*64)):
+                bad = copy.deepcopy(chunk);mutation(bad)
+                with self.assertRaises(ValueError):validate_chunk(bad, task['task'], 'c'*64, start, count)
+        self.assertEqual(rows, plan['resets'])
+
     def seeded_plan(self, task):
         seeds = definition()['scene_seeds'][task['task']]
         return {'format': SEEDED_FORMAT, 'complete': True, 'env': 'robocasa/' + task['task'],

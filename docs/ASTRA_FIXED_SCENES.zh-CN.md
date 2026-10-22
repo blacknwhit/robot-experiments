@@ -32,6 +32,7 @@ PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v1"
 - 每回合重设环境PCG64、NumPy和Python随机流，下一场景不依赖上一回合动作或模型。
 - 保存初始观测（图像、语言、状态）及MuJoCo状态SHA，再封存`PLAN_SET.json`。完整检查必须显示`tasks:50`、`scored_episodes:2500`。
 - 此后所有模型与n_envs共用同一个`PLANS`。不按checkpoint重新生成，不删除失败或慢场景。生成中断可重跑上述命令，已完整且身份一致的task会复用。
+- 初始化内部采用短进程，每个进程最多8次reset，完整块写入`.chunks/`后才合并为task计划；种子和episode编号不变。保留块及退出码记录，中断后可复用完整块，不拼接不完整记录。
 - 保存集合SHA。同一比较的`episode_plan_set_sha256`必须一致；相同种子表不代表已经证明任意集群/版本逐位相同。跨集群搬运仍须通过仿真环境及实际初始化SHA校验，不能绕过。
 
 ## 3. 正式推荐设置及实现变化
