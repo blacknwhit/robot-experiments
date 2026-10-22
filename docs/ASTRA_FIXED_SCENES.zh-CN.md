@@ -30,6 +30,7 @@ PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v2"
 
 - [固定种子清单](../assets/eval_scene_seeds_v1.json)规定50个task各50个计分场景；每task额外一个reset哨兵不计分。
 - 每回合关闭旧环境并创建全新环境；构造前固定Python/NumPy种子，环境构造种子使用该回合的scene_seed。生成和评测共用同一初始化函数，避免只恢复随机数却残留前回合内部状态。新计划格式为`robocasa_seeded_episode_plan_v2`，不能复用早期未验收v1草案。
+- 新协议同时固定RoboCasa台面候选区域的去重顺序：将按XML对象身份排列的`set`去重改为保留首次出现顺序，候选集合和均匀抽样权重不变。入口只对已核验源码的`Counter.get_reset_regions`做进程内修复；不改环境安装文件，不影响其它训练或旧评测进程。源码不匹配会明确拒绝，远端不要自行猜改。
 - 保存初始观测（图像、语言、状态）及MuJoCo状态SHA，再封存`PLAN_SET.json`。完整检查必须显示`tasks:50`、`scored_episodes:2500`。
 - 此后所有模型与n_envs共用同一个`PLANS`。不按checkpoint重新生成，不删除失败或慢场景。生成中断可重跑上述命令，已完整且身份一致的task会复用。
 - 初始化内部采用短进程，每个进程最多创建8个独立场景，完整块写入`.chunks/`后才合并为task计划；种子和episode编号不变。保留块及退出码记录，中断后可复用完整块，不拼接不完整记录。

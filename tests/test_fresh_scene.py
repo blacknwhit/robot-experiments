@@ -1,8 +1,12 @@
 import json
+import hashlib
+import inspect
+import itertools
 from pathlib import Path
 import random
 import sys
 import tempfile
+import textwrap
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -16,8 +20,29 @@ import fixed_episode_sim
 SIM = 'examples.pi05_robocasa365.eval_files.simulation_env'
 ADAPTER = 'examples.pi05_robocasa365.eval_files.model2pi05_robocasa365_interface'
 
+def region_fixture(valid_geoms):
+    valid_geoms = list(set(valid_geoms))
+    return valid_geoms
+
 
 class FreshSceneTests(unittest.TestCase):
+    def test_counter_repair_preserves_candidates_and_order_and_rejects_unknown_source(self):
+        class Geom:
+            def __init__(self, identity_hash):self.identity_hash=identity_hash
+            def __hash__(self):return self.identity_hash
+        objects=[Geom(2),Geom(128),Geom(65)]
+        digest=hashlib.sha256(textwrap.dedent(inspect.getsource(region_fixture)).encode()).hexdigest()
+        repaired=fresh_scene._stable_region_method(region_fixture,digest)
+        changed=False
+        for order in itertools.permutations(objects):
+            repeated=list(order)+[order[0],order[-1]]
+            self.assertEqual(repaired(repeated),list(order))
+            self.assertEqual(set(repaired(repeated)),set(region_fixture(repeated)))
+            changed |= region_fixture(repeated)!=list(order)
+        self.assertTrue(changed)
+        with self.assertRaisesRegex(ValueError,'Unsupported'):
+            fresh_scene._stable_region_method(region_fixture,'0'*64)
+
     def test_constructor_and_reset_are_independent_of_previous_random_consumption(self):
         closed = []
         def construct(args, index):
@@ -26,7 +51,7 @@ class FreshSceneTests(unittest.TestCase):
             before = (random.random(), np.random.rand())
             return SimpleNamespace(reset=lambda: ({'before': before, 'after': (random.random(), np.random.rand())}, {}),
                                    close=lambda: closed.append(True))
-        with patch.dict(sys.modules, {SIM: SimpleNamespace(create_single_env=construct)}):
+        with patch.dict(sys.modules, {SIM: SimpleNamespace(create_single_env=construct)}), patch('fresh_scene.install_stable_regions'):
             a, obs_a, _ = fresh_scene.create_scene('robocasa/Test', 900, 12345)
             random.random(); np.random.rand(1000)
             b, obs_b, _ = fresh_scene.create_scene('robocasa/Test', 900, 12345)
@@ -38,7 +63,7 @@ class FreshSceneTests(unittest.TestCase):
         closed = []
         def reset(): raise RuntimeError('reset failed')
         with patch.dict(sys.modules, {SIM: SimpleNamespace(create_single_env=lambda *_:
-                            SimpleNamespace(reset=reset, close=lambda: closed.append(True)))}):
+                            SimpleNamespace(reset=reset, close=lambda: closed.append(True)))}), patch('fresh_scene.install_stable_regions'):
             with self.assertRaisesRegex(RuntimeError, 'reset failed'):
                 fresh_scene.create_scene('robocasa/Test', 900, 1)
         self.assertEqual(closed, [True])
