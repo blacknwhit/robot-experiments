@@ -30,6 +30,14 @@ def simulator_environment(variant,egl_device,preload=None):
                PYTHONHASHSEED='7',PYTHONFAULTHANDLER='1')
     return env
 
+def check_port_available(port):
+    with socket.socket() as probe:
+        # Match asyncio's POSIX server reuse policy: TIME_WAIT after a finished
+        # evaluation is not a live listener. Never enable SO_REUSEPORT.
+        option=getattr(socket,'SO_EXCLUSIVEADDRUSE',socket.SO_REUSEADDR)
+        probe.setsockopt(socket.SOL_SOCKET,option,1)
+        probe.bind(('127.0.0.1',port))
+
 def validate_result(path,task,trials,checkpoint,identity=None):
     d=json.loads(Path(path).read_text());success=d['successes'];traces=d['episode_trace_sha256']
     expected={'env':'robocasa/'+task['task'],'env_split':'pretrain','robocasa_version':'1.0.0','profile':'published_v1_0_0',
@@ -55,7 +63,7 @@ def execute_slot(a,task,gpu,slot,identity,egl_device=None):
         if not receipt.exists() or json.loads(receipt.read_text())!=identity:raise ValueError('Existing result belongs to another checkpoint/protocol')
         return validate_result(result,task,trials,a.checkpoint,identity)
     port=a.port_base+(a.part-1)*4+slot
-    with socket.socket() as probe:probe.bind(('127.0.0.1',port))
+    check_port_available(port)
     env=environment(a.variant);env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONHASHSEED='7',OPENPI_DATA_HOME=str(a.home/'cache/openpi'))
     cmd=[sys.executable,str(ROOT/'scripts/server.py'),'--variant',a.variant,'--config',str(a.config),'--checkpoint',str(a.checkpoint),'--port',str(port)]
     with (out/(task['task']+'.server.log')).open('w') as log:
