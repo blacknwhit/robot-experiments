@@ -80,6 +80,8 @@ COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
 
 `--smoke`保留为开发者显式选择的诊断工具，不属于普通正式评测的必经步骤。历史`legacy`入口的原有验收规则保持不变。
 
+这次直接正式入口已在H100上以`n_envs=6`完成CloseBlenderLid全部50回合、9000次策略请求，运行前后均无smoke标记；50个初始化哈希全部匹配，前8回合的输入/执行动作轨迹及成功数组与既有n_envs=1/8参考完全相同。46项Linux检查通过。详见[直接正式入口验收](../provenance/DIRECT_EVALUATION_VALIDATION.json)。这是实现的一次验收，远端普通换权重或调环境数不用重复这套诊断。
+
 ### 调整n_envs
 
 可以设置3、6、12、16等1–50内的整数，不要求是2的幂，也不要求整除50。所有设置都恰好评测同一个task的episode0–49；worker编号不改变场景种子或策略请求种子，最终按episode编号汇总。修改`COMMON`中的`--n-envs`并使用新`OUT`即可，不重新准备场景、不新增完整smoke。
