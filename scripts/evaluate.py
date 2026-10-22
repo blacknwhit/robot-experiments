@@ -19,6 +19,17 @@ def gpu_assignments(gpu_ids,egl_device_ids=None):
     if len(set(egl))!=len(egl):raise ValueError('Each task needs a distinct EGL device')
     return gpus,egl
 
+def simulator_environment(variant,egl_device,preload=None):
+    env=environment(variant,shim=False,overlay=False)
+    env['PYTHONPATH']=str(runtime(variant))
+    # Policy-only preloads (for example NCCL) must not leak into MuJoCo.
+    env.pop('LD_PRELOAD',None)
+    if preload is not None:env['LD_PRELOAD']=str(preload)
+    env.pop('CUDA_VISIBLE_DEVICES',None)
+    env.update(MUJOCO_GL='egl',PYOPENGL_PLATFORM='egl',MUJOCO_EGL_DEVICE_ID=str(egl_device),
+               PYTHONHASHSEED='7',PYTHONFAULTHANDLER='1')
+    return env
+
 def validate_result(path,task,trials,checkpoint,identity=None):
     d=json.loads(Path(path).read_text());success=d['successes'];traces=d['episode_trace_sha256']
     expected={'env':'robocasa/'+task['task'],'env_split':'pretrain','robocasa_version':'1.0.0','profile':'published_v1_0_0',
@@ -64,19 +75,14 @@ def execute_slot(a,task,gpu,slot,identity,egl_device=None):
             client.close()
             for k in ('variant','checkpoint_sha256','config_sha256'):
                 if metadata.get(k)!=identity[k]:raise ValueError('Connected to a foreign policy server: '+k)
-            simenv=environment(a.variant,shim=False,overlay=False)
-            # The simulator gets only the lightweight client/wrappers, never policy Python dependencies.
-            simenv['PYTHONPATH']=str(r)
-            # EGL enumerates devices independently of CUDA_VISIBLE_DEVICES.
-            # Keep the server's CUDA mask, but bind the simulator by EGL index.
-            simenv.pop('CUDA_VISIBLE_DEVICES',None)
-            simenv.update(MUJOCO_GL='egl',PYOPENGL_PLATFORM='egl',MUJOCO_EGL_DEVICE_ID=str(egl_device),PYTHONHASHSEED='7')
+            simenv=simulator_environment(a.variant,egl_device,getattr(a,'sim_ld_preload',None))
             print(f"[evaluation-slot] task={task['task']} policy_cuda={gpu} simulator_egl={egl_device} cpu_threads=OMP:4,MKL:4,OPENBLAS:1",flush=True)
             cmd=[str(a.sim_python),'-m','examples.pi05_robocasa365.eval_files.simulation_env','--port',str(port),
                 '--env-name','robocasa/'+task['task'],'--env-split','pretrain','--num-trials',str(trials),'--n-envs','1',
                 '--max-episode-steps',str(task['horizon']),'--n-action-steps','5','--seed','7','--checkpoint',str(a.checkpoint),
                 '--profile','published_v1_0_0','--protocol-comparable','0','--horizon-multiplier','1.5','--strict-determinism','1',
                 '--trace-determinism','1','--renderer-backend','egl','--result-out-path',str(result)]
+            cmd+=['--ld-preload',simenv.get('LD_PRELOAD','')]
             with (out/(task['task']+'.sim.log')).open('w') as f:subprocess.run(cmd,env=simenv,stdout=f,stderr=subprocess.STDOUT,check=True)
             data=validate_result(result,task,trials,a.checkpoint,identity);receipt.write_text(json.dumps(identity,indent=2));return data
         finally:
@@ -89,8 +95,11 @@ def main():
     for key in ['config','checkpoint','sim-python','output']:p.add_argument('--'+key,type=Path,required=True)
     p.add_argument('--part',type=int,default=1);p.add_argument('--gpu-ids',default='0,1,2,3');p.add_argument('--port-base',type=int,default=10090)
     p.add_argument('--egl-device-ids',help='Comma-separated EGL indices paired with --gpu-ids; default assumes matching CUDA/EGL enumeration')
+    p.add_argument('--sim-ld-preload',type=Path,help='Optional simulator-only ABI library; never inherited from the policy environment')
     p.add_argument('--smoke',action='store_true');p.add_argument('--summarize',action='store_true');p.add_argument('--dry-run',action='store_true');a=p.parse_args()
     for k in ['home','config','checkpoint','sim_python','output']:setattr(a,k,getattr(a,k).resolve())
+    if a.sim_ld_preload is not None:
+        a.sim_ld_preload=a.sim_ld_preload.resolve(strict=True)
     tasks=tasks_for_part(a.part);gpus,egl_devices=gpu_assignments(a.gpu_ids,a.egl_device_ids)
     if (not a.smoke and len(gpus)!=len(tasks)) or (a.smoke and len(gpus) not in (1,len(tasks))) or len(set(gpus))!=len(gpus):raise ValueError('One distinct GPU per task: 4 GPUs for1..12,2 for13; smoke also accepts one GPU')
     if a.smoke:tasks=tasks[:1];gpus=gpus[:1];egl_devices=egl_devices[:1]
@@ -100,7 +109,9 @@ def main():
     if cfg['portable']['variant']!=a.variant:raise ValueError('Config variant mismatch')
     identity={'variant':a.variant,'checkpoint_sha256':sha256(a.checkpoint),'config_sha256':sha256(a.config),
               'source_manifest_sha256':sha256(ROOT/'provenance/source_files.sha256'),'protocol':'published_v1_0_0_strict_seed7_50x50',
-              'sim_freeze_sha256':sha256(a.home/'receipts/sim.freeze.txt')}
+              'sim_freeze_sha256':sha256(a.home/'receipts/sim.freeze.txt'),
+              'evaluation_entry_sha256':sha256(__file__),
+              'simulator_launch':{'python':str(a.sim_python),'preload':str(a.sim_ld_preload) if a.sim_ld_preload else None}}
     gate=a.output/'SMOKE_ACCEPTED.json'
     if a.summarize:
         results=[];traces=[]

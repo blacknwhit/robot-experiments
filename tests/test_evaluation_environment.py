@@ -29,6 +29,18 @@ def child_environment(env):
 
 
 class EvaluationEnvironmentTests(unittest.TestCase):
+    def test_simulator_preload_is_explicit_and_does_not_mutate_policy(self):
+        with patch.dict(os.environ,{'LD_PRELOAD':'/policy/nccl.so','CUDA_VISIBLE_DEVICES':'3'}):
+            clean=evaluate.simulator_environment('embedding3d_pos_a','2')
+            pinned=evaluate.simulator_environment('embedding3d_pos_a','2',Path('/sim/libffi.so'))
+            self.assertNotIn('LD_PRELOAD',clean)
+            self.assertEqual(pinned['LD_PRELOAD'],str(Path('/sim/libffi.so')))
+            self.assertEqual(pinned['PYTHONFAULTHANDLER'],'1')
+            self.assertNotIn('CUDA_VISIBLE_DEVICES',pinned)
+            self.assertEqual(pinned['MUJOCO_EGL_DEVICE_ID'],'2')
+            self.assertNotIn('server_compat',pinned['PYTHONPATH'])
+            self.assertEqual(os.environ['LD_PRELOAD'],'/policy/nccl.so')
+
     def test_explicit_mapping_and_invalid_assignments(self):
         self.assertEqual(evaluate.gpu_assignments('2, 5'),(['2','5'],['2','5']))
         self.assertEqual(evaluate.gpu_assignments('GPU-a,GPU-b','3,1'),(['GPU-a','GPU-b'],['3','1']))
