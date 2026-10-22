@@ -103,16 +103,21 @@ def replay_worker(slot,ids,plan_path,plan_sha,output,host,port,barrier):
         finally:
             if env is not None:env.close()
 
+def episode_partitions(trials,n_envs):
+    if type(n_envs) is not int or not 1<=n_envs<=min(50,trials):
+        raise ValueError('n-envs must be 1..min(50,trials)')
+    return [list(range(slot,trials,n_envs)) for slot in range(n_envs)]
+
 def replay(a):
     plan_sha=file_sha(a.plan)
     plan=load_plan(a.plan,a.task,a.trials)
     if file_sha(a.plan)!=plan_sha:raise ValueError('Plan changed during startup')
-    if not 1<=a.n_envs<=min(8,a.trials):raise ValueError('n-envs must be 1..min(8,trials)')
+    partitions=episode_partitions(a.trials,a.n_envs)
     a.output.mkdir(parents=True,exist_ok=False)
     ctx=mp.get_context('spawn');barrier=ctx.Barrier(a.n_envs) if a.barrier else None;children=[];started=time.time()
     try:
-        for slot in range(a.n_envs):
-            child=ctx.Process(target=replay_worker,args=(slot,list(range(slot,a.trials,a.n_envs)),a.plan,plan_sha,a.output,a.host,a.port,barrier));child.start();children.append(child)
+        for slot,ids in enumerate(partitions):
+            child=ctx.Process(target=replay_worker,args=(slot,ids,a.plan,plan_sha,a.output,a.host,a.port,barrier));child.start();children.append(child)
         deadline=time.monotonic()+a.timeout
         while any(p.is_alive() for p in children):
             if any(p.exitcode not in (None,0) for p in children):raise RuntimeError('Simulation worker failed; inspect worker error evidence')

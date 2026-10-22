@@ -45,7 +45,7 @@ PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v2"
 | 项目 | 设置 |
 |---|---|
 | 每张卡 | 一个task、一份模型 |
-| 同task环境数 | `--n-envs 8` |
+| 同task环境数 | 默认`--n-envs 8`；允许1–50的整数 |
 | 推理后端 | 自动使用`cuda-graph-pipeline`，原生batch=1 |
 | 执行方式 | 8个独立模拟器异步供给；CPU预处理与GPU推理重叠 |
 | OMP/MKL/OpenBLAS | 策略4/4/1，每个模拟器4/4/1，由入口设置 |
@@ -57,7 +57,7 @@ PLANS="$HOME_DIR/evaluation-scenes/fixed2500-v2"
 
 不要直接把旧`evaluate.py`的n_envs调大来代替本入口，不要叠加`--tasks-per-gpu`或`--rgb-last-frame`。此路径保留完整渲染，提速来源是并行供给和流水线。
 
-## 4. 每套权重一次smoke
+## 4. 选择权重，直接开始正式评测
 
 使用实际配置及权重路径。PI0.5选`baseline`，FIXED选`query_fixed`，配置中的`portable.variant`须对应；不同权重、配置或n_envs用不同`OUT`。
 
@@ -70,13 +70,23 @@ COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
   --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" --output "$OUT" \
   --plan-dir "$PLANS" --n-envs 8)
 
-"$POLICY_PY" scripts/evaluate_frozen.py "${COMMON[@]}" \
-  --smoke --gpu-ids 0 --egl-device-ids 0 --port-base 19090
 ```
 
-入口先用当前模型单环境运行同8场景，再八环境运行，比较初始化、完整输入/执行动作轨迹和成功数组；每次请求还比较完整50步动作与eager输出，要求数值完全相等。不同模型之间不要求动作相同。
+配置好上述变量后，直接执行下一节的正式分片命令。**不需要先跑`--smoke`，也不要求`SMOKE_ACCEPTED.json`。** 同一套固定场景可用于不同权重，准备好的`PLANS`保持不变。
 
-生成匹配身份的`SMOKE_ACCEPTED.json`后即可开始全量；不需要50个task分别smoke。更换权重、配置、n_envs、场景集合、源码、解释器或依赖环境，须新输出目录及新smoke。smoke不计入正式成绩。任何校验错误都保留日志并报告，不绕过门槛。
+每个策略进程仍自动严格加载完整模型，在首个真实请求比较原生与加速推理的完整动作；每次检查动作形状及有限值，每回合核对固定场景哈希。首请求对照使用正式请求的输入，不额外跑一批场景。任何检查失败都停止并保留证据。
+
+输出目录通过`EVALUATION_IDENTITY.json`及锁绑定模型、权重、配置、源码、模拟器、场景集合和`n_envs`，并发分片必须一致。换权重、配置、源码、依赖或`n_envs`时使用新的`OUT`；场景环境未变时继续共用原`PLANS`。不同模型之间不要求动作相同。
+
+`--smoke`保留为开发者显式选择的诊断工具，不属于普通正式评测的必经步骤。历史`legacy`入口的原有验收规则保持不变。
+
+这次直接正式入口已在H100上以`n_envs=6`完成CloseBlenderLid全部50回合、9000次策略请求，运行前后均无smoke标记；50个初始化哈希全部匹配，前8回合的输入/执行动作轨迹及成功数组与既有n_envs=1/8参考完全相同。46项Linux检查通过。详见[直接正式入口验收](../provenance/DIRECT_EVALUATION_VALIDATION.json)。这是实现的一次验收，远端普通换权重或调环境数不用重复这套诊断。
+
+### 调整n_envs
+
+可以设置3、6、12、16等1–50内的整数，不要求是2的幂，也不要求整除50。所有设置都恰好评测同一个task的episode0–49；worker编号不改变场景种子或策略请求种子，最终按episode编号汇总。修改`COMMON`中的`--n-envs`并使用新`OUT`即可，不重新准备场景、不新增完整smoke。
+
+默认8是已有实测起点。更大并发会增加CPU、内存、显存及渲染竞争，未必更快；策略仍是一份模型、原生batch1，现有16个在途请求上限保持，更多环境会排队。1–50是接口允许范围，不表示每种硬件都能承载50个环境。
 
 ## 5. 全量：12个四卡分片＋1个两卡分片
 
@@ -103,7 +113,7 @@ PART=1
   --gpu-id 0 --egl-device-id 0 --port 19090
 ```
 
-替换为其余49个task。此命令使用同一`OUT`中已通过的smoke门槛；物理worker按固定episode编号分配，完成顺序不影响内容及统计。
+替换为其余49个task。此命令直接开始正式评测；物理worker按固定episode编号分配，完成顺序不影响内容及统计。
 
 ## 6. 汇总及实际利用率
 
@@ -134,4 +144,4 @@ nvidia-smi --id "$ALLOCATED_GPU_UUIDS" --query-gpu=timestamp,uuid,utilization.gp
 八环境峰值显存22464MiB。上表来自同一已加载服务的有界闭环测试，模型加载另计；完整证据摘要见[验证记录](../provenance/FIXED_SCENE_VALIDATION.json)。**84–89%指这组场景的rollout均值，不是全50task、所有模型、含模型加载整项作业或连续3小时的保证。** 不用smoke时额外执行的eager计算冒充正式利用率。共享存储较慢时，可先将完全相同的权重和资产校验后缓存到节点本地SSD，减少加载期间空等。
 
 
-CPU或显存不足可降到n_envs=4，保持`PLANS`、换新`OUT`并重新smoke。不要降低精度、减少去噪、缩短回合或重复无用推理来抬高利用率。
+CPU或显存不足可降到n_envs=4，保持`PLANS`并换新`OUT`直接运行。不要降低精度、减少去噪、缩短回合或重复无用推理来抬高利用率。

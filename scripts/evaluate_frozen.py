@@ -85,7 +85,7 @@ def main():
     modes.add_argument('--smoke', action='store_true')
     modes.add_argument('--summarize', action='store_true')
     modes.add_argument('--part', type=int, choices=range(1, 14))
-    p.add_argument('--n-envs', type=int, choices=(1, 2, 4, 8), default=8)
+    p.add_argument('--n-envs', type=int, choices=range(1, 51), default=8)
     p.add_argument('--gpu-ids', default='0,1,2,3')
     p.add_argument('--egl-device-ids')
     p.add_argument('--port-base', type=int, default=19090)

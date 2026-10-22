@@ -1,12 +1,63 @@
 import ast,concurrent.futures,copy,json,random,socket,sys,tempfile,threading,time,unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'scripts'))
 from episode_plan import rng_snapshot,restore_rng,load_plan,build_plan_set,load_plan_set
 from evaluate_task import validate_fixed,check_port_available
+import evaluate_task
+from fixed_episode_sim import episode_partitions
 
 class FixedEpisodeTests(unittest.TestCase):
+    def test_every_environment_count_preserves_all_50_episode_ids(self):
+        for count in range(1,51):
+            groups=episode_partitions(50,count)
+            self.assertEqual(len(groups),count)
+            self.assertEqual(sorted(i for group in groups for i in group),list(range(50)))
+            self.assertTrue(all(groups))
+            self.assertLessEqual(max(map(len,groups))-min(map(len,groups)),1)
+        for count in (0,51,-1,True):
+            with self.assertRaises(ValueError):episode_partitions(50,count)
+        with self.assertRaises(ValueError):episode_partitions(2,3)
+
+    @unittest.skipUnless(sys.platform.startswith('linux'),'Real output and per-task flock')
+    def test_direct_formal_launch_without_smoke_keeps_identity_and_plan_guards(self):
+        import hashlib
+        class ReachedPolicy(Exception):pass
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);home=root/'home';(home/'receipts').mkdir(parents=True)
+            freeze=home/'receipts/sim.freeze.txt';freeze.write_text('test-runtime\n')
+            config=root/'config.yaml';config.write_text('portable:\n  variant: baseline\n')
+            checkpoint=root/'weights';checkpoint.write_bytes(b'checkpoint-one')
+            plans=root/'plans';plans.mkdir()
+            plan=json.loads((ROOT/'provenance/fixed_scene_reference_v2/CloseBlenderLid.json').read_text())
+            plan['sim_freeze_sha256']=hashlib.sha256(freeze.read_bytes()).hexdigest()
+            plan_path=plans/'CloseBlenderLid.json';plan_path.write_text(json.dumps(plan));build_plan_set(plans)
+            base=['evaluate_task.py','--variant','baseline','--home',str(home),'--config',str(config),
+                  '--checkpoint',str(checkpoint),'--sim-python',sys.executable,'--task','CloseBlenderLid',
+                  '--scene-protocol','shared-scenes','--plan-dir',str(plans)]
+            for count in (3,6,12,50):
+                out=root/f'n{count}';args=base+['--output',str(out),'--n-envs',str(count)]
+                with patch.object(sys,'argv',args),patch.object(evaluate_task,'activate',side_effect=ReachedPolicy):
+                    with self.assertRaises(ReachedPolicy):evaluate_task.main()
+                self.assertFalse((out/'SMOKE_ACCEPTED.json').exists())
+                self.assertEqual(json.loads((out/'EVALUATION_IDENTITY.json').read_text())['n_envs'],count)
+            checkpoint.write_bytes(b'checkpoint-two')
+            args=base+['--output',str(root/'n6'),'--n-envs','6']
+            with patch.object(sys,'argv',args),patch.object(evaluate_task,'activate') as launch:
+                with self.assertRaisesRegex(ValueError,'Output identity differs'):evaluate_task.main()
+                launch.assert_not_called()
+            checkpoint.write_bytes(b'checkpoint-one')
+            plan['resets'][0]['initial_state_sha256']='0'*64;plan_path.write_text(json.dumps(plan))
+            with patch.object(sys,'argv',args),patch.object(evaluate_task,'activate') as launch:
+                with self.assertRaisesRegex(ValueError,'file changed'):evaluate_task.main()
+                launch.assert_not_called()
+            legacy=[x for x in base[:base.index('--scene-protocol')]]+['--output',str(root/'legacy')]
+            with patch.object(sys,'argv',legacy),patch.object(evaluate_task,'activate') as launch:
+                with self.assertRaisesRegex(ValueError,'matching task --smoke'):evaluate_task.main()
+                launch.assert_not_called()
+
     @unittest.skipUnless(sys.platform.startswith('linux'),'Linux deployment socket semantics')
     def test_reuses_time_wait_but_rejects_live_listener(self):
         with socket.socket() as listener:
