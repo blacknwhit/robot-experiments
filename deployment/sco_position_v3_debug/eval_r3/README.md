@@ -32,3 +32,14 @@ its failure is preserved independently of the new evaluator's required gate. It
 does not start a 70k experiment. Both eval outputs live in `home/evaluation_r3`.
 Known application errors still write `HOLD_FOR_MAIN.json`; do not automatically
 delete the hold or introduce a second recovery owner.
+
+2026-10-22 validation: all 22 local tests pass. On fslgpu H100, the final
+overlay completed two full episodes, 1800 environment steps and 360 policy
+calls. The actual EGL UUID matched the H100; three 256x256 RGB views were
+valid. Both episode trace hashes and raw Boolean outcomes matched the
+unmodified entry exactly. This establishes the bounded evaluator contract,
+not a benchmark result or the root cause of the old SIGABRT. The immutable
+965-file training payload and the separate 8-file eval manifest were verified.
+The resumed 2-H100 ACP job is `pt-gnvm1t6r`, native monitor
+`98e047be-fde0-4e28-b6ac-6582308b7005` at ten-minute intervals. Its first
+worker was Pending at 20:33 Beijing; ACP replay and B1500 remain outstanding.
