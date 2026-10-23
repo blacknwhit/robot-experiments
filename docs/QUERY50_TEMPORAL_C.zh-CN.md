@@ -28,7 +28,7 @@ framework.pi05.point_track.version: pri4r_query_zt_v1
 
 ## 训练和评测入口
 
-环境、下载、GT只需沿用[完整交接](POSITION_V3_HANDOFF.zh-CN.md)。生成C配置示例（只生成配置，不自动训练）：
+实际执行请使用[统一A/B/C交接手册](POSITION_V3_HANDOFF.zh-CN.md)：先生成并核验共用GT，再生成三份独立70k配置，最后按A/B/C×13分片评测并汇总。该手册已给出C的完整命令和权重路径，不需要自行从A/B推导。本页仅保留C结构解释。下面是可选的C短训配置示例（只生成配置，不自动训练）：
 
 ```bash
 V=query3d_temporal_c
