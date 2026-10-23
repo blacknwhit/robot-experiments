@@ -4,6 +4,7 @@ import argparse, copy, json, os
 from pathlib import Path
 import yaml
 from common import activate, is_point_variant, POSITION_VARIANTS
+from release_contract import verify_release
 
 def canonical(c):
     c=copy.deepcopy(c)
@@ -13,8 +14,10 @@ def canonical(c):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');a=p.parse_args()
-    c=yaml.safe_load(a.config.read_text());v=c['portable']['variant'];activate(v)
+    c=yaml.safe_load(a.config.read_text());verify_release(c)
+    v=c['portable']['variant'];activate(v)
     if v in POSITION_VARIANTS:
+        os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
         modes = [bool(c['portable'].get(k)) for k in ('smoke','engineering','formal')]
         limit = 10 if modes[0] else (1500 if modes[1] else 70000)
         if sum(modes) != 1 or not 1 <= c['trainer']['stop_after_steps'] <= limit:

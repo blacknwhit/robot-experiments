@@ -95,7 +95,16 @@ V=embedding3d_pos_a  # B替换为embedding3d_temporal_b
 
 检查实际GPU型号、两rank NCCL、steps1/2完整保存、新进程恢复后step3；每rank FP32主权重/Adam/BF16/RNG审计、有限loss/gradient、共享VLM/Embedding各层/点头（B还含时间块）更新。仅import通过不算GPU通过。完整checkpoint需要模型、两rank Adam/RNG、scheduler/data clocks、trajectory contract及`PORTABLE_COMPLETE.json`；残缺的新checkpoint跳过，没有完整状态则报错。
 
-动作推理探针的参数见`"$PY" scripts/point_inference_probe.py --help`；它验证完整权重严格加载、无3D输入及joint/cache一致性。下面高效闭环入口另会严格加载所有模型key并禁止点头执行。
+训练smoke自动保存`engineering_sample.pt`，用自己的该样本运行：
+
+```bash
+RUN="$H/smoke_runs/${V}-smoke"
+"$PY" scripts/point_inference_probe.py --config "resolved/${V}-smoke3.yaml" \
+  --checkpoint "$RUN/checkpoints/steps_3_model.safetensors" \
+  --sample "$RUN/engineering_sample.pt" --output "$RUN/action_probe.json"
+```
+
+它验证完整权重严格加载、无3D输入及joint/cache一致性。下面高效闭环入口另会严格加载所有模型key并禁止点头执行。
 
 ## 5. 短训与显式70k配置
 
@@ -120,7 +129,7 @@ V=embedding3d_pos_a  # B单独配置、独立run-id/作业
 "$PY" scripts/train_or_resume.py --config "resolved/${V}-70k.yaml"
 ```
 
-没有`--formal`不会把v3默认带入长训。`train_or_resume.py`首次新run启动base，run一旦存在就要求完整恢复；不创建重试循环、没有“恢复失败重新base”的兜底。恢复只能用相同world、相同代码/recipe，且持有唯一writer锁。SCO任务仍启用native autoRetrain=true、10分钟；其他调度器配置唯一重试owner。不要同时运行两个恢复管理器。
+没有`--formal`不会把v3默认带入长训。`train_or_resume.py`首次新run启动base，run一旦存在就要求完整恢复；不创建重试循环、没有“恢复失败重新base”的兜底。恢复只能用相同world、相同代码/recipe，且持有唯一writer锁。每次启动先比对配置中的release SHA与当前manifest，再逐文件校验实际源码；更新代码后不能继续拿旧resolved配置冒充旧release。A/B训练子进程在导入Torch前固定`CUBLAS_WORKSPACE_CONFIG=:4096:8`，不依赖旧SCO bootstrap。SCO任务仍启用native autoRetrain=true、10分钟；其他调度器配置唯一重试owner。不要同时运行两个恢复管理器。
 
 冻结候选：seed42、G8 ordered_random、global64/acc1、AdamW β0.9/0.95、eps1e-8、weight_decay1e-10、clip1、LR峰值2.5e-5/最低2.5e-6、warmup1000、scheduler时域100000，70k只是停止点。总loss为`action + ramp×(position + difference)`，辅助目标权重1.0、差分系数1.0、ramp前1000update线性升至1。这是当前工程候选，**没有证明该辅助量级最优**。首次update1额外完整保存，以后每1000和最终stop保存。
 
@@ -173,3 +182,5 @@ PART=1
 原SCO ACP曾发生NVIDIA EGL内部SIGABRT；容器capabilities=all也不能证明此问题已消失。fslgpu通过只对实测组合有效。新集群若出现原生崩溃、初始化SHA不一致或动作对照失败，保存任务身份/环境/栈并回交主对话，不自行修模型、改成功条件或删坏场景。
 
 GitHub不含数据、GT大数组、权重和原训练完整状态。代码整理与有界GPU验收不等于在新集群从下载开始重跑全部数据和70k实验，也不等于方法性能提升。
+
+`deployment/sco_position_v3_debug/`保留旧集群排障取证，不是新集群启动入口；新集群只使用本页的scripts/configs。

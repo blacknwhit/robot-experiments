@@ -2,13 +2,20 @@
 import argparse, json, os, subprocess, sys
 from pathlib import Path
 import yaml
-from common import ROOT, environment, runtime
+from common import ROOT, environment, runtime, POSITION_VARIANTS
+from release_contract import verify_release
+
+def training_environment(config):
+    variant=config['portable']['variant'];env=environment(variant)
+    if variant in POSITION_VARIANTS:env['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
+    env['OPENPI_DATA_HOME']=str(Path(config['run_root_dir']).parent/'cache/openpi')
+    return env
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');p.add_argument('--dry-run',action='store_true')
     a=p.parse_args();c=yaml.safe_load(a.config.read_text());v=c['portable']['variant'];n=c['portable']['world_size']
-    run=Path(c['run_root_dir'])/c['run_id'];env=environment(v)
-    env['OPENPI_DATA_HOME']=str(Path(c['run_root_dir']).parent/'cache/openpi')
+    verify_release(c)
+    run=Path(c['run_root_dir'])/c['run_id'];env=training_environment(c)
     ds={'fp16':{'enabled':False},'bf16':{'enabled':True},'train_micro_batch_size_per_gpu':64//n,'train_batch_size':64,
         'gradient_accumulation_steps':1,'zero_optimization':{'stage':2,'allgather_partitions':True,'allgather_bucket_size':500000000,
         'reduce_scatter':True,'reduce_bucket_size':500000000,'overlap_comm':True,'contiguous_gradients':True,'cpu_offload':False},'gradient_clipping':1.0,'steps_per_print':10}

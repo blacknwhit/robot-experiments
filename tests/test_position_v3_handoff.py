@@ -1,9 +1,12 @@
 import copy
 import json
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+import os
+from unittest.mock import patch
 
 import yaml
 
@@ -12,9 +15,31 @@ from common import POSITION_VARIANTS
 from configure import render
 from checkpoint import choose_latest
 from train_or_resume import command
+from release_contract import verify_release
+from train import training_environment
 
 
 class PositionHandoffTests(unittest.TestCase):
+    def test_training_launch_does_not_depend_on_inherited_cublas_configuration(self):
+        for variant in POSITION_VARIANTS:
+            cfg=render(variant,'/tmp/position','short',2,stop=1500,engineering=True)
+            with patch.dict(os.environ,{'CUBLAS_WORKSPACE_CONFIG':'invalid'},clear=False):
+                self.assertEqual(training_environment(cfg)['CUBLAS_WORKSPACE_CONFIG'],':4096:8')
+
+    def test_current_source_and_recipe_must_both_match_before_resume(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'provenance').mkdir()
+            code=root/'source.py';code.write_bytes(b'x = 1\n')
+            manifest=root/'provenance/source_files.sha256'
+            manifest.write_text(hashlib.sha256(code.read_bytes()).hexdigest()+'  source.py\n')
+            cfg={'trajectory_release_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()}
+            self.assertEqual(verify_release(cfg,root),1)
+            code.write_bytes(b'x = 2\n')
+            with self.assertRaisesRegex(ValueError,'source changed'):verify_release(cfg,root)
+            code.write_bytes(b'x = 1\n')
+            cfg['trajectory_release_sha256']='0'*64
+            with self.assertRaisesRegex(ValueError,'another code release'):verify_release(cfg,root)
+
     def test_formal_is_explicit_and_keeps_scientific_recipe(self):
         for variant in POSITION_VARIANTS:
             with self.assertRaises(ValueError):
