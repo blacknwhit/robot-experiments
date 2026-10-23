@@ -1,12 +1,14 @@
-# 新集群交接：PI0.5、最佳 Query-FIXED、3D trajectory v2/v3
+# 公共历史部署参考：PI0.5、Query-FIXED、3D trajectory v2
 
-**最新A/B/C三组请从[统一完整交接](docs/POSITION_V3_HANDOFF.zh-CN.md)开始：先生成一套GT，再独立训练三组，最后共享固定场景测试。** 该手册已列出三组配置、70k权重、续训和4卡/2卡评测分片命令。本页保留数据/环境来源及历史四版配置，不用历史命令替代三组v3入口。
+**先从[EXPERIMENTS.md全局实验总览](EXPERIMENTS.md)选择实验。** [EXP-001 PI0.5](experiments/exp001_pi05_baseline/README.zh-CN.md)、[EXP-002 FIXED](experiments/exp002_query_fixed/README.zh-CN.md)和[EXP-003轨迹v2](experiments/exp003_trajectory_v2/README.zh-CN.md)各有独立记录。本页保留它们共同使用的数据来源、从零安装和历史执行参考，不并入本轮新实验。
+
+**本轮A/B/C属于独立[EXP-004](experiments/exp004_trajectory_v3_abc/README.zh-CN.md)**，其手册默认复用已有资源，并使用独立输出根。已有正确数据和环境无需重新下载/安装；本页从零准备命令只在缺少对应资源时执行。
 
 本手册针对 Linux + NVIDIA CUDA 集群。所有命令从仓库根目录执行，除非明确说明。调度器可以是 Slurm、Kubernetes 或其它系统；代码不依赖原 SCO 平台、原登录主机或旧目录。当前包没有为目标集群提交训练或评测任务。
 
 ## 1. 必须先理解的复现边界
 
-历史部分包含四个入口、三套独立模型源码；新增v3 A/B/C为另外三个入口，共用第四套独立runtime。`baseline` 的历史源码与审计快照匹配；`query_fixed` 使用可核对的完整历史树重构，原训练主仓 commit 未能从本地归档恢复，但主要源码和正式评测源文件有逐项哈希证据；3D v2 使用实际部署的模型、数据 reader、loss 和 trainer。
+本页历史部分包含四个入口、三套独立模型源码。`baseline` 的历史源码与审计快照匹配；`query_fixed` 使用可核对的完整历史树重构，原训练主仓 commit 未能从本地归档恢复，但主要源码和正式评测源文件有逐项哈希证据；3D v2 使用实际部署的模型、数据 reader、loss 和 trainer。EXP-004另用trajectory_v3，在自己的目录管理。
 
 本次新增的是路径配置、安装/下载、同卡数恢复选择和验收、启动锁以及可移植评测包装。未改科学目标、模型结构、Adam/LR 或训练样本筛选。完整列表见 `provenance/PORTABILITY.md`。新包已做的本机检查见 `provenance/VALIDATION.json`；**本机 CPU 检查不代表新集群的 GPU、NCCL、EGL、训练恢复或 benchmark 已验收**。必须执行下方 smoke。
 

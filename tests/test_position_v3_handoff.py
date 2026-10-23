@@ -20,6 +20,61 @@ from train import training_environment
 
 
 class PositionHandoffTests(unittest.TestCase):
+    def test_isolated_outputs_reuse_resources_and_keep_scientific_recipe(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home, output = Path(folder) / 'existing-resources', Path(folder) / 'new-abc'
+            gt = home / 'data/gt_armobj_full_v1'
+            gt.mkdir(parents=True)
+            sampling = gt / 'sampling_config.json'
+            sampling.write_text(json.dumps({'asset_root': str(home), 'seed': 42}))
+            before = sampling.read_bytes()
+            roots = []
+            for variant in POSITION_VARIANTS:
+                for mode, subdir, stop in [('smoke', 'smoke_runs', 2),
+                                            ('engineering', 'engineering_runs', 1500),
+                                            ('formal', 'runs', 70000)]:
+                    base = render(variant, home, variant, 2, stop=stop, **{mode: True})
+                    isolated = render(variant, home, variant, 2, stop=stop,
+                                      experiment_root=output, **{mode: True})
+                    self.assertEqual(Path(isolated['run_root_dir']), output / subdir)
+                    self.assertEqual(isolated['framework'], base['framework'])
+                    self.assertEqual(isolated['datasets'], base['datasets'])
+                    self.assertEqual(isolated['trainer'], base['trainer'])
+                    self.assertEqual(training_environment(isolated)['OPENPI_DATA_HOME'],
+                                     str(home / 'cache/openpi'))
+                    normalized = copy.deepcopy(isolated)
+                    normalized['run_root_dir'] = base['run_root_dir']
+                    normalized['portable'].pop('resource_home')
+                    normalized['portable'].pop('experiment_root')
+                    self.assertEqual(normalized, base)
+                    roots.append(str(Path(isolated['run_root_dir']) / isolated['run_id']))
+            self.assertEqual(len(roots), len(set(roots)))
+            self.assertEqual(sampling.read_bytes(), before)
+            self.assertFalse(output.exists())  # rendering never creates a run or copies resources
+
+    def test_isolated_run_resume_does_not_select_existing_experiment(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home, output = Path(folder) / 'resources', Path(folder) / 'abc'
+            (home / 'runs/shared-name').mkdir(parents=True)
+            cfg = render(POSITION_VARIANTS[0], home, 'shared-name', 2, formal=True,
+                         experiment_root=output)
+            file = Path(folder) / 'config.yaml'; file.write_text(yaml.safe_dump(cfg))
+            self.assertNotIn('--resume', command(file))
+            (output / 'runs/shared-name').mkdir(parents=True)
+            self.assertIn('--resume', command(file))
+
+    def test_output_option_is_scoped_and_legacy_cache_path_is_unchanged(self):
+        for variant in ('baseline', 'query_fixed', 'query3d_v2', 'embedding3d_v2'):
+            with self.assertRaises(ValueError):
+                render(variant, '/tmp/resources', 'run', 2, experiment_root='/tmp/abc')
+            cfg = render(variant, '/tmp/resources', 'run', 2)
+            self.assertNotIn('resource_home', cfg['portable'])
+            self.assertEqual(training_environment(cfg)['OPENPI_DATA_HOME'],
+                             str(Path(cfg['run_root_dir']).parent / 'cache/openpi'))
+        with self.assertRaises(ValueError):
+            render(POSITION_VARIANTS[0], '/tmp/resources', 'run', 2, formal=True,
+                   experiment_root='/tmp/resources')
+
     def test_training_launch_does_not_depend_on_inherited_cublas_configuration(self):
         for variant in POSITION_VARIANTS:
             cfg=render(variant,'/tmp/position','short',2,stop=1500,engineering=True)
