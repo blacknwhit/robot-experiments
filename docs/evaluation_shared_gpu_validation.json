@@ -1,0 +1,161 @@
+{
+  "validated_at": "2026-10-22T01:52:59.809029+08:00",
+  "hardware": "NVIDIA H100 80GB HBM3",
+  "variant": "baseline",
+  "checkpoint_step": 70000,
+  "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+  "tested_runtime_commit": "f0922aa0e90fdc4687b5a2c76d225848bca91251",
+  "cpu_tests_passed": 18,
+  "source_manifest_entries": 706,
+  "public_cli_smoke": {
+    "passed": true,
+    "workers_on_one_gpu": 2,
+    "episodes": 4,
+    "exact_full_action_comparisons": 720,
+    "rollout_overlap_seconds": 286.41528725624084,
+    "rows": [
+      {
+        "task": "CloseBlenderLid",
+        "requests": 360,
+        "traces": [
+          "a26311b375872b0fd82729a7c954a8ac7712432fdebbe1b5935f89c53de666b9",
+          "d57303fa7eb0d56f709ac82c010b1ddb7a183d67a3dbe37f919f9c6feb9ac598"
+        ],
+        "successes": [
+          false,
+          false
+        ]
+      },
+      {
+        "task": "CloseFridge",
+        "requests": 360,
+        "traces": [
+          "f04c520853cd95af31fba0c6e0cd39a8f094b2c371883d280f150df3ee7154bc",
+          "5f3c11d47f829c28c3081877ad1226d418da77dda2c29a26859c9c9cc307ac4a"
+        ],
+        "successes": [
+          false,
+          true
+        ]
+      }
+    ],
+    "archive_sha256": "36347281c9374af70eb6d68088e65520297d9106633809d1d07b17b4287ce0cc",
+    "all_full_trajectory_hashes_equal_to_serial": true
+  },
+  "performance": {
+    "rows": [
+      {
+        "name": "serial_t4",
+        "parallel": false,
+        "sim_threads": 4,
+        "episodes": 4,
+        "requests": 720,
+        "control_steps": 3600,
+        "rollout_seconds": 309.9498372077942,
+        "phase_seconds": 379.29472637176514,
+        "steps_per_second": 11.614782677193393,
+        "steady_gpu_util": 18.97923875432526,
+        "steady_gpu_samples": 289,
+        "rollout_gpu_util": 18.55987055016181,
+        "rollout_gpu_samples": 309,
+        "phase_gpu_util": 15.2,
+        "peak_memory_mib": 18901.0,
+        "summed_rpc_seconds": 73.38798741996288,
+        "summed_vector_step_seconds": 230.59891380835325,
+        "exact_reference_traces": true,
+        "overlap_seconds": 0,
+        "speedup_vs_serial4": 1
+      },
+      {
+        "name": "serial_t1",
+        "parallel": false,
+        "sim_threads": 1,
+        "episodes": 4,
+        "requests": 720,
+        "control_steps": 3600,
+        "rollout_seconds": 320.2551863193512,
+        "phase_seconds": 386.175354719162,
+        "steps_per_second": 11.241035754562805,
+        "steady_gpu_util": 17.02,
+        "steady_gpu_samples": 300,
+        "rollout_gpu_util": 16.321875,
+        "rollout_gpu_samples": 320,
+        "phase_gpu_util": 13.621761658031089,
+        "peak_memory_mib": 18901.0,
+        "summed_rpc_seconds": 74.42542020604014,
+        "summed_vector_step_seconds": 242.05304465070367,
+        "exact_reference_traces": true,
+        "overlap_seconds": 0,
+        "speedup_vs_serial4": 0.96782144504826
+      },
+      {
+        "name": "parallel2_a",
+        "parallel": true,
+        "sim_threads": 4,
+        "episodes": 4,
+        "requests": 720,
+        "control_steps": 3600,
+        "rollout_seconds": 181.9790608882904,
+        "phase_seconds": 217.0710575580597,
+        "steps_per_second": 19.78249575762947,
+        "steady_gpu_util": 32.419117647058826,
+        "steady_gpu_samples": 136,
+        "rollout_gpu_util": 29.302197802197803,
+        "rollout_gpu_samples": 182,
+        "phase_gpu_util": 24.663594470046082,
+        "peak_memory_mib": 20782.0,
+        "summed_rpc_seconds": 85.75287288427353,
+        "summed_vector_step_seconds": 237.9669018862769,
+        "exact_reference_traces": true,
+        "overlap_seconds": 145.29827237129211,
+        "speedup_vs_serial4": 1.7032170387892038
+      },
+      {
+        "name": "parallel2_b",
+        "parallel": true,
+        "sim_threads": 4,
+        "episodes": 4,
+        "requests": 720,
+        "control_steps": 3600,
+        "rollout_seconds": 179.42195057868958,
+        "phase_seconds": 214.4366602897644,
+        "steps_per_second": 20.06443463795216,
+        "steady_gpu_util": 31.54074074074074,
+        "steady_gpu_samples": 135,
+        "rollout_gpu_util": 28.56983240223464,
+        "rollout_gpu_samples": 179,
+        "phase_gpu_util": 24.238317757009344,
+        "peak_memory_mib": 20782.0,
+        "summed_rpc_seconds": 82.14387040771544,
+        "summed_vector_step_seconds": 238.78578094393015,
+        "exact_reference_traces": true,
+        "overlap_seconds": 144.98612642288208,
+        "speedup_vs_serial4": 1.7274911804721387
+      }
+    ],
+    "source_commit": "3d7849a5d76322ddd7aa92ffb02f5a23bcfe88d1",
+    "frozen_input_exact_comparisons": 64,
+    "first_request_checks": 8,
+    "unique_task_episodes": 4,
+    "episode_executions": 16,
+    "model_servers_preloaded": true,
+    "rollout_includes_in_run_resets_and_tail_cleanup": true,
+    "max_sampling_gap_seconds": 1.352552890777588,
+    "thread_candidate_caveat": "CPU setup/hash for later public smoke overlapped part of serial_t1; this run does not isolate a small causal thread-count effect. No demonstrated gain, retain original 4.",
+    "archive_sha256": "49b7eabef1ea297ade7d5516ae49e8758d64158844a849718678c0a574114c85"
+  },
+  "recommended_flags": [
+    "--inference-backend",
+    "cuda-graph",
+    "--tasks-per-gpu",
+    "2",
+    "--policy-cpu-threads",
+    "4",
+    "--sim-cpu-threads",
+    "4"
+  ],
+  "four_workers_gpu_tested": false,
+  "other_variants_gpu_tested": false,
+  "three_hour_tested": false,
+  "benchmark_success_rate_estimate": false
+}

@@ -1,0 +1,141 @@
+{
+  "public_source_commit": "15fd76968e2d4270c74d5e2421be4e39e3ca77af",
+  "capture_exact_checks": 360,
+  "replay_exact_checks": 1440,
+  "formal_style_checks": 1,
+  "formal_style_requests": 4320,
+  "phases": [
+    {
+      "label": "public_pipeline4_multiwave",
+      "n_envs": 4,
+      "episodes": 8,
+      "requests": 1440,
+      "seconds": 144.66260027885437,
+      "phase_seconds": 178.2251331806183,
+      "util_mean": 57.41379310344828,
+      "phase_util_mean": 47.174157303370784,
+      "util_samples": 145,
+      "peak_memory_mib": 15674.0,
+      "initial_scenes_checked": 8,
+      "trajectory_hashes": [
+        "a26311b375872b0fd82729a7c954a8ac7712432fdebbe1b5935f89c53de666b9",
+        "d57303fa7eb0d56f709ac82c010b1ddb7a183d67a3dbe37f919f9c6feb9ac598",
+        "c85ec899e1602cb763f7b17b8b5b5a1adb09b779aa02ba753d696859d47bd7c2",
+        "37212748111fe67f3e58dba32f65866b821fd344fd879aa037f633e3832cc721",
+        "08f696944b99275af2d824a643796a7cd0bfeae5c4c5eb147042d0e3a273a6c2",
+        "ebe7e1654c6cb13ad4c43bfa1e7868a0fd8db22ac3962a8d26056122ebc1595a",
+        "9370b804f96c019295ccf810266c2945d3348062edb6b8af2d6981c49fa84277",
+        "1ed8417fb301c0be5d5be004b128bbf59d5b36dbab771110828f7584c3fefc67"
+      ],
+      "successes": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "label": "public_pipeline8_a",
+      "n_envs": 8,
+      "episodes": 8,
+      "requests": 1440,
+      "seconds": 105.22717809677124,
+      "phase_seconds": 137.36437153816223,
+      "util_mean": 84.00943396226415,
+      "phase_util_mean": 65.77372262773723,
+      "util_samples": 106,
+      "peak_memory_mib": 22201.0,
+      "initial_scenes_checked": 8,
+      "trajectory_hashes": [
+        "a26311b375872b0fd82729a7c954a8ac7712432fdebbe1b5935f89c53de666b9",
+        "d57303fa7eb0d56f709ac82c010b1ddb7a183d67a3dbe37f919f9c6feb9ac598",
+        "c85ec899e1602cb763f7b17b8b5b5a1adb09b779aa02ba753d696859d47bd7c2",
+        "37212748111fe67f3e58dba32f65866b821fd344fd879aa037f633e3832cc721",
+        "08f696944b99275af2d824a643796a7cd0bfeae5c4c5eb147042d0e3a273a6c2",
+        "ebe7e1654c6cb13ad4c43bfa1e7868a0fd8db22ac3962a8d26056122ebc1595a",
+        "9370b804f96c019295ccf810266c2945d3348062edb6b8af2d6981c49fa84277",
+        "1ed8417fb301c0be5d5be004b128bbf59d5b36dbab771110828f7584c3fefc67"
+      ],
+      "successes": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "label": "public_pipeline8_b",
+      "n_envs": 8,
+      "episodes": 8,
+      "requests": 1440,
+      "seconds": 105.60135817527771,
+      "phase_seconds": 138.86282420158386,
+      "util_mean": 85.23584905660377,
+      "phase_util_mean": 66.02877697841727,
+      "util_samples": 106,
+      "peak_memory_mib": 22201.0,
+      "initial_scenes_checked": 8,
+      "trajectory_hashes": [
+        "a26311b375872b0fd82729a7c954a8ac7712432fdebbe1b5935f89c53de666b9",
+        "d57303fa7eb0d56f709ac82c010b1ddb7a183d67a3dbe37f919f9c6feb9ac598",
+        "c85ec899e1602cb763f7b17b8b5b5a1adb09b779aa02ba753d696859d47bd7c2",
+        "37212748111fe67f3e58dba32f65866b821fd344fd879aa037f633e3832cc721",
+        "08f696944b99275af2d824a643796a7cd0bfeae5c4c5eb147042d0e3a273a6c2",
+        "ebe7e1654c6cb13ad4c43bfa1e7868a0fd8db22ac3962a8d26056122ebc1595a",
+        "9370b804f96c019295ccf810266c2945d3348062edb6b8af2d6981c49fa84277",
+        "1ed8417fb301c0be5d5be004b128bbf59d5b36dbab771110828f7584c3fefc67"
+      ],
+      "successes": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "serial_reference": {
+    "episodes": 8,
+    "seconds": 469.6577162742615,
+    "util_mean": 16.968017057569295,
+    "samples": 469,
+    "segments": 2
+  },
+  "archive_sha256": "27348b8f917a505516e821123c5df8458077d066c7fa3bc033fb483b71ed7130",
+  "files_verified": 143,
+  "source_manifest_sha256": "fef419b78149a9aedfb8cbd7dc561a9cc47d5b564dd65f39be5ba0a62c86374d",
+  "capture_source_commit": "de05c23",
+  "device": "NVIDIA H100 80GB HBM3",
+  "variant": "baseline",
+  "checkpoint_step": 70000,
+  "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+  "task": "robocasa/CloseBlenderLid",
+  "policy_copies_per_gpu": 1,
+  "native_batch": 1,
+  "denoise_steps": 10,
+  "replan_steps": 5,
+  "seed": 7,
+  "exact_comparison": "numpy.array_equal on every element of full [1,50,12] actions",
+  "all_initial_scenes_and_full_trajectories_match_serial": true,
+  "actual_cuda_and_all_egl_devices_match": true,
+  "smoke_initial_barrier": true,
+  "performance_initial_barrier": false,
+  "cpu_tests_linux": {
+    "passed": 23,
+    "skipped": 0
+  },
+  "source_files_verified": 710,
+  "scope": "8 distinct baseline CloseBlenderLid episodes; not full 50-task benchmark or a 3-hour utilization guarantee",
+  "legacy_score_comparability": "All compared models must replay the same frozen plan set; do not pool with historical model-dependent serial scene sequences"
+}

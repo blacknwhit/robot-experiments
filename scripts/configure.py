@@ -4,15 +4,15 @@ from pathlib import Path
 import yaml
 from common import ROOT, VARIANTS, POSITION_VARIANTS, runtime, sha256
 
-def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=False):
+def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=False, formal=False):
     if world not in (2,4,8) or not 1 <= stop <= 70000:
         raise ValueError('Supported world sizes: 2/4/8; stop must be 1..70000')
     if not re.fullmatch(r'[A-Za-z0-9_.-]+',run_id): raise ValueError('run-id must be a simple directory name')
-    if smoke and engineering:
-        raise ValueError('Choose smoke or bounded engineering validation, not both')
+    if sum((smoke, engineering, formal)) > 1:
+        raise ValueError('Choose exactly one training mode')
     if variant in POSITION_VARIANTS:
-        if not (smoke or engineering) or stop > (10 if smoke else 1500):
-            raise ValueError('V3 is currently authorized for smoke <=10 or engineering <=1500 only')
+        if not (smoke or engineering or formal) or stop > (10 if smoke else (1500 if engineering else 70000)):
+            raise ValueError('V3 requires explicit --smoke <=10, --engineering <=1500, or --formal <=70000')
     home=Path(home).resolve(); r=runtime(variant).resolve()
     gt=home/'data/gt_armobj_full_v1'
     gt_hash=None
@@ -34,6 +34,10 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
     c['portable']={'variant':variant,'world_size':world,'smoke':smoke}
     if engineering:
         c['portable']['engineering'] = True
+    if formal:
+        c['portable']['formal'] = True
+        if variant in POSITION_VARIANTS:
+            c['experiment'].update(phase='formal_candidate', formal_training_authorized=True)
     # Same immutable code identity used by v2 checkpoint contracts on fresh/resumed runs.
     c['trajectory_release_sha256']=sha256(ROOT/'provenance/source_files.sha256')
     return c
@@ -43,7 +47,8 @@ def main():
     p.add_argument('--run-id',required=True);p.add_argument('--gpus',type=int,choices=(2,4,8),required=True)
     p.add_argument('--stop',type=int,default=70000);p.add_argument('--smoke',action='store_true')
     p.add_argument('--engineering',action='store_true');p.add_argument('--out',type=Path,required=True)
-    a=p.parse_args();c=render(a.variant,a.home,a.run_id,a.gpus,a.stop,a.smoke,a.engineering)
+    p.add_argument('--formal',action='store_true',help='Explicitly prepare a fresh formal candidate recipe; never starts a job')
+    a=p.parse_args();c=render(a.variant,a.home,a.run_id,a.gpus,a.stop,a.smoke,a.engineering,a.formal)
     if a.out.exists():raise FileExistsError('Refusing to overwrite an existing resolved recipe')
     a.out.parent.mkdir(parents=True,exist_ok=True);a.out.write_text(yaml.safe_dump(c,sort_keys=False))
     print(a.out.resolve())

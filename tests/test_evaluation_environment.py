@@ -70,6 +70,7 @@ class EvaluationEnvironmentTests(unittest.TestCase):
             self.assertNotIn('server_compat',pinned['PYTHONPATH'])
             self.assertEqual(os.environ['LD_PRELOAD'],'/policy/nccl.so')
 
+
     def test_explicit_mapping_and_invalid_assignments(self):
         self.assertEqual(evaluate.gpu_assignments('2, 5'),(['2','5'],['2','5']))
         self.assertEqual(evaluate.gpu_assignments('GPU-a,GPU-b','3,1'),(['GPU-a','GPU-b'],['3','1']))

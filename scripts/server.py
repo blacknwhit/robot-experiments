@@ -9,13 +9,18 @@ from pathlib import Path
 from common import activate,VARIANTS,POSITION_VARIANTS,is_point_variant,sha256
 def main():
     p=argparse.ArgumentParser();p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--config',required=True)
-    p.add_argument('--checkpoint',required=True);p.add_argument('--port',type=int,required=True);a=p.parse_args();activate(a.variant)
+    p.add_argument('--checkpoint',required=True);p.add_argument('--port',type=int,required=True)
+    p.add_argument('--inference-backend',choices=('eager','cuda-graph','cuda-graph-pipeline'),default='eager')
+    p.add_argument('--cuda-graph-verify',action='store_true',help='Require exact eager/graph actions on every request (smoke)')
+    a=p.parse_args();activate(a.variant)
+    if a.cuda_graph_verify and a.inference_backend=='eager':raise ValueError('--cuda-graph-verify requires CUDA Graph backend')
     from examples.pi05_robocasa365.eval_files import strict_pytorch_policy_server as strict
     from starVLA.model.framework.base_framework import build_framework
     from omegaconf import OmegaConf
     from strict_state_loader import strict_full_state_load
     from safetensors import safe_open
     cfg=OmegaConf.load(a.config);cfg.framework.pi05.init_checkpoint=None
+    backends=[]
     class CheckedWrapper(strict.PolicyServerWrapper):
         def __init__(self,ckpt_path,device='cuda',use_bf16=False,**kw):
             if use_bf16:raise ValueError('Blanket BF16 cast is not this evaluation protocol')
@@ -43,9 +48,24 @@ def main():
             elif a.variant=='query_fixed':
                 if tuple(model.future_queries.shape)!=(1,64,2048):raise ValueError('Wrong FIXED queries')
             self._proof={'variant':a.variant,'checkpoint_sha256':sha256(ckpt_path),'config_sha256':sha256(a.config),'strict_full_state':proof}
+            if a.inference_backend in ('cuda-graph','cuda-graph-pipeline'):
+                from cuda_graph_policy import CheckedCudaGraphPolicy
+                implementation=CheckedCudaGraphPolicy
+                if a.inference_backend=='cuda-graph-pipeline':
+                    from pipelined_policy import PipelinedCudaGraphPolicy,bounded_async_handler
+                    implementation=PipelinedCudaGraphPolicy
+                    strict.WebsocketPolicyServer._handler=bounded_async_handler
+                backend=implementation(framework,verify_every_request=a.cuda_graph_verify)
+                backends.append(backend)
+                framework.predict_action=backend.predict_action
+                self._proof.update(inference_backend=a.inference_backend,inference_backend_version='cpu_gpu_pipeline_batch1_v1' if a.inference_backend=='cuda-graph-pipeline' else 'native_sampler_graph_v1',cuda_graph_verify=a.cuda_graph_verify)
         @property
         def metadata(self):return {**super().metadata,**self._proof}
     strict.PolicyServerWrapper=CheckedWrapper
     args=strict.build_argparser().parse_args(['--ckpt_path',a.checkpoint,'--config_yaml',a.config,'--port',str(a.port)])
-    logging.basicConfig(level=logging.INFO,force=True);strict.main(args)
+    logging.basicConfig(level=logging.INFO,force=True)
+    try:strict.main(args)
+    finally:
+        for backend in backends:
+            if hasattr(backend,'close'):backend.close()
 if __name__=='__main__':main()

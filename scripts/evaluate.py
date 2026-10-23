@@ -1,5 +1,5 @@
-"""One task per GPU; 12 four-GPU shards and one two-GPU shard, with a smoke gate."""
-import argparse,concurrent.futures,json,os,socket,subprocess,sys,time
+"""Fixed task shards with optional independent workers sharing each GPU."""
+import argparse,concurrent.futures,json,math,os,socket,subprocess,sys,threading,time,uuid
 from pathlib import Path
 from common import ROOT,VARIANTS,environment,runtime,sha256,activate
 TASKS=json.loads((ROOT/'assets/eval_tasks.json').read_text())
@@ -11,16 +11,16 @@ def tasks_for_part(part):
 def gpu_assignments(gpu_ids,egl_device_ids=None):
     gpus=[g.strip() for g in gpu_ids.split(',')]
     if any(not g for g in gpus) or len(set(gpus))!=len(gpus):
-        raise ValueError('Provide one distinct nonempty CUDA device per task')
+        raise ValueError('Provide distinct nonempty CUDA devices; use --tasks-per-gpu for sharing')
     raw_egl=gpus if egl_device_ids is None else [g.strip() for g in egl_device_ids.split(',')]
     if len(raw_egl)!=len(gpus) or any(not g.isdecimal() for g in raw_egl):
         raise ValueError('EGL IDs must be nonnegative device-list indices, one per CUDA device; use --egl-device-ids for remapped or UUID CUDA devices')
     egl=[str(int(g)) for g in raw_egl]
-    if len(set(egl))!=len(egl):raise ValueError('Each task needs a distinct EGL device')
+    if len(set(egl))!=len(egl):raise ValueError('Each physical CUDA device needs a distinct EGL mapping')
     return gpus,egl
 
-def simulator_environment(variant,egl_device,preload=None):
-    env=environment(variant,shim=False,overlay=False)
+def simulator_environment(variant,egl_device,preload=None,cpu_threads=4):
+    env=environment(variant,shim=False,overlay=False,cpu_threads=cpu_threads)
     env['PYTHONPATH']=str(runtime(variant))
     # Policy-only preloads (for example NCCL) must not leak into MuJoCo.
     env.pop('LD_PRELOAD',None)
@@ -38,6 +38,65 @@ def check_port_available(port):
         probe.setsockopt(socket.SOL_SOCKET,option,1)
         probe.bind(('127.0.0.1',port))
 
+def execution_settings(a):
+    settings={'tasks_per_gpu':getattr(a,'tasks_per_gpu',1),
+              'policy_cpu_threads':getattr(a,'policy_cpu_threads',4),
+              'sim_cpu_threads':getattr(a,'sim_cpu_threads',4)}
+    if settings['tasks_per_gpu'] not in (1,2,4):raise ValueError('tasks-per-gpu must be 1, 2 or 4')
+    if any(type(settings[k]) is not int or settings[k]<1 for k in ('policy_cpu_threads','sim_cpu_threads')):
+        raise ValueError('CPU thread counts must be positive integers')
+    return settings
+
+def execution_identity(a):
+    settings=execution_settings(a)
+    if settings=={'tasks_per_gpu':1,'policy_cpu_threads':4,'sim_cpu_threads':4}:return {}
+    return {'execution':{'version':'independent_task_slots_v1',**settings}}
+
+def task_slot_plan(tasks,gpus,egl_devices,tasks_per_gpu=1,smoke=False):
+    if tasks_per_gpu not in (1,2,4):raise ValueError('tasks-per-gpu must be 1, 2 or 4')
+    if not tasks or not gpus or len(gpus)!=len(egl_devices) or len(gpus)>len(tasks):raise ValueError('Invalid task/GPU mapping')
+    if tasks_per_gpu==1 and ((not smoke and len(gpus)!=len(tasks)) or (smoke and len(gpus) not in (1,len(tasks)))):
+        raise ValueError('Default mode needs one GPU per task; use --tasks-per-gpu 2 or 4 for fewer GPUs')
+    if smoke:
+        if len(tasks)<tasks_per_gpu:raise ValueError('Choose a smoke part with at least tasks-per-gpu tasks')
+        # Exercise the requested sharing on one physical GPU, not separate cards.
+        tasks=tasks[:tasks_per_gpu];gpus=gpus[:1];egl_devices=egl_devices[:1]
+    devices=list(zip(gpus,egl_devices))*tasks_per_gpu
+    count=min(len(tasks),len(devices));workers=[]
+    for worker in range(count):
+        gpu,egl=devices[worker]
+        workers.append({'gpu':gpu,'egl':egl,'jobs':[(i,tasks[i]) for i in range(worker,len(tasks),count)]})
+    return workers
+
+def execute_plan(a,plan,identity):
+    barrier=threading.Barrier(len(plan),timeout=900) if a.smoke and len(plan)>1 else None
+    a.smoke_server_barrier=barrier
+    def run(worker):
+        try:return [execute_slot(a,task,worker['gpu'],slot,identity,worker['egl']) for slot,task in worker['jobs']]
+        except BaseException:
+            if barrier:barrier.abort()
+            raise
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(plan)) as pool:
+        futures=[pool.submit(run,worker) for worker in plan]
+        return [result for future in futures for result in future.result()]
+
+def smoke_overlap(results):
+    windows=[result.get('rollout_timing',{}) for result in results]
+    if any(not isinstance(w.get('started_at'),(int,float)) or not isinstance(w.get('finished_at'),(int,float)) or
+           not math.isfinite(w['started_at']) or not math.isfinite(w['finished_at']) or
+           not 0<w['started_at']<w['finished_at'] for w in windows):
+        raise ValueError('Shared-GPU smoke requires actual rollout timestamps')
+    overlap=min(w['finished_at'] for w in windows)-max(w['started_at'] for w in windows)
+    if overlap<=0:raise ValueError('Shared-GPU smoke rollouts did not overlap')
+    return overlap
+
+def prepare_shared_smoke(a,gate,identity):
+    a.smoke_attempt='attempt-'+uuid.uuid4().hex
+    if gate.exists():
+        if json.loads(gate.read_text())['identity']!=identity:raise ValueError('Use a new output directory for changed evaluation settings')
+        history=a.output/'smoke'/a.smoke_attempt;history.mkdir(parents=True)
+        gate.replace(history/'previous_gate.json')
+
 def validate_result(path,task,trials,checkpoint,identity=None):
     d=json.loads(Path(path).read_text());success=d['successes'];traces=d['episode_trace_sha256']
     expected={'env':'robocasa/'+task['task'],'env_split':'pretrain','robocasa_version':'1.0.0','profile':'published_v1_0_0',
@@ -53,19 +112,31 @@ def validate_result(path,task,trials,checkpoint,identity=None):
         for k in ('variant','checkpoint_sha256','config_sha256'):
             if metadata.get(k)!=identity[k]:raise ValueError('Policy handshake identity differs: '+k)
         if metadata.get('strict_full_state',{}).get('all_loaded_values_exact_at_model_dtype') is not True:raise ValueError('Strict model load missing')
+        if identity.get('inference_backend') in ('cuda-graph','cuda-graph-pipeline'):
+            for key in ('inference_backend','inference_backend_version'):
+                if metadata.get(key)!=identity[key]:raise ValueError('Inference backend identity differs: '+key)
+            if trials==2 and metadata.get('cuda_graph_verify') is not True:raise ValueError('CUDA Graph smoke requires every-request action comparison')
     return d
+
+def server_backend_args(backend,smoke):
+    if backend not in ('eager','cuda-graph'):raise ValueError(backend)
+    if backend=='eager':return []
+    return ['--inference-backend','cuda-graph']+(['--cuda-graph-verify'] if smoke else [])
 
 def execute_slot(a,task,gpu,slot,identity,egl_device=None):
     if egl_device is None:_,devices=gpu_assignments(gpu);egl_device=devices[0]
     r=runtime(a.variant);out=a.output/('smoke' if a.smoke else 'formal');out.mkdir(parents=True,exist_ok=True)
+    if a.smoke and getattr(a,'smoke_attempt',None):out=out/a.smoke_attempt;out.mkdir(parents=True,exist_ok=True)
     result=out/(task['task']+'.json');receipt=out/(task['task']+'.identity.json');trials=2 if a.smoke else 50
     if result.exists():
         if not receipt.exists() or json.loads(receipt.read_text())!=identity:raise ValueError('Existing result belongs to another checkpoint/protocol')
         return validate_result(result,task,trials,a.checkpoint,identity)
     port=a.port_base+(a.part-1)*4+slot
     check_port_available(port)
-    env=environment(a.variant);env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONHASHSEED='7',OPENPI_DATA_HOME=str(a.home/'cache/openpi'))
+    settings=execution_settings(a)
+    env=environment(a.variant,cpu_threads=settings['policy_cpu_threads']);env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONHASHSEED='7',OPENPI_DATA_HOME=str(a.home/'cache/openpi'))
     cmd=[sys.executable,str(ROOT/'scripts/server.py'),'--variant',a.variant,'--config',str(a.config),'--checkpoint',str(a.checkpoint),'--port',str(port)]
+    cmd+=server_backend_args(getattr(a,'inference_backend','eager'),a.smoke)
     with (out/(task['task']+'.server.log')).open('w') as log:
         server=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
         try:
@@ -83,8 +154,10 @@ def execute_slot(a,task,gpu,slot,identity,egl_device=None):
             client.close()
             for k in ('variant','checkpoint_sha256','config_sha256'):
                 if metadata.get(k)!=identity[k]:raise ValueError('Connected to a foreign policy server: '+k)
-            simenv=simulator_environment(a.variant,egl_device,getattr(a,'sim_ld_preload',None))
-            print(f"[evaluation-slot] task={task['task']} policy_cuda={gpu} simulator_egl={egl_device} cpu_threads=OMP:4,MKL:4,OPENBLAS:1",flush=True)
+            barrier=getattr(a,'smoke_server_barrier',None)
+            if barrier:barrier.wait()
+            simenv=simulator_environment(a.variant,egl_device,getattr(a,'sim_ld_preload',None),settings['sim_cpu_threads'])
+            print(f"[evaluation-slot] task={task['task']} port={port} policy_cuda={gpu} simulator_egl={egl_device} policy_cpu_threads={settings['policy_cpu_threads']} sim_cpu_threads={settings['sim_cpu_threads']} OPENBLAS:1",flush=True)
             cmd=[str(a.sim_python),'-m','examples.pi05_robocasa365.eval_files.simulation_env','--port',str(port),
                 '--env-name','robocasa/'+task['task'],'--env-split','pretrain','--num-trials',str(trials),'--n-envs','1',
                 '--max-episode-steps',str(task['horizon']),'--n-action-steps','5','--seed','7','--checkpoint',str(a.checkpoint),
@@ -103,15 +176,22 @@ def main():
     for key in ['config','checkpoint','sim-python','output']:p.add_argument('--'+key,type=Path,required=True)
     p.add_argument('--part',type=int,default=1);p.add_argument('--gpu-ids',default='0,1,2,3');p.add_argument('--port-base',type=int,default=10090)
     p.add_argument('--egl-device-ids',help='Comma-separated EGL indices paired with --gpu-ids; default assumes matching CUDA/EGL enumeration')
-    p.add_argument('--sim-ld-preload',type=Path,help='Optional simulator-only ABI library; never inherited from the policy environment')
+    p.add_argument('--sim-ld-preload',type=Path,help='Explicit simulator-only ABI library; policy preloads are never inherited')
+    p.add_argument('--inference-backend',choices=('eager','cuda-graph'),default='eager',help='Opt-in exact-action CUDA Graph backend; run a matching smoke first')
+    p.add_argument('--tasks-per-gpu',type=int,choices=(1,2,4),default=1,help='Maximum independent task workers per GPU; batch and episode protocol remain unchanged')
+    p.add_argument('--policy-cpu-threads',type=int,default=4,help='Policy OMP/MKL threads; OpenBLAS remains 1')
+    p.add_argument('--sim-cpu-threads',type=int,default=4,help='Simulator OMP/MKL threads; OpenBLAS remains 1')
     p.add_argument('--smoke',action='store_true');p.add_argument('--summarize',action='store_true');p.add_argument('--dry-run',action='store_true');a=p.parse_args()
     for k in ['home','config','checkpoint','sim_python','output']:setattr(a,k,getattr(a,k).resolve())
-    if a.sim_ld_preload is not None:
-        a.sim_ld_preload=a.sim_ld_preload.resolve(strict=True)
+    if a.sim_ld_preload is not None:a.sim_ld_preload=a.sim_ld_preload.resolve(strict=True)
     tasks=tasks_for_part(a.part);gpus,egl_devices=gpu_assignments(a.gpu_ids,a.egl_device_ids)
-    if (not a.smoke and len(gpus)!=len(tasks)) or (a.smoke and len(gpus) not in (1,len(tasks))) or len(set(gpus))!=len(gpus):raise ValueError('One distinct GPU per task: 4 GPUs for1..12,2 for13; smoke also accepts one GPU')
-    if a.smoke:tasks=tasks[:1];gpus=gpus[:1];egl_devices=egl_devices[:1]
-    if a.dry_run:print(json.dumps({'tasks':[t['task'] for t in tasks],'GPUs':gpus,'EGL_devices':egl_devices,'trials':2 if a.smoke else 50},indent=2));return
+    settings=execution_settings(a);plan=task_slot_plan(tasks,gpus,egl_devices,settings['tasks_per_gpu'],a.smoke)
+    selected=sorted((slot,task) for worker in plan for slot,task in worker['jobs'])
+    if a.dry_run:
+        used=list(dict.fromkeys((w['gpu'],w['egl']) for w in plan))
+        print(json.dumps({'tasks':[t['task'] for _,t in selected],'GPUs':[g for g,_ in used],'EGL_devices':[e for _,e in used],'trials':2 if a.smoke else 50,
+            'execution':settings,'workers':[{'gpu':w['gpu'],'egl':w['egl'],'tasks':[t['task'] for _,t in w['jobs']],
+                'ports':[a.port_base+(a.part-1)*4+i for i,_ in w['jobs']]} for w in plan]},indent=2));return
     import yaml
     cfg=yaml.safe_load(a.config.read_text())
     if cfg['portable']['variant']!=a.variant:raise ValueError('Config variant mismatch')
@@ -120,6 +200,8 @@ def main():
               'sim_freeze_sha256':sha256(a.home/'receipts/sim.freeze.txt'),
               'evaluation_entry_sha256':sha256(__file__),
               'simulator_launch':{'python':str(a.sim_python),'preload':str(a.sim_ld_preload) if a.sim_ld_preload else None}}
+    if a.inference_backend=='cuda-graph':identity.update(inference_backend='cuda-graph',inference_backend_version='native_sampler_graph_v1')
+    identity.update(execution_identity(a))
     gate=a.output/'SMOKE_ACCEPTED.json'
     if a.summarize:
         results=[];traces=[]
@@ -137,8 +219,12 @@ def main():
     import fcntl
     with (a.output/f'.part-{a.part}-{a.smoke}.lock').open('a+') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(tasks)) as pool:
-            futures=[pool.submit(execute_slot,a,t,g,i,identity,e) for i,(t,g,e) in enumerate(zip(tasks,gpus,egl_devices))]
-            for f in futures:f.result()
-        if a.smoke:gate.write_text(json.dumps({'identity':identity,'task':tasks[0]['task'],'trials':2,'application_smoke_passed':True},indent=2))
+        if a.smoke and len(plan)>1:
+            prepare_shared_smoke(a,gate,identity)
+        results=execute_plan(a,plan,identity)
+        if a.smoke:
+            proof={'identity':identity,'task':selected[0][1]['task'],'tasks':[t['task'] for _,t in selected],
+                'trials':2,'application_smoke_passed':True,'concurrent_workers':len(plan)}
+            if len(plan)>1:proof.update(overlap_seconds=smoke_overlap(results),evidence_subdirectory='smoke/'+a.smoke_attempt)
+            gate.write_text(json.dumps(proof,indent=2))
 if __name__=='__main__':main()

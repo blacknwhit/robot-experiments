@@ -15,10 +15,13 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');a=p.parse_args()
     c=yaml.safe_load(a.config.read_text());v=c['portable']['variant'];activate(v)
     if v in POSITION_VARIANTS:
-        limit = 10 if c['portable'].get('smoke') else 1500
-        if (not (c['portable'].get('smoke') or c['portable'].get('engineering'))
-                or not 1 <= c['trainer']['stop_after_steps'] <= limit):
-            raise ValueError('V3 formal training has not been authorized/calibrated')
+        modes = [bool(c['portable'].get(k)) for k in ('smoke','engineering','formal')]
+        limit = 10 if modes[0] else (1500 if modes[1] else 70000)
+        if sum(modes) != 1 or not 1 <= c['trainer']['stop_after_steps'] <= limit:
+            raise ValueError('V3 requires exactly one explicit bounded or formal candidate mode')
+        if modes[2] and (c['experiment'].get('phase') != 'formal_candidate'
+                         or c['experiment'].get('formal_training_authorized') is not True):
+            raise ValueError('Generate a formal candidate recipe with configure.py --formal')
     import torch
     import torch.distributed as dist
     world=int(os.environ['WORLD_SIZE']);rank=int(os.environ['RANK'])

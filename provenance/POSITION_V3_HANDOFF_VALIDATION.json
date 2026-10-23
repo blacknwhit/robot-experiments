@@ -1,0 +1,11 @@
+{
+  "release": "position_v3_handoff_20261023",
+  "reference_main": "1be2a632d33876621d63b8e177b0f5f6c8a76ba1",
+  "variants": ["embedding3d_pos_a", "embedding3d_temporal_b"],
+  "CPU": {"platform": "Windows", "tests_run": 66, "passed": 62, "Linux_only_skipped": 4},
+  "GPU_accelerated_AB": {"status": "pending_final_combination_validation"},
+  "GT_generator_changed": false,
+  "GT_full_regeneration_performed_this_release": false,
+  "formal70k_training_started": false,
+  "formal_AB_benchmark_completed": false
+}

@@ -1,7 +1,7 @@
 """Read-only same-world native state validation. Never loads untrusted checkpoints."""
 from pathlib import Path
 import json,re
-from common import is_point_variant
+from common import is_point_variant, POSITION_VARIANTS
 
 def required_files(world,fixed=False):
     return ['latest','custom_checkpoint_0.pkl','custom_checkpoint_1.pkl',
@@ -60,6 +60,11 @@ def choose_latest(run,cfg,validator=validate):
         m=re.fullmatch(r'checkpoint-([1-9][0-9]*)',p.name)
         if m and p.is_dir():candidates.append((int(m[1]),p))
     for step,path in sorted(candidates,reverse=True):
-        try:validator(path,cfg);return path,rejected
+        try:
+            if cfg['portable']['variant'] in POSITION_VARIANTS:
+                marker=json.loads((path/'PORTABLE_COMPLETE.json').read_text())
+                if marker.get('step') != step or marker.get('world') != cfg['portable']['world_size']:
+                    raise ValueError('Portable completion marker step/world differs')
+            validator(path,cfg);return path,rejected
         except Exception as e:rejected.append({'step':step,'reason':str(e)})
     raise RuntimeError('No complete compatible checkpoint; refusing base restart: '+json.dumps(rejected))

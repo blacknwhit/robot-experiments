@@ -4,7 +4,8 @@ PI0.5 / RoboCasa365 的可迁移实验代码：原始基线、最佳 Query-FIXED
 
 **完整操作文档：[新集群交接文档](HANDOFF.zh-CN.md)**。从公开数据与干净基座开始，包含环境、数据筛选、3D 标签生成、保存/恢复 smoke、70k 训练、4/2 GPU 正式评测和原始结果验收。
 
-当前开发分支增加了[Embedding位置监督A／因果时间解码B](docs/POSITION_V3.zh-CN.md)，使用独立`runtimes/trajectory_v3/`。两组尚无正式训练成绩；B不加RoPE，只做同一点沿时间交互。当前新入口仅开放有界工程验证。
+新增了[Embedding位置监督A／因果时间解码B](docs/POSITION_V3.zh-CN.md)，使用独立`runtimes/trajectory_v3/`。两组尚无正式训练成绩；B不加RoPE，只做同一点沿时间交互。完整流程见[A/B新集群交接](docs/POSITION_V3_HANDOFF.zh-CN.md)：GT共用、2步保存/恢复、1500步短训、显式70k候选配置及同一高效固定场景评测；发布本身不启动正式任务。
+**远端 Astra 新固定场景评测：[执行指令](docs/ASTRA_FIXED_SCENES.zh-CN.md)**。一次性只初始化固定2500场景，之后同集合上一卡一个task、多环境异步评测；无需先跑基线录制，旧分数单列。
 
 | 配置 | 方法 | 原实验 70k 结果，50 tasks × 50 trials |
 |---|---|---:|
@@ -21,6 +22,12 @@ cd robot-experiments
 export ROBOT_EXPERIMENTS_HOME=/your/absolute/shared/robot-experiments-data
 # 按 HANDOFF.zh-CN.md 顺序准备环境、数据、基座、smoke，然后训练/评测。
 ```
+
+可选评测加速：[CUDA Graph使用与实测](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。保持原动作计算，通过对应smoke后显式启用；默认eager不变。
+
+H100闭环吞吐：[独立任务共用GPU](docs/EVALUATION_SHARED_GPU.zh-CN.md)。可选每卡两路独立评测，保持每路batch1及原回合协议，通过共享smoke后启用。
+
+以后采用[新的固定2500场景协议](docs/ASTRA_FIXED_SCENES.zh-CN.md)：一次性只reset准备场景，后续模型共享同一集合并使用单卡单task多环境流水线。只有明确需要各模型旧串行场景链时，才使用[历史兼容入口](docs/EVALUATION_LEGACY_EXACT.zh-CN.md)。此前84–85%是H100单task有限rollout实测，不能保证所有任务或整项作业达到同样利用率；历史分数不混入新集合。
 
 布局：
 

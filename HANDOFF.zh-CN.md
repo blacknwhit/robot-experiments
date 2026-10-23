@@ -1,4 +1,6 @@
-# 新集群交接：PI0.5、最佳 Query-FIXED、3D trajectory v2
+# 新集群交接：PI0.5、最佳 Query-FIXED、3D trajectory v2/v3
+
+**最新A/B位置轨迹两版请从[专用完整交接](docs/POSITION_V3_HANDOFF.zh-CN.md)开始。** 本页保留数据/环境来源及历史四版配置；A/B的显式训练模式、GT复用与高效评测以专用文档为准。
 
 本手册针对 Linux + NVIDIA CUDA 集群。所有命令从仓库根目录执行，除非明确说明。调度器可以是 Slurm、Kubernetes 或其它系统；代码不依赖原 SCO 平台、原登录主机或旧目录。当前包没有为目标集群提交训练或评测任务。
 
@@ -174,6 +176,14 @@ $H/runs/<run-id>/checkpoints/steps_70000_model.safetensors
 
 ## 9. 先一片smoke，再全量：每task独占一张卡
 
+**后续新评测请直接执行[远端Astra固定场景说明](docs/ASTRA_FIXED_SCENES.zh-CN.md)**：在正式作业环境一次性准备50×50场景，所有模型复用同一`PLANS`，每GPU一个task、`n_envs=8`、原生batch1异步流水线；无需为每套权重重复完整smoke，直接运行12个四卡分片和1个两卡分片。无需先跑旧串行基线。下面的命令保留用于明确选择历史协议的复现，不要与新协议的场景、smoke或分数混用。
+
+可选加速：`--inference-backend cuda-graph` 保留单样本、精度和去噪协议；匹配smoke会对每个请求与eager逐位比较。使用方法、实测范围及限制见[CUDA Graph评测说明](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。默认仍为下面的eager流程。
+
+H100可进一步使用 `--tasks-per-gpu 2` 同卡运行两个独立任务，每路仍为原batch1/单环境协议，配合 `--policy-cpu-threads 4 --sim-cpu-threads 4`。先新建output并做匹配的同卡并发smoke；详见[共享GPU评测](docs/EVALUATION_SHARED_GPU.zh-CN.md)。下面默认4/2卡分片命令保持兼容，选择共享模式时按该文档调整GPU数量，所有分片与汇总都要带同样的设置。
+
+如果保持**每卡一个task且与历史评测内容一致**，按[历史兼容评测操作](docs/EVALUATION_LEGACY_EXACT.zh-CN.md)使用 `evaluate_task.py`。首次默认原生串行场景链，实际评测同时记录计划；已有同checkpoint/config的原生计划才用4/8环境重放并核对全部回合轨迹。跨模型统一集合需显式选择`shared-scenes`，属于另一共同场景协议，不能直接混入其他模型历史串行分数。此前84–85%利用率来自已有计划重放，不代表新checkpoint首次评测。
+
 固定50 task，原task顺序和已经乘1.5的horizon保存在 `assets/eval_tasks.json`，**不能再乘1.5**。seed7，50 trials/task，单env，replan5，10次去噪，EGL，严格eager、TF32关闭、stateless_request_v1噪声与逐episode trace。
 
 ```bash
@@ -203,6 +213,8 @@ PART=1
 一张可用debug卡也可smoke：`--smoke --gpu-ids 0`。分片可重运行：已完成结果必须identity匹配并再次验收才跳过，失败结果不会混入其它checkpoint。多个variant要用不同output，并用不同port-base或隔离网络命名空间。端口按part偏移，运行前检查占用，连接后校验模型SHA/variant/config；不凭TCP通了就承认模型正确。
 
 **渲染绑卡与CPU线程：**策略server按`--gpu-ids`设置`CUDA_VISIBLE_DEVICES`；模拟器移除该CUDA变量，按对应EGL设备索引设置`MUJOCO_EGL_DEVICE_ID`，不会把每个模拟器都绑定到EGL 0。默认两类编号相同，例如`--gpu-ids 0,1`对应EGL 0、1。遇到Slurm、容器或UUID设备时，先在任务内核对CUDA与EGL所指GPU的UUID/PCI地址；如顺序不同，显式传`--gpu-ids 0,1 --egl-device-ids 2,5`。这里2、5仅为映射示例，不是可直接用于任意集群的编号。脚本不会自动验证物理GPU对应关系，`--dry-run`会显示两组选择。
+
+2026-10-21补充：本修复已在原SCO的真实双RTX5090上通过四回合完整smoke及CUDA/EGL物理UUID核验，详见[GPU验收记录](docs/EVALUATION_GPU_VALIDATION.zh-CN.md)。验收证明该配置下能够正确运行，不代表已测得提速或目标集群无需环境检查。
 
 两个子进程在导入数值库之前都强制设置`OMP_NUM_THREADS=4`、`MKL_NUM_THREADS=4`、`OPENBLAS_NUM_THREADS=1`，恢复旧SCO启动限制；不会继承外部过大的线程池设置。该限制由公共environment构造器设置，也适用于使用它的训练子进程。部署到新集群仍需做两卡并行短测，核对实际渲染GPU及耗时；CPU环境传递测试不等于EGL验收或已测得加速。推理去噪循环、compile/TF32、seed和replan协议保持原样。
 
