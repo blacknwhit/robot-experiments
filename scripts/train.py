@@ -8,7 +8,8 @@ from release_contract import verify_release
 def training_environment(config):
     variant=config['portable']['variant'];env=environment(variant)
     if variant in POSITION_VARIANTS:env['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
-    env['OPENPI_DATA_HOME']=str(Path(config['run_root_dir']).parent/'cache/openpi')
+    resource_home = config['portable'].get('resource_home', Path(config['run_root_dir']).parent)
+    env['OPENPI_DATA_HOME']=str(Path(resource_home)/'cache/openpi')
     return env
 
 def main():
