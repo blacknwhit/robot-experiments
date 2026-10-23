@@ -44,3 +44,14 @@ recipe remains preserved. No learned state was discarded. The r2 remote
 manifest covers 965 files. GPU training/save-restore, action inference and EGL
 rendering remain pending. The collector can audit a terminal last-known job
 after native monitor removal without claiming it has a live recovery owner.
+
+
+#### 2026-10-23 12:37：A/B真实原生栈已捕获，故障进入NVIDIA EGL内部
+
+诊断任务pt-max2mytx于02:12:35在host10.115.72.99开始，02:17:29第一次真实A1500回放捕获SIGABRT后立即结束；12:37主对话已核对API job/workers、严格workload日志、attempt 20261022T181241Z_8003ae9c的hostname/start、TERMINAL和原生栈。此次不是CPU预检中的人为abort，也不是超时中断。平台SUCCEEDED表示诊断保护退出，native已移除，不能称评测通过。
+
+真实主线程栈为mjr_readPixels -> libnvidia-eglcore.so.580.95.05多层内部调用 -> abort -> raise。EGL0 UUID 4ccc10e5-a575-a988-a01d-777fd125ac48与已分配CUDA0一致，未见选到未分配卡的证据；三路256x256RGB有效，最后落盘200模拟步骤/40RPC，并非精确崩溃步。此前完整通过的fslgpu回放同样报告NVIDIA580.95.05，因此可确定原生崩溃位置，但不能仅凭版本判定驱动缺陷，驱动内部问题、上下文使用和库交互仍待区分。完整10文件已经回传并逐文件SHA验证；未完成回合，未生成可计分的成功率。
+
+读取阶段fslgpu已SUSPENDED，启动实际遭成员GPU配额0拒绝；恢复现有fslcpu后SSH可用，仅CPU读取RobotVla内证据。发现本地诊断collector在SSH失败时保留旧latest排队快照，已修复为发布当次API状态并明确应用证据不可用，4项身份/历史作用域/传输失败测试通过。仅更新本地collector及记录，未修改已部署r2/r4/r5运行payload或再次提交GPU任务。
+
+A1500权重继续保留；B smoke3通过但B1500目录仍不存在。原训练HOLD保持，训练与诊断writer锁都已核实空闲。下一步需围绕已捕获的EGL原生栈做受控复现和修复验收，当前不宣称错误修复或算法效果提升。证据：work/pi05_embedding_position_v3_20261020/checks/20261023_123719及native_debug_r5/evidence/acp_20261022T181241Z_8003ae9c。

@@ -32,3 +32,17 @@ pipeline lock. Native SCO auto-retrain at ten minutes handles external task
 interruptions; TERMINAL.json prevents an automatic diagnostic loop after a
 captured failure or the bounded budget. The main training native owner remains
 absent until a separate, verified repair is deployed by the main conversation.
+
+
+## 2026-10-23 verified outcome
+
+The first real ACP replay captured SIGABRT inside NVIDIA EGL 580.95.05, reached
+from MuJoCo mjr_readPixels. It was not the synthetic debugger preflight and not
+a timeout. EGL0 matched allocated CUDA0. The prior successful fslgpu replay
+reported the same driver version, so the stack alone does not establish a
+driver-version defect. Both writer locks are free; training HOLD remains.
+A1500 is preserved and B1500 has not started. Ten raw diagnostic files were
+retrieved with matching SHA256 values. See the experiment's local evidence
+directory acp_20261022T181241Z_8003ae9c. The rendering bug is not fixed.
+The local collector now saves fresh API state even when SSH evidence retrieval
+fails, explicitly withholding application acceptance; four regression tests pass.

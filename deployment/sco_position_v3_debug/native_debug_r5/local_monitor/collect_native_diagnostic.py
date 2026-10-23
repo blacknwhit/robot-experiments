@@ -11,6 +11,7 @@ def collect(state,native,out,get,save):
             f'/api/acp/jobs/{job}/workers?workspace=share-space']))
     save(directory/'job.json',detail);save(directory/'workers.json',workers)
     result=dict(job=job,state=detail['item']['state'],monitor=monitor,
+        checked_at=datetime.datetime.now().astimezone().isoformat(),
         live_native_identity=monitor is not None,job_start=detail['item'].get('startTime'),
         workers=[dict(name=w['name'],phase=w['phase']) for w in workers['items']],
         evidence_scope='native_current_diagnostic' if monitor else 'last_known_diagnostic_job',
@@ -46,10 +47,17 @@ if output:
   proof=json.loads(f.read_text());d['native_capture']={k:proof.get(k) for k in ('signal','exit_code','timeout_triggered','thread apply all bt 40')}
 print(json.dumps(d))
 '''.replace('ROOT',repr(config['target_root']))
-        proc=subprocess.run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=10',state.get('reader','fslgpu'),'python3 -u -'],
-            input=code,capture_output=True,text=True,encoding='utf-8',timeout=35)
-        if proc.returncode:raise RuntimeError(proc.stderr)
-        app=json.loads(proc.stdout);save(directory/'shared.json',app);attempt=app.get('current_attempt.json',{})
+        try:
+            proc=subprocess.run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=10',state.get('reader','fslgpu'),'python3 -u -'],
+                input=code,capture_output=True,text=True,encoding='utf-8',timeout=35)
+            if proc.returncode:raise RuntimeError(proc.stderr)
+            app=json.loads(proc.stdout)
+        except (OSError,subprocess.TimeoutExpired,RuntimeError,json.JSONDecodeError) as exc:
+            result['transport_error']=repr(exc)
+            result['application_deferred']='Shared evidence unavailable; current API status is retained without application acceptance'
+            save(directory/'report.json',result);save(out.parent.parent/'latest_diagnostic.json',result)
+            return {k:v for k,v in result.items() if k not in ('application','monitor')}
+        save(directory/'shared.json',app);attempt=app.get('current_attempt.json',{})
         start=result['job_start'];start=datetime.datetime.fromisoformat(start.replace('Z','+00:00')).timestamp() if start else None
         matches=attempt.get('hostname') in {w['name'] for w in workers['items']} and start is not None and attempt.get('started_unix',0)>=start
         result['attempt_matches_worker']=bool(matches)
