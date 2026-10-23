@@ -64,3 +64,16 @@ A1500权重继续保留；B smoke3通过但B1500目录仍不存在。原训练HO
 发现当前A评测继承训练expandable_segments:True，而参考聊天后续fixed2500评测bootstrap会清除PYTORCH_CUDA_ALLOC_CONF。主对话实现评测专属环境候选修正，并在独立reference_eval_r6_20261023部署有界对照：同一worker依次A原设置、A默认分配器、参考baseline入口；每项2完整回合/seed7/horizon900/replan5，保存严格加载、实际GPU UUID、原生GDB栈和原始轨迹。候选原因未获GPU因果验证，不称已修复；不改变训练、权重、损失或EGL协议。
 
 本地3项测试和最终部署10文件SHA通过；fslcpu第一次被平台暂停中断，恢复后完整CPU子进程环境/3入口dry-run/GDB正常退出、受控SIGABRT抓栈、超时清理均通过。ACP worker将再运行该CPU检查后才GPU回放。标准实际成员GPU配额0拒绝后，2H100 SPOT任务pt-7esakt2h、native f5083efb-0e8c-4e72-a7df-c802d9602cf6提交verified.ok/auto10，13:54 worker Pending。旧训练HOLD保留；A1500/B smoke3状态不变，B1500未开始。若跨worker中断则保留HOLD，不拼接跨worker对照，不自动恢复训练。证据work/pi05_embedding_position_v3_20261020/reference_eval_r6。
+
+
+#### 2026-10-23 17:11：fslgpu两版接口验收通过，B1500短训与后续评测接通
+
+用户要求直接fslgpu测试并尽快准备两版训练评测。确认单H100空闲后主对话部署r7，实际完成A1500原分配器/A1500默认分配器/Bsmoke3默认分配器各2回合，合计5400模拟步骤、1080策略请求，三视图有效、实际CUDA/EGL UUID一致、GDB均正常退出无原生信号/超时。A严格861keys、B严格885keys，完整checkpoint SHA匹配；A两组完整轨迹逐条完全一致。41份原始证据回传SHA通过。说明当前fslgpu可用，但两种分配器都通过，不能据此把原ACP错误归因于expandable_segments，也不能称ACP故障已修复。
+
+r6原ACP pt-7esakt2h在模型服务启动阶段worker Deleted，无模拟器结果；native生成pt-msv0o6e2仍Pending。按转fslgpu指令已依序核对并停止精确monitor/currentJob，核验Deleted，保留全部证据。原r2模型/训练/GT/loss不变，原ACP评测HOLD也未清除。
+
+为避免ACP渲染继续阻塞短训，r8只跑B1500工程训练；通过r7真实门槛后，保持2H100/B32/acc1/global64和原配置，从base仅首次启动，之后只恢复带完成marker且完整兼容的状态。step1/1000/1500完整保存，最终深验模型、两rank Adam/RNG及scheduler/data clocks；不会启动70k/100k正式训练。5项本地恢复保护与最终CPU导入/参数检查通过；实际新worker CUDA/NCCL仍须通过。标准实际成员GPU配额0拒绝后提交SPOT pt-z4luzdfk，native8b64a2c5-02b5-474d-ac18-5aeb27b5c40d、auto10、verified.ok；17:11 worker Pending。
+
+r9已在fslgpu启动一次有界依赖流程，最长4小时仅CPU等待B1500完整凭据；就绪且GPU空闲后调用已验收r7入口做B1500两完整回合。训练恢复仍只归SCO native，不创建竞争恢复循环。匹配receipt/源代码SHA、完整保存和当前CCI实例身份均为门槛，失败/超时停止并交回主对话。等待本身不占GPU推理；CCI被停则不能保证后续自动完成。专用6.1 Sol仍只运行已有collector、去重报告；新增CCI hostname/start识别和独立训练control，8项reader测试通过。A1500训练后评测已完成，B1500及其最终评测未完成，整体有界验收未标完成。
+
+证据：work/pi05_embedding_position_v3_20261020/fslgpu_acceptance_r7/INDEPENDENT_FSLGPU_ACCEPTED.json、b_short_split_r8/spot_submit.json、b1500_eval_followup_r9/launcher.json及checks/20261023_171138。

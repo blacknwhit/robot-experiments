@@ -1,0 +1,8 @@
+{
+  "version": "B1500_finite_dependent_evaluation_r9",
+  "files": {
+    "bootstrap.py": "f728b61cc8f5683b8044dbcae99dd7b98314ce8b20eedb34b45fc90cab3b6720",
+    "controller.py": "236e2d6db092581bde3f746b8a0592814da5c6489e1aa915ea3c4bde77360c08",
+    "test_receipt.py": "bb6b47abf6ae3ecdfed13d41f8f704d80b05c4e230283d35a13a1600aa7a9e63"
+  }
+}
