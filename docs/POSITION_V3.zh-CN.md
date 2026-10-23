@@ -1,4 +1,4 @@
-# Embedding 位置监督 A / 时间解码 B：工程验证
+# 位置监督 A / 时间解码 B / Query50时间解码 C
 
 2026-10-20。这两个配置是新的实验候选，**没有70k成绩，也没有证明性能改善**。当前已经开展训练、恢复、推理/评测及有限短程验证。新集群全部操作见[完整交接](POSITION_V3_HANDOFF.zh-CN.md)。
 
@@ -6,6 +6,9 @@
 |---|---|---|---|
 | `embedding3d_pos_a` | 训练期 Embedding，不增加动作 Query | 全50步相对起点位置L1＋相邻差分L1 | 无 |
 | `embedding3d_temporal_b` | 同A | 同A | 2层，同一点沿时间因果attention |
+| `query3d_temporal_c` | 50个Query插入VLM prefix，取attention后的Query直接作为Z_t | 同A/B | 与B共用同一个点头和2层时间块 |
+
+2026-10-24新增C仅改变Z_t来源及相应动作prefix结构，移除独立Embedding；保留旧Query50的非对称可见性。C本次只有针对性CPU结构/接线检查，A/B先前GPU结果不算C的验收。详见[C说明与使用](QUERY50_TEMPORAL_C.zh-CN.md)。
 
 B 保留 PointMLP、4096→256 融合投影及 GELU，在256→3输出层之前加入两个 pre-LN 残差块。每层8头、FFN 512、GELU、dropout=0；不增加RoPE或另一套位置编码。各点共享参数且分别处理长度50序列；后时刻可以读取同一点更早时刻与自身的隐藏特征。它不是反馈预测XYZ的自回归，也不是跨点attention。上游Embedding仍有双向时间槽交互，所以因果声明仅针对新增解码层。
 

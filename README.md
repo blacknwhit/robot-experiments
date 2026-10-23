@@ -1,11 +1,13 @@
 # robot-experiments
 
-PI0.5 / RoboCasa365 的可迁移实验代码：原始基线、最佳 Query-FIXED，以及3D轨迹辅助监督v2，以及新的Embedding位置监督A/时间解码B。
+PI0.5 / RoboCasa365 的可迁移实验代码：原始基线、最佳 Query-FIXED、3D轨迹辅助监督v2，以及新的位置监督A、时间解码B和Query50时间解码C。
 
 **完整操作文档：[新集群交接文档](HANDOFF.zh-CN.md)**。从公开数据与干净基座开始，包含环境、数据筛选、3D 标签生成、保存/恢复 smoke、70k 训练、4/2 GPU 正式评测和原始结果验收。
 
 新增了[Embedding位置监督A／因果时间解码B](docs/POSITION_V3.zh-CN.md)，使用独立`runtimes/trajectory_v3/`。两组尚无正式训练成绩；B不加RoPE，只做同一点沿时间交互。完整流程见[A/B新集群交接](docs/POSITION_V3_HANDOFF.zh-CN.md)：GT共用、2步保存/恢复、1500步短训、显式70k候选配置及同一高效固定场景评测；发布本身不启动正式任务。
 **远端 Astra 新固定场景评测：[执行指令](docs/ASTRA_FIXED_SCENES.zh-CN.md)**。一次性只初始化固定2500场景，之后同集合上一卡一个task、多环境异步评测；无需先跑基线录制，旧分数单列。
+
+2026-10-24增加`query3d_temporal_c`：50个Query参与VLM prefix，attention后的Query直接作为`Z_t`，Point Track Head与B共用同一实现；GT、监督和训练配方保持B不变。[C结构与使用范围](docs/QUERY50_TEMPORAL_C.zh-CN.md)。本次只做结构及推理接线的针对性CPU检查，没有启动训练或重复全量GPU/评测验收。
 
 | 配置 | 方法 | 原实验 70k 结果，50 tasks × 50 trials |
 |---|---|---:|

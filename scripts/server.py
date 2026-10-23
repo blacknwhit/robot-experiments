@@ -6,7 +6,7 @@ os.environ.setdefault('TORCH_COMPILE_DISABLE','1')
 import pyarrow
 import argparse,json,logging
 from pathlib import Path
-from common import activate,VARIANTS,POSITION_VARIANTS,is_point_variant,sha256
+from common import activate,VARIANTS,POSITION_VARIANTS,POSITION_QUERY_VARIANTS,is_point_variant,sha256
 def main():
     p=argparse.ArgumentParser();p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--config',required=True)
     p.add_argument('--checkpoint',required=True);p.add_argument('--port',type=int,required=True)
@@ -40,8 +40,11 @@ def main():
                 def forbidden(*args):raise RuntimeError('Point head executed at inference')
                 model.point_track_head.register_forward_pre_hook(forbidden)
                 if a.variant=='query3d_v2' and tuple(model.future_queries.shape)!=(1,50,2048):raise ValueError('Wrong Query50 shape')
-                if (a.variant=='embedding3d_v2' or a.variant in POSITION_VARIANTS) and model.foresight.enabled:raise ValueError('Embedding must retain original prefix')
+                if a.variant=='embedding3d_v2' and model.foresight.enabled:raise ValueError('Embedding must retain original prefix')
                 if a.variant in POSITION_VARIANTS:
+                    from openpi.models_pytorch.position_point import validate_position_policy
+                    if validate_position_policy(model) != (a.variant in POSITION_QUERY_VARIANTS):
+                        raise ValueError('Wrong V3 prefix architecture for requested variant')
                     layers = 0 if a.variant == 'embedding3d_pos_a' else 2
                     if model.point_track.temporal_layers != layers or model.point_track.temporal_rope:
                         raise ValueError('Wrong V3 temporal decoder contract')

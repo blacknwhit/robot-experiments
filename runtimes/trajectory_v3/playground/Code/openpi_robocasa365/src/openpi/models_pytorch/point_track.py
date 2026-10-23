@@ -83,8 +83,10 @@ class PointTrackConfig:
         if self.objective_version == "relative_position_and_difference_v3":
             from openpi.models_pytorch.trajectory_supervision import validate_horizons
             validate_horizons(self.trajectory_horizons, self.horizon)  # diagnostics only
-            if self.version != "pri4r_embedding_v1" or self.trajectory_loss_weight != 0:
-                raise ValueError("V3 requires Embedding and no legacy cumulative objective")
+            if self.version not in ("pri4r_embedding_v1", "pri4r_query_zt_v1") or self.trajectory_loss_weight != 0:
+                raise ValueError("V3 requires Embedding/direct Query and no legacy cumulative objective")
+            if self.version == "pri4r_query_zt_v1" and self.temporal_layers != 2:
+                raise ValueError("V3 Query C uses the same two temporal blocks as B")
             if (self.coordinate_frame, self.units, self.output_kind) != (
                     "window_start_robot_base", "meters", "start_relative_position"):
                 raise ValueError("V3 requires positions relative to the window start")
@@ -125,7 +127,7 @@ class PointTrackConfig:
             contract.pop("embedding_layers")
             contract.pop("embedding_ff_multiplier")
         if self.version == "pri4r_query_zt_v1":
-            contract.pop("num_heads")  # No attention module exists in this head.
+            contract.pop("num_heads")  # No upstream attention uses this field; temporal_heads is separate.
             contract.update(input_dim=input_dim, activation="gelu_exact",
                             point_time_order="B,N,H,XYZ", reduction="valid_point_time_xyz_mean",
                             prefix_contract="final_norm_query_span_direct_Zt",

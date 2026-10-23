@@ -152,8 +152,8 @@ class PI0Pytorch(nn.Module):
                 from openpi.models_pytorch.pri4r_embedding import EmbeddingPointTrackHead
                 head_type = EmbeddingPointTrackHead if embedding else (QueryPointTrackHead if direct_query else PointTrackHead)
                 if self.point_track.objective_version == "relative_position_and_difference_v3":
-                    from openpi.models_pytorch.position_point import PositionPointHead
-                    head_type = PositionPointHead
+                    from openpi.models_pytorch.position_point import PositionPointHead, QueryPositionPointHead
+                    head_type = QueryPositionPointHead if direct_query else PositionPointHead
                 self.point_track_head = head_type(paligemma_config.width, self.point_track)
 
         torch.set_float32_matmul_precision("high")

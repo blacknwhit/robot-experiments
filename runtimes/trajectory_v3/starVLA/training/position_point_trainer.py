@@ -1,4 +1,4 @@
-"""V3 Embedding A/B trainer; native full-state saving and update clocks."""
+"""V3 A/B/C trainer; identical objective, native saving and update clocks."""
 from collections import deque
 from contextlib import nullcontext
 from pathlib import Path
@@ -17,18 +17,17 @@ class PositionPointTrainer(QueryPointTrainer):
     def prepare_training(self):
         p = self.model.policy_model
         cfg = p.point_track
-        if (not cfg.enabled or cfg.version != "pri4r_embedding_v1"
-                or cfg.objective_version != "relative_position_and_difference_v3"):
-            raise ValueError("PositionPointTrainer requires the Embedding V3 objective")
-        if (p.foresight.enabled or p.foresight.auxiliary_enabled or hasattr(p, "future_queries")
-                or getattr(self.model, "_teacher", None) is not None):
-            raise ValueError("V3 preserves the original action prefix and has no teacher")
+        from openpi.models_pytorch.position_point import validate_position_policy
+        direct_query = validate_position_policy(p)
+        if getattr(self.model, "_teacher", None) is not None:
+            raise ValueError("V3 has no future-image teacher")
         if not (cfg.camera_role_augmentation and cfg.prefix_cache_alignment):
             raise ValueError("Accepted augmentation/cache alignment must remain enabled")
         ids = {id(x) for group in self.optimizer.param_groups for x in group["params"]}
-        required = {n: x for n, x in p.named_parameters() if n.startswith("point_track_head.")}
+        required = {n: x for n, x in p.named_parameters()
+                    if n.startswith("point_track_head.") or (direct_query and n == "future_queries")}
         if not required or not all(x.requires_grad and id(x) in ids for x in required.values()):
-            raise ValueError("Embedding and all point/temporal parameters must be optimized")
+            raise ValueError("All point/temporal and upstream Query/Embedding parameters must be optimized")
         VLATrainer.prepare_training(self)
         if self.resume_from_checkpoint:
             from starVLA.training.foresight_resume_audit import verify_loaded_partition
@@ -36,8 +35,9 @@ class PositionPointTrainer(QueryPointTrainer):
         if self.accelerator.is_main_process:
             runtime = dict(gpu_names=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
                            torch=str(torch.__version__), world_size=self.accelerator.num_processes,
-                           global_batch=self.total_batch_size, teacher=False, future_queries=False,
-                           embedding_query_shape=list(p.point_track_head.embedding.queries.shape),
+                           global_batch=self.total_batch_size, teacher=False, future_queries=direct_query,
+                           prefix_query_shape=list(p.future_queries.shape) if direct_query else None,
+                           embedding_query_shape=None if direct_query else list(p.point_track_head.embedding.queries.shape),
                            objective=cfg.objective_version, output_kind=cfg.output_kind,
                            temporal_layers=cfg.temporal_layers, temporal_scope="same_point_time",
                            added_rope=False)
@@ -85,10 +85,10 @@ class PositionPointTrainer(QueryPointTrainer):
             if self.accelerator.sync_gradients and probe:
                 # Small representatives from every Embedding/temporal block.
                 before = {name: p.detach().float().clone() for name, p in module.policy_model.named_parameters()
-                          if name.startswith("point_track_head.") and (
+                          if name == "future_queries" or (name.startswith("point_track_head.") and (
                               name.endswith(("queries", "fusion_out.weight", "point_mlp.0.weight",
                                              "self_norm.weight", "cross_norm.weight",
-                                             "attention_norm.weight", "ff_norm.weight")))}
+                                             "attention_norm.weight", "ff_norm.weight"))))}
             context = nullcontext() if pi05_official_precision_enabled(self.config) else torch.autocast("cuda", dtype=torch.bfloat16)
             with context:
                 output = self.model(batch_vla, point_diagnostics=probe)

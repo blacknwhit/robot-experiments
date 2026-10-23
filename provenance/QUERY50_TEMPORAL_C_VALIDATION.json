@@ -1,0 +1,46 @@
+{
+  "base_commit": "09086e49c546991975227e32f92ce877fa650ab8",
+  "ab_parent_comparison": {
+    "A": {
+      "state_keys": 48,
+      "state_bitwise_equal": true,
+      "rng_bitwise_equal": true,
+      "output_bitwise_equal": true
+    },
+    "B": {
+      "state_keys": 72,
+      "state_bitwise_equal": true,
+      "rng_bitwise_equal": true,
+      "output_bitwise_equal": true
+    }
+  },
+  "compiled_files": [
+    "runtimes/trajectory_v3/playground/Code/openpi_robocasa365/src/openpi/models_pytorch/pi0_pytorch.py",
+    "runtimes/trajectory_v3/playground/Code/openpi_robocasa365/src/openpi/models_pytorch/point_track.py",
+    "runtimes/trajectory_v3/playground/Code/openpi_robocasa365/src/openpi/models_pytorch/position_point.py",
+    "runtimes/trajectory_v3/starVLA/training/position_point_trainer.py",
+    "scripts/common.py",
+    "scripts/engineering_audit.py",
+    "scripts/point_inference_probe.py",
+    "scripts/server.py",
+    "tests/test_query_position_v3.py"
+  ],
+  "target_tests": {
+    "passed": 7,
+    "failed": 0,
+    "command": "unittest discover -s tests -p test_query_position_v3.py -v"
+  },
+  "adjacent_ab_tests": {
+    "passed": 2,
+    "failed": 0
+  },
+  "gpu_run": false,
+  "full_model_loaded": false,
+  "jobs_submitted": 0,
+  "performance_result": false,
+  "date": "2026-10-24",
+  "variant": "query3d_temporal_c",
+  "source_files": 963,
+  "source_manifest_sha256": "8641fd485ee49b17d9d92b6cef633d71c586e883ac7d4a3c4d4aeb0f0c547c71",
+  "scope": "Targeted CPU structural and inference wiring checks only; not full-model GPU acceptance"
+}
