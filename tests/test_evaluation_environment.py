@@ -5,6 +5,8 @@ Policy loading, WebSocket and MuJoCo are mocked, so these are not GPU/EGL smoke.
 import concurrent.futures
 import json
 import os
+import errno
+import socket
 from pathlib import Path
 import subprocess
 import sys
@@ -29,6 +31,46 @@ def child_environment(env):
 
 
 class EvaluationEnvironmentTests(unittest.TestCase):
+    def test_live_listener_is_still_rejected(self):
+        with socket.socket() as server:
+            option=getattr(socket,'SO_EXCLUSIVEADDRUSE',socket.SO_REUSEADDR)
+            server.setsockopt(socket.SOL_SOCKET,option,1)
+            server.bind(('127.0.0.1',0));server.listen(1)
+            with self.assertRaises(OSError):evaluate.check_port_available(server.getsockname()[1])
+
+    @unittest.skipUnless(sys.platform.startswith('linux'),'POSIX TCP TIME_WAIT regression')
+    def test_completed_server_can_restart_without_waiting_for_time_wait(self):
+        port=0
+        for _ in range(2):
+            with socket.socket() as server:
+                server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                server.settimeout(2);server.bind(('127.0.0.1',port));server.listen(1)
+                port=server.getsockname()[1]
+                with socket.create_connection(('127.0.0.1',port),timeout=2) as client:
+                    accepted,_=server.accept()
+                    with accepted:
+                        accepted.settimeout(2);accepted.shutdown(socket.SHUT_WR)
+                        self.assertEqual(client.recv(1),b'')
+                        client.shutdown(socket.SHUT_WR)
+                        self.assertEqual(accepted.recv(1),b'')
+            with socket.socket() as old_probe:
+                with self.assertRaises(OSError) as error:old_probe.bind(('127.0.0.1',port))
+                self.assertEqual(error.exception.errno,errno.EADDRINUSE)
+            evaluate.check_port_available(port)
+
+    def test_simulator_preload_is_explicit_and_does_not_mutate_policy(self):
+        with patch.dict(os.environ,{'LD_PRELOAD':'/policy/nccl.so','CUDA_VISIBLE_DEVICES':'3'}):
+            clean=evaluate.simulator_environment('embedding3d_pos_a','2')
+            pinned=evaluate.simulator_environment('embedding3d_pos_a','2',Path('/sim/libffi.so'))
+            self.assertNotIn('LD_PRELOAD',clean)
+            self.assertEqual(pinned['LD_PRELOAD'],str(Path('/sim/libffi.so')))
+            self.assertEqual(pinned['PYTHONFAULTHANDLER'],'1')
+            self.assertNotIn('CUDA_VISIBLE_DEVICES',pinned)
+            self.assertEqual(pinned['MUJOCO_EGL_DEVICE_ID'],'2')
+            self.assertNotIn('server_compat',pinned['PYTHONPATH'])
+            self.assertEqual(os.environ['LD_PRELOAD'],'/policy/nccl.so')
+
+
     def test_explicit_mapping_and_invalid_assignments(self):
         self.assertEqual(evaluate.gpu_assignments('2, 5'),(['2','5'],['2','5']))
         self.assertEqual(evaluate.gpu_assignments('GPU-a,GPU-b','3,1'),(['GPU-a','GPU-b'],['3','1']))

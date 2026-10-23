@@ -181,6 +181,9 @@ def main():
                     if metadata.get(key)!=identity[key]:raise ValueError('Foreign policy server: '+key)
                 if a.smoke and metadata.get('cuda_graph_verify') is not True:raise ValueError('Smoke requires every-request exact action verification')
                 simenv=environment(a.variant,shim=False,overlay=False);simenv.pop('CUDA_VISIBLE_DEVICES',None)
+                # Inherited policy NCCL preloads must not enter the MuJoCo interpreter.
+                simenv.pop('LD_PRELOAD',None)
+                simenv['PYTHONFAULTHANDLER']='1'
                 simenv.update(PYTHONPATH=os.pathsep.join((str(ROOT/'scripts'),str(runtime(a.variant)))),PYTHONHASHSEED='7',MUJOCO_GL='egl',PYOPENGL_PLATFORM='egl',MUJOCO_EGL_DEVICE_ID=egl[0])
                 def run(label,workers,capture=False,selected_plan=None,rgb=None):
                     target=attempt/label

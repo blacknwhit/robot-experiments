@@ -1,0 +1,10 @@
+{
+  "version": "B_short_split_r8",
+  "files": {
+    "bootstrap.py": "cee267a364023926f79438745cb61f7c8e3e34f329c716f8b2c30af6fcda5293",
+    "command.sh": "ea583bdd96670b73a8bea63da5029c9db5959ed5f8c1e5d0d115a37098357db1",
+    "contracts.py": "173e676529ace797f687b181c2b20af8be4e45b8be67d9ecfa7dce50c49da88a",
+    "controller.py": "9a1bf621018e543bdeb832c459920120fce2700747c3bfe1def2189566c3a5ab",
+    "test_contracts.py": "65a2a145ea9aa1c7f2426e7cba54bc19920bd3f4990ac32090198ee71f0e4c6a"
+  }
+}

@@ -4,6 +4,8 @@
 
 远端只需更新仓库、运行现成入口，无需改代码。本文适用于已训练好的`baseline`（PI0.5）、`query_fixed`（最佳FIXED结构）及后续模型。示例不代表要求立即重测旧模型；只评测用户指定的权重。
 
+最新A/B位置轨迹候选也使用本套评测入口，variant分别为`embedding3d_pos_a`和`embedding3d_temporal_b`。训练与GT准备参见[A/B完整交接](POSITION_V3_HANDOFF.zh-CN.md)；本页H100 baseline容量数字不能直接当作A/B实测。
+
 ## 1. 更新及路径
 
 ```bash

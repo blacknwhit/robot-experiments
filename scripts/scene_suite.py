@@ -264,6 +264,7 @@ def main():
     a.output.mkdir(parents=True, exist_ok=True)
     env = environment('baseline', shim=False, overlay=False)
     env.pop('CUDA_VISIBLE_DEVICES', None)
+    env.pop('LD_PRELOAD', None)
     env.update(PYTHONPATH=os.pathsep.join((str(ROOT / 'scripts'), str(runtime('baseline')))),
                PYTHONHASHSEED='7', MUJOCO_GL='egl', PYOPENGL_PLATFORM='egl', MUJOCO_EGL_DEVICE_ID=a.egl_device_id)
 

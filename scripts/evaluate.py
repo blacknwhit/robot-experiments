@@ -19,6 +19,25 @@ def gpu_assignments(gpu_ids,egl_device_ids=None):
     if len(set(egl))!=len(egl):raise ValueError('Each physical CUDA device needs a distinct EGL mapping')
     return gpus,egl
 
+def simulator_environment(variant,egl_device,preload=None,cpu_threads=4):
+    env=environment(variant,shim=False,overlay=False,cpu_threads=cpu_threads)
+    env['PYTHONPATH']=str(runtime(variant))
+    # Policy-only preloads (for example NCCL) must not leak into MuJoCo.
+    env.pop('LD_PRELOAD',None)
+    if preload is not None:env['LD_PRELOAD']=str(preload)
+    env.pop('CUDA_VISIBLE_DEVICES',None)
+    env.update(MUJOCO_GL='egl',PYOPENGL_PLATFORM='egl',MUJOCO_EGL_DEVICE_ID=str(egl_device),
+               PYTHONHASHSEED='7',PYTHONFAULTHANDLER='1')
+    return env
+
+def check_port_available(port):
+    with socket.socket() as probe:
+        # Match asyncio's POSIX server reuse policy: TIME_WAIT after a finished
+        # evaluation is not a live listener. Never enable SO_REUSEPORT.
+        option=getattr(socket,'SO_EXCLUSIVEADDRUSE',socket.SO_REUSEADDR)
+        probe.setsockopt(socket.SOL_SOCKET,option,1)
+        probe.bind(('127.0.0.1',port))
+
 def execution_settings(a):
     settings={'tasks_per_gpu':getattr(a,'tasks_per_gpu',1),
               'policy_cpu_threads':getattr(a,'policy_cpu_threads',4),
@@ -113,7 +132,7 @@ def execute_slot(a,task,gpu,slot,identity,egl_device=None):
         if not receipt.exists() or json.loads(receipt.read_text())!=identity:raise ValueError('Existing result belongs to another checkpoint/protocol')
         return validate_result(result,task,trials,a.checkpoint,identity)
     port=a.port_base+(a.part-1)*4+slot
-    with socket.socket() as probe:probe.bind(('127.0.0.1',port))
+    check_port_available(port)
     settings=execution_settings(a)
     env=environment(a.variant,cpu_threads=settings['policy_cpu_threads']);env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONHASHSEED='7',OPENPI_DATA_HOME=str(a.home/'cache/openpi'))
     cmd=[sys.executable,str(ROOT/'scripts/server.py'),'--variant',a.variant,'--config',str(a.config),'--checkpoint',str(a.checkpoint),'--port',str(port)]
@@ -137,19 +156,14 @@ def execute_slot(a,task,gpu,slot,identity,egl_device=None):
                 if metadata.get(k)!=identity[k]:raise ValueError('Connected to a foreign policy server: '+k)
             barrier=getattr(a,'smoke_server_barrier',None)
             if barrier:barrier.wait()
-            simenv=environment(a.variant,shim=False,overlay=False,cpu_threads=settings['sim_cpu_threads'])
-            # The simulator gets only the lightweight client/wrappers, never policy Python dependencies.
-            simenv['PYTHONPATH']=str(r)
-            # EGL enumerates devices independently of CUDA_VISIBLE_DEVICES.
-            # Keep the server's CUDA mask, but bind the simulator by EGL index.
-            simenv.pop('CUDA_VISIBLE_DEVICES',None)
-            simenv.update(MUJOCO_GL='egl',PYOPENGL_PLATFORM='egl',MUJOCO_EGL_DEVICE_ID=str(egl_device),PYTHONHASHSEED='7')
+            simenv=simulator_environment(a.variant,egl_device,getattr(a,'sim_ld_preload',None),settings['sim_cpu_threads'])
             print(f"[evaluation-slot] task={task['task']} port={port} policy_cuda={gpu} simulator_egl={egl_device} policy_cpu_threads={settings['policy_cpu_threads']} sim_cpu_threads={settings['sim_cpu_threads']} OPENBLAS:1",flush=True)
             cmd=[str(a.sim_python),'-m','examples.pi05_robocasa365.eval_files.simulation_env','--port',str(port),
                 '--env-name','robocasa/'+task['task'],'--env-split','pretrain','--num-trials',str(trials),'--n-envs','1',
                 '--max-episode-steps',str(task['horizon']),'--n-action-steps','5','--seed','7','--checkpoint',str(a.checkpoint),
                 '--profile','published_v1_0_0','--protocol-comparable','0','--horizon-multiplier','1.5','--strict-determinism','1',
                 '--trace-determinism','1','--renderer-backend','egl','--result-out-path',str(result)]
+            cmd+=['--ld-preload',simenv.get('LD_PRELOAD','')]
             with (out/(task['task']+'.sim.log')).open('w') as f:subprocess.run(cmd,env=simenv,stdout=f,stderr=subprocess.STDOUT,check=True)
             data=validate_result(result,task,trials,a.checkpoint,identity);receipt.write_text(json.dumps(identity,indent=2));return data
         finally:
@@ -162,12 +176,14 @@ def main():
     for key in ['config','checkpoint','sim-python','output']:p.add_argument('--'+key,type=Path,required=True)
     p.add_argument('--part',type=int,default=1);p.add_argument('--gpu-ids',default='0,1,2,3');p.add_argument('--port-base',type=int,default=10090)
     p.add_argument('--egl-device-ids',help='Comma-separated EGL indices paired with --gpu-ids; default assumes matching CUDA/EGL enumeration')
+    p.add_argument('--sim-ld-preload',type=Path,help='Explicit simulator-only ABI library; policy preloads are never inherited')
     p.add_argument('--inference-backend',choices=('eager','cuda-graph'),default='eager',help='Opt-in exact-action CUDA Graph backend; run a matching smoke first')
     p.add_argument('--tasks-per-gpu',type=int,choices=(1,2,4),default=1,help='Maximum independent task workers per GPU; batch and episode protocol remain unchanged')
     p.add_argument('--policy-cpu-threads',type=int,default=4,help='Policy OMP/MKL threads; OpenBLAS remains 1')
     p.add_argument('--sim-cpu-threads',type=int,default=4,help='Simulator OMP/MKL threads; OpenBLAS remains 1')
     p.add_argument('--smoke',action='store_true');p.add_argument('--summarize',action='store_true');p.add_argument('--dry-run',action='store_true');a=p.parse_args()
     for k in ['home','config','checkpoint','sim_python','output']:setattr(a,k,getattr(a,k).resolve())
+    if a.sim_ld_preload is not None:a.sim_ld_preload=a.sim_ld_preload.resolve(strict=True)
     tasks=tasks_for_part(a.part);gpus,egl_devices=gpu_assignments(a.gpu_ids,a.egl_device_ids)
     settings=execution_settings(a);plan=task_slot_plan(tasks,gpus,egl_devices,settings['tasks_per_gpu'],a.smoke)
     selected=sorted((slot,task) for worker in plan for slot,task in worker['jobs'])
@@ -181,7 +197,9 @@ def main():
     if cfg['portable']['variant']!=a.variant:raise ValueError('Config variant mismatch')
     identity={'variant':a.variant,'checkpoint_sha256':sha256(a.checkpoint),'config_sha256':sha256(a.config),
               'source_manifest_sha256':sha256(ROOT/'provenance/source_files.sha256'),'protocol':'published_v1_0_0_strict_seed7_50x50',
-              'sim_freeze_sha256':sha256(a.home/'receipts/sim.freeze.txt')}
+              'sim_freeze_sha256':sha256(a.home/'receipts/sim.freeze.txt'),
+              'evaluation_entry_sha256':sha256(__file__),
+              'simulator_launch':{'python':str(a.sim_python),'preload':str(a.sim_ld_preload) if a.sim_ld_preload else None}}
     if a.inference_backend=='cuda-graph':identity.update(inference_backend='cuda-graph',inference_backend_version='native_sampler_graph_v1')
     identity.update(execution_identity(a))
     gate=a.output/'SMOKE_ACCEPTED.json'

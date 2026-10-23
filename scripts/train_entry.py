@@ -3,7 +3,8 @@ import pyarrow  # Import before Torch/JAX, matching the accepted runtime order.
 import argparse, copy, json, os
 from pathlib import Path
 import yaml
-from common import activate
+from common import activate, is_point_variant, POSITION_VARIANTS
+from release_contract import verify_release
 
 def canonical(c):
     c=copy.deepcopy(c)
@@ -13,7 +14,17 @@ def canonical(c):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');a=p.parse_args()
-    c=yaml.safe_load(a.config.read_text());v=c['portable']['variant'];activate(v)
+    c=yaml.safe_load(a.config.read_text());verify_release(c)
+    v=c['portable']['variant'];activate(v)
+    if v in POSITION_VARIANTS:
+        os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
+        modes = [bool(c['portable'].get(k)) for k in ('smoke','engineering','formal')]
+        limit = 10 if modes[0] else (1500 if modes[1] else 70000)
+        if sum(modes) != 1 or not 1 <= c['trainer']['stop_after_steps'] <= limit:
+            raise ValueError('V3 requires exactly one explicit bounded or formal candidate mode')
+        if modes[2] and (c['experiment'].get('phase') != 'formal_candidate'
+                         or c['experiment'].get('formal_training_authorized') is not True):
+            raise ValueError('Generate a formal candidate recipe with configure.py --formal')
     import torch
     import torch.distributed as dist
     world=int(os.environ['WORLD_SIZE']);rank=int(os.environ['RANK'])
@@ -37,8 +48,9 @@ def main():
         if rank==0 and (receipt.exists() or (run/'config.full.yaml').exists()):raise FileExistsError('Existing run requires --resume or a new run-id')
     for path in (c['framework']['pi05']['init_checkpoint'],str(Path(c['framework']['pi05']['assets_dir'])/'norm_stats.json'),c['datasets']['vla_data']['official_registry_file']):
         if not Path(path).is_file():raise FileNotFoundError(path)
-    if v.endswith('3d_v2'):
-        gt=Path(c['datasets']['vla_data']['point_track_gt_root']);accepted=gt/'PORTABLE_GT_ACCEPTED.json'
+    if is_point_variant(v):
+        gt=Path(c['datasets']['vla_data']['point_track_gt_root'])
+        accepted=Path(c['portable'].get('gt_acceptance_receipt', str(gt/'PORTABLE_GT_ACCEPTED.json')))
         if not accepted.is_file():raise RuntimeError('Run scripts/prepare_gt.py --stage verify first')
         proof=json.loads(accepted.read_text())
         if proof['episodes']!=30000 or proof['frames']!=27815381 or proof['config_sha256']!=c['datasets']['vla_data']['point_track_gt_config_sha256']:raise ValueError('GT scope/config differs')
@@ -52,7 +64,10 @@ def main():
     if v=='query_fixed':
         from starVLA.training.foresight_trainer import ForesightTrainer
         klass=ForesightTrainer
-    elif v.endswith('3d_v2'):
+    elif v in POSITION_VARIANTS:
+        from starVLA.training.position_point_trainer import PositionPointTrainer
+        klass=PositionPointTrainer
+    elif is_point_variant(v):
         from starVLA.training.query_point_trainer import QueryPointTrainer
         klass=QueryPointTrainer
     save=klass._save_checkpoint;log=klass._log_metrics
@@ -67,6 +82,9 @@ def main():
         log(self,metrics)
         if self.completed_steps in (1,self.config.trainer.stop_after_steps) and self.completed_steps%self.config.trainer.save_interval!=0:self._save_checkpoint()
     klass._save_checkpoint=checked_save;klass._log_metrics=first_save
+    if v in POSITION_VARIANTS and c['portable'].get('smoke'):
+        from engineering_audit import install
+        install(klass)
     if v=='baseline':
         prepare=klass.prepare_training
         def audited_prepare(self):

@@ -1,0 +1,142 @@
+{
+  "release": "position_v3_handoff_20261023",
+  "checked_at": "2026-10-23T21:59:52.014785+08:00",
+  "reference_main": "1be2a632d33876621d63b8e177b0f5f6c8a76ba1",
+  "GPU_executed_commit": "6843b9fcdf6934e54abcf080955ba7c1b460ac2a",
+  "final_training_guards_commit": "470e0d52fdd337a706f54a28e83aa87abab24e4a",
+  "source_manifest_sha256": "9fd9dae71b644022ca90ab077ff1575bd0bd8f04aec151316dfc96f8c96524ba",
+  "source_files": 961,
+  "model_GT_evaluation_files_identical_between_commits": true,
+  "CPU": {
+    "Windows": {
+      "run": 68,
+      "passed": 64,
+      "Linux_only_skipped": 4
+    },
+    "Linux": {
+      "run": 68,
+      "passed": 68,
+      "skipped": 0
+    }
+  },
+  "GPU_accelerated_AB": {
+    "passed": true,
+    "GPU": "NVIDIA H100 80GB HBM3",
+    "CUDA_EGL_physical_UUID_matched": true,
+    "records": [
+      {
+        "variant": "embedding3d_pos_a",
+        "checkpoint_step": 1500,
+        "checkpoint_sha256": "6f9040936b15f7a0f3d31b150c68eda451b7d915d6d1944e4cfa4eaaced08c8e",
+        "strict_model_keys": 861,
+        "n_envs": [
+          1,
+          2
+        ],
+        "trials_per_setting": 2,
+        "full_episode_horizon": 900,
+        "requests_both_settings": 720,
+        "full_action_shape": [
+          1,
+          50,
+          12
+        ],
+        "every_request_eager_graph_exact": true,
+        "initial_scene_and_trajectory_parity": true,
+        "raw_successes": [
+          false,
+          false
+        ]
+      },
+      {
+        "variant": "embedding3d_temporal_b",
+        "checkpoint_step": 3,
+        "checkpoint_sha256": "f52d4b84cba278eeed1e0dae25b25e06c785a96d07c5a7223283e7a0b4843ac0",
+        "strict_model_keys": 885,
+        "n_envs": [
+          1,
+          2
+        ],
+        "trials_per_setting": 2,
+        "full_episode_horizon": 900,
+        "requests_both_settings": 720,
+        "full_action_shape": [
+          1,
+          50,
+          12
+        ],
+        "every_request_eager_graph_exact": true,
+        "initial_scene_and_trajectory_parity": true,
+        "raw_successes": [
+          false,
+          false
+        ]
+      }
+    ],
+    "total_complete_episodes": 8,
+    "total_simulator_steps": 7200,
+    "total_full_action_comparisons": 1440,
+    "full_benchmark": false,
+    "production_throughput_measured": false
+  },
+  "training_entry": {
+    "fresh_and_resume_source_guard": true,
+    "old_release_rejected": true,
+    "actual_child_deterministic_CUDA_forward_backward_probe": true,
+    "formal_recipe_dry_run": true,
+    "real_full_training_not_started": true
+  },
+  "GT": {
+    "generator_changed": false,
+    "source_revision": "522e4ffa3bb9d9729f79b241c65fc9e589f2659c",
+    "real_episode_regenerated": "pretrain/atomic/OpenDrawer/20250819/episode_000044",
+    "frames": 204,
+    "points": 1024,
+    "array_files_bitwise_exact": [
+      {
+        "file": "base_poses.npy",
+        "sha256": "0180ea674081b0c7801aeb8c4d24d1daad2be0f0e8dbdd8a91e1a476fd79ebef"
+      },
+      {
+        "file": "point_barycentric.npy",
+        "sha256": "8730f451d20291caa7a2b193cdbbfb430c28e753915b2fdf65b2bfd1742c2df7"
+      },
+      {
+        "file": "point_categories.npy",
+        "sha256": "ac5587d4e9cf75ec9ee74e4a0d77101f8fc8aae715cacd2c36c7951cf73a5e04"
+      },
+      {
+        "file": "point_face_ids.npy",
+        "sha256": "dbf1620adbf7eb2c5dfbf68c380b3daeeaab2033b7327ffcf6c2fe91642bff9c"
+      },
+      {
+        "file": "point_geom_ids.npy",
+        "sha256": "59133fd4eb395951dd0ef582d0a3c27247f9c5a48ae6378dbbcb9cc3b172b7bb"
+      },
+      {
+        "file": "point_local.npy",
+        "sha256": "d0d640d2c07b0a17b9200dad8fc6b60e20ba7f0ba032e005184c3a735573e950"
+      },
+      {
+        "file": "timestamps.npy",
+        "sha256": "89363bd9d95bfab5313e108b73cef7d9f2f7da694f1c91f06ab8833e20c8ad2e"
+      },
+      {
+        "file": "world_tracks.npy",
+        "sha256": "47478a0067152957bc7edf4cac9021c169d0831df11358c5a861d514570826f2"
+      }
+    ],
+    "interpreter_used_for_bounded_regeneration": "existing simulator Python 3.11, MuJoCo3.3.1, NumPy2.2.5",
+    "full_30000_regeneration": false,
+    "original_GT_modified": false
+  },
+  "transport": {
+    "raw_evidence_files": 75,
+    "sha256_verified": true,
+    "archive_sha256": "ce2a2045e6bf071f6875390ecdbaae2aeade74ca9c88fc0450435dc88e2d8b9f"
+  },
+  "formal70k_training_started": false,
+  "formal_AB_benchmark_completed": false,
+  "ACP_EGL_crash_root_cause_fixed": false,
+  "clean_target_cluster_full_install_rerun": false
+}
