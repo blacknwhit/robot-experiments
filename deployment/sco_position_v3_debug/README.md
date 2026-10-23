@@ -55,3 +55,12 @@ after native monitor removal without claiming it has a live recovery owner.
 读取阶段fslgpu已SUSPENDED，启动实际遭成员GPU配额0拒绝；恢复现有fslcpu后SSH可用，仅CPU读取RobotVla内证据。发现本地诊断collector在SSH失败时保留旧latest排队快照，已修复为发布当次API状态并明确应用证据不可用，4项身份/历史作用域/传输失败测试通过。仅更新本地collector及记录，未修改已部署r2/r4/r5运行payload或再次提交GPU任务。
 
 A1500权重继续保留；B smoke3通过但B1500目录仍不存在。原训练HOLD保持，训练与诊断writer锁都已核实空闲。下一步需围绕已捕获的EGL原生栈做受控复现和修复验收，当前不宣称错误修复或算法效果提升。证据：work/pi05_embedding_position_v3_20261020/checks/20261023_123719及native_debug_r5/evidence/acp_20261022T181241Z_8003ae9c。
+
+
+#### 2026-10-23 13:54：图形能力all已核验，启动参考分配器受控对照
+
+用户要求直接对照已验收代码并怀疑NVIDIA capabilities未开启。实时SCO API核实pt-xx84awzx、pt-max2mytx、参考pt-qykfd96c同镜像且均NVIDIA_DRIVER_CAPABILITIES=all；失败进程有实际NVIDIA EGL库和有效三视图，因此缺少该提交变量不是证据支持的原因，但不据此排除更底层驱动兼容问题。远端SHA核对baseline和A的simulation_env.py完全一致，两边共用同一份sim_code；GPU身份代码相同，审计包装只差进度及字段。
+
+发现当前A评测继承训练expandable_segments:True，而参考聊天后续fixed2500评测bootstrap会清除PYTORCH_CUDA_ALLOC_CONF。主对话实现评测专属环境候选修正，并在独立reference_eval_r6_20261023部署有界对照：同一worker依次A原设置、A默认分配器、参考baseline入口；每项2完整回合/seed7/horizon900/replan5，保存严格加载、实际GPU UUID、原生GDB栈和原始轨迹。候选原因未获GPU因果验证，不称已修复；不改变训练、权重、损失或EGL协议。
+
+本地3项测试和最终部署10文件SHA通过；fslcpu第一次被平台暂停中断，恢复后完整CPU子进程环境/3入口dry-run/GDB正常退出、受控SIGABRT抓栈、超时清理均通过。ACP worker将再运行该CPU检查后才GPU回放。标准实际成员GPU配额0拒绝后，2H100 SPOT任务pt-7esakt2h、native f5083efb-0e8c-4e72-a7df-c802d9602cf6提交verified.ok/auto10，13:54 worker Pending。旧训练HOLD保留；A1500/B smoke3状态不变，B1500未开始。若跨worker中断则保留HOLD，不拼接跨worker对照，不自动恢复训练。证据work/pi05_embedding_position_v3_20261020/reference_eval_r6。
