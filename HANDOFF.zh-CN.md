@@ -6,7 +6,7 @@
 
 ## 1. 必须先理解的复现边界
 
-本仓库包含四个入口、三套独立模型源码。`baseline` 的历史源码与审计快照匹配；`query_fixed` 使用可核对的完整历史树重构，原训练主仓 commit 未能从本地归档恢复，但主要源码和正式评测源文件有逐项哈希证据；3D v2 使用实际部署的模型、数据 reader、loss 和 trainer。
+历史部分包含四个入口、三套独立模型源码；新增v3 A/B为另外两个入口，共用第四套独立runtime。`baseline` 的历史源码与审计快照匹配；`query_fixed` 使用可核对的完整历史树重构，原训练主仓 commit 未能从本地归档恢复，但主要源码和正式评测源文件有逐项哈希证据；3D v2 使用实际部署的模型、数据 reader、loss 和 trainer。
 
 本次新增的是路径配置、安装/下载、同卡数恢复选择和验收、启动锁以及可移植评测包装。未改科学目标、模型结构、Adam/LR 或训练样本筛选。完整列表见 `provenance/PORTABILITY.md`。新包已做的本机检查见 `provenance/VALIDATION.json`；**本机 CPU 检查不代表新集群的 GPU、NCCL、EGL、训练恢复或 benchmark 已验收**。必须执行下方 smoke。
 

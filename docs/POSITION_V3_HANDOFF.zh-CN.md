@@ -38,6 +38,7 @@ bash scripts/setup_policy.sh
 bash scripts/setup_sim.sh
 export PY="$H/envs/policy/bin/python"
 export SIM_PY="$H/envs/sim/bin/python"
+"$PY" -c "import mujoco, numpy; print(mujoco.__version__, numpy.__version__)"
 "$PY" -m unittest discover -s tests -v
 sha256sum -c provenance/source_files.sha256
 ```
@@ -176,6 +177,16 @@ PART=1
 成功条件为`FINAL_ACCEPTED.json`：50份原始Boolean数组、2500条唯一trace、完整checkpoint/config/source/scene身份一致；平台SUCCEEDED或文件数量齐全不够。A/B当前不存在正式70k成绩。
 
 ## 7. 已验证与未验证
+
+2026-10-23本次实测：
+
+- Windows 68项检查中64通过、4项Linux专属跳过；Linux 68项全部通过。
+- 单H100上A1500严格加载861keys、Bsmoke3严格加载885keys，分别完成n_envs=1/2各两个完整900步回合。合计8回合/7200模拟步/1440次完整50步动作对照；eager与graph逐元素完全一致，单/双环境的初始化与完整轨迹一致，CUDA与EGL UUID一致。
+- 真实OpenDrawer演示204帧/1024点，在隔离目录重新生成8个数组，与原GT逐字节一致。复用历史环境时曾发现policy Python未装MuJoCo，因此该有界重建使用已安装MuJoCo3.3.1的sim Python；新安装脚本已包含该依赖，上方import检查不能省略。另一个缺少alignment凭据的旧样本输入被正确拒绝，随后使用真实既有凭据及实际源/缓存SHA核验后的输入，没有放宽校验。
+- 最终训练启动代码核验961份源码；旧release配置会被拒绝；通过真实CUDA确定性矩阵前向/反向环境探针与正式配置dry-run。这不是新增完整模型训练结果。
+- 补充的训练启动保护没有改变任何模型、GT或评测源码；最终发布与上述GPU运行版本的这些文件已逐项证明相同。
+
+高效后端的正确性通过；本次smoke逐请求同时跑eager对照，**不是生产模式吞吐测试**。没有把baseline的12/24环境速度或利用率当作A/B性能，也没有据此宣称算法效果提升。
 
 本次发布的精确源码和实际A/B加速验证见[发布验收记录](../provenance/POSITION_V3_HANDOFF_VALIDATION.json)。此前A1500、Bsmoke3的训练/完整恢复/动作推理、fslgpu eager闭环已经通过；这些历史证据不能自动替代本次新图后端的验收。
 

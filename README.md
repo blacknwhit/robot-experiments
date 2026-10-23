@@ -1,6 +1,6 @@
 # robot-experiments
 
-PI0.5 / RoboCasa365 的可迁移实验代码：原始基线、最佳 Query-FIXED，以及最新 3D 轨迹辅助监督的 Query 和 Embedding 两版。
+PI0.5 / RoboCasa365 的可迁移实验代码：原始基线、最佳 Query-FIXED，以及3D轨迹辅助监督v2，以及新的Embedding位置监督A/时间解码B。
 
 **完整操作文档：[新集群交接文档](HANDOFF.zh-CN.md)**。从公开数据与干净基座开始，包含环境、数据筛选、3D 标签生成、保存/恢复 smoke、70k 训练、4/2 GPU 正式评测和原始结果验收。
 
