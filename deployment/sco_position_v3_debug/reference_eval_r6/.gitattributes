@@ -1,0 +1,3 @@
+# Preserve bytes of the already deployed diagnostic payload and its hash manifest.
+gdb_runner.py -text
+manifest.json -text
