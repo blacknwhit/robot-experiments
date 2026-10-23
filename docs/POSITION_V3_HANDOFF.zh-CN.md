@@ -2,6 +2,8 @@
 
 本页是两版v3的执行入口，所有命令从仓库根目录运行。接手者只需配置路径、更新代码和执行，不需要重新实现GT、训练器或评测器。基线、Query-FIXED、v2仍保留，历史分数不作为本轮A/B结果。
 
+**2026-10-24增补C：** `query3d_temporal_c`使用旧Query50 prefix和B完全相同的Point Track Head，沿用本页全部数据、GT、训练和高效评测入口。只需换variant和独立run-id；本次按用户范围不重复完整验证、不启动任务。C仅完成针对性CPU结构/推理接线检查，不能引用下文A/B GPU历史验收为C的结果。结构、精确差异与定向测试见[C交接补充](QUERY50_TEMPORAL_C.zh-CN.md)。
+
 ## 1. 两版固定内容与脚本索引
 
 | 项目 | A：`embedding3d_pos_a` | B：`embedding3d_temporal_b` |

@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from common import activate, POSITION_VARIANTS, sha256
+from common import activate, POSITION_VARIANTS, POSITION_QUERY_VARIANTS, sha256
 
 
 def main():
@@ -37,6 +37,10 @@ def main():
     # Only our own locally generated engineering sample is loaded.
     sample = torch.load(args.sample, weights_only=False, map_location="cpu")
     policy = model.policy_model
+    from openpi.models_pytorch.position_point import validate_position_policy
+    direct_query = validate_position_policy(policy)
+    if direct_query != (variant in POSITION_QUERY_VARIANTS):
+        raise ValueError("Wrong V3 prefix architecture for requested variant")
     if not policy.paligemma_with_expert.separate_prefix_attention:
         raise AssertionError("Required cache-aligned prefix path disabled")
     preprocess = policy._preprocess_observation
@@ -79,14 +83,15 @@ def main():
     def forbidden(*args, **kwargs):
         raise AssertionError("Training-only point/Embedding branch executed at inference")
     policy.point_track_head.register_forward_pre_hook(forbidden)
-    policy.point_track_head.embedding.register_forward_pre_hook(forbidden)
+    if not direct_query:
+        policy.point_track_head.embedding.register_forward_pre_hook(forbidden)
     x = model.predict_action([sample])["actions"]
     y = model.predict_action([sample])["actions"]
     if x.shape != (1, 50, 12) or not np.isfinite(x).all() or not np.array_equal(x, y):
         raise AssertionError("Action shape/finite/deterministic request contract failed")
     report = dict(passed=True, variant=variant, checkpoint_sha256=sha256(args.checkpoint),
                   strict_state=proof, joint_cache_parity=parity, actions_shape=list(x.shape),
-                  point_inputs_required=False, point_head_called=False, finite=True,
+                  point_inputs_required=False, point_head_called=False, prefix_queries_preserved=direct_query, finite=True,
                   deterministic_requests=True, gpu=torch.cuda.get_device_name(0),
                   engineering_only=True, closed_loop_benchmark=False)
     args.output.write_text(json.dumps(report, indent=2))

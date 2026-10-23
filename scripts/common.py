@@ -3,7 +3,8 @@ from pathlib import Path
 import hashlib, os, sys
 
 ROOT = Path(__file__).resolve().parents[1]
-POSITION_VARIANTS = ('embedding3d_pos_a', 'embedding3d_temporal_b')
+POSITION_QUERY_VARIANTS = ('query3d_temporal_c',)
+POSITION_VARIANTS = ('embedding3d_pos_a', 'embedding3d_temporal_b', *POSITION_QUERY_VARIANTS)
 VARIANTS = ('baseline', 'query_fixed', 'query3d_v2', 'embedding3d_v2', *POSITION_VARIANTS)
 
 

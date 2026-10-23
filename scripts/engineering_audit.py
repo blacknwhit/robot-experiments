@@ -4,6 +4,27 @@ from pathlib import Path
 import torch
 
 
+def audited_parameter_names(policy):
+    """Include the actual Z_t source as well as the shared B/C point decoder."""
+    from openpi.models_pytorch.position_point import validate_position_policy
+    direct_query = validate_position_policy(policy)
+    names = [
+        "paligemma_with_expert.paligemma.model.language_model.layers.17.self_attn.k_proj.weight",
+        "point_track_head.point_mlp.0.weight", "point_track_head.point_mlp.2.weight",
+        "point_track_head.fusion_in.weight", "point_track_head.fusion_out.weight"]
+    if direct_query:
+        names.append("future_queries")
+    else:
+        names.append("point_track_head.embedding.queries")
+        for i in range(policy.point_track.embedding_layers):
+            names += [f"point_track_head.embedding.layers.{i}.{tail}" for tail in
+                      ("self_attention.in_proj_weight", "cross_attention.in_proj_weight", "ff.0.weight")]
+    for i in range(policy.point_track.temporal_layers):
+        names += [f"point_track_head.temporal.{i}.{tail}" for tail in
+                  ("attention.in_proj_weight", "ff.0.weight")]
+    return names
+
+
 def install(trainer):
     original = trainer._train_step
 
@@ -13,17 +34,7 @@ def install(trainer):
             raise ValueError("Engineering audit requires native global64/acc1")
         policy = self.accelerator.unwrap_model(self.model).policy_model
         params = dict(policy.named_parameters())
-        names = [
-            "paligemma_with_expert.paligemma.model.language_model.layers.17.self_attn.k_proj.weight",
-            "point_track_head.point_mlp.0.weight", "point_track_head.point_mlp.2.weight",
-            "point_track_head.fusion_in.weight", "point_track_head.fusion_out.weight",
-            "point_track_head.embedding.queries"]
-        for i in range(policy.point_track.embedding_layers):
-            names += [f"point_track_head.embedding.layers.{i}.{tail}" for tail in
-                      ("self_attention.in_proj_weight", "cross_attention.in_proj_weight", "ff.0.weight")]
-        for i in range(policy.point_track.temporal_layers):
-            names += [f"point_track_head.temporal.{i}.{tail}" for tail in
-                      ("attention.in_proj_weight", "ff.0.weight")]
+        names = audited_parameter_names(policy)
         before, gradients = {}, {}
         for name in names:
             master = safe_get_full_fp32_param(params[name])
