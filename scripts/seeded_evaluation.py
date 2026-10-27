@@ -84,6 +84,9 @@ def set_policy_episode(model, episode):
 
 
 def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_replans=None):
+    from egl_lifecycle import VERSION as EGL_LIFECYCLE_VERSION
+    if data.get('simulator_versions', {}).get('egl_lifecycle') != EGL_LIFECYCLE_VERSION:
+        raise ValueError('Missing owned EGL lifecycle repair')
     spec, seeds = task_seeds(task)
     expected = {'env': 'robocasa/' + spec['task'], 'episode_protocol': PROTOCOL,
                 'scene_seed_definition_sha256': identity['scene_seed_definition_sha256'],

@@ -17,6 +17,8 @@ HOME_DIR=/absolute/path/to/robot-experiments-data
 
 容器/任务创建时设置`NVIDIA_DRIVER_CAPABILITIES=all`。入口使用EGL并按传入的物理设备映射绑定模拟器；CUDA与EGL编号必须对应同一张物理卡。不能默认CUDA内部的`cuda:0`等于宿主EGL设备0。策略与模拟器使用隔离的依赖路径；模拟器不会继承策略的NCCL预加载。
 
+新入口自动安装进程内的`owned_egl_context_episode_gc_v1`修复：释放旧渲染器时绑定其自己的EGL上下文，随后恢复仍在使用的上下文；不再因释放旧上下文而解绑另一个渲染器，并在原生绘制/读回前重新绑定。循环垃圾回收延后到回合关闭后执行，普通引用计数释放不变，避免旧原生渲染资源在新上下文构造/绘制中被回收。相机、MSAA、图像尺寸、渲染格式不变。它针对交接环境固定的robosuite版本校验原函数SHA，不改全局安装文件。不要叠加r12/r13的本地EGL补丁；若提示`Unsupported robosuite EGL method`，使用交接文档固定依赖和本仓库入口，不能跳过校验套用未知补丁。
+
 ## 2. 固定的是每个episode的种子
 
 ```bash

@@ -1,4 +1,5 @@
 import copy
+import gc
 import json
 import signal
 import sys
@@ -16,6 +17,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import evaluate_seeded
 import fresh_scene
 import seeded_episode_sim
+import egl_lifecycle
 from episode_plan import atomic_json, file_sha
 from evaluate import TASKS
 from scene_suite import DEFINITION
@@ -57,7 +59,7 @@ class SeedOnlyTests(unittest.TestCase):
                 'observation_health_version': HEALTH_VERSION, 'episodes': rows,
                 'successes': successes, 'num_successes': sum(successes) if completed else None,
                 'requests': requests*len(ids), 'policy_server_metadata': metadata,
-                'simulator_versions': {'robocasa': '1.0.0', 'robosuite': '1.5.2'}}
+                'simulator_versions': {'robocasa': '1.0.0', 'robosuite': '1.5.2', 'egl_lifecycle': egl_lifecycle.VERSION}}
 
     def test_seed_and_episode_coverage_is_independent_of_worker_count(self):
         self.assertFalse(seed_suite()['reference_plan_required'])
@@ -167,13 +169,16 @@ class SeedOnlyTests(unittest.TestCase):
             def close(self):closed.append('env')
         created=[]
         def create(task,horizon,seed):
+            assert not gc.isenabled(), 'Native renderer must not be interrupted by automatic cyclic GC'
             created.append((task,horizon,seed));return Env(),observation(),{}
         name='examples.pi05_robocasa365.eval_files.model2pi05_robocasa365_interface'
         module=types.ModuleType(name);module.PolicyWrapper=Policy
         modules={name:module,'robocasa':SimpleNamespace(__version__='1.0.0'),'robosuite':SimpleNamespace(__version__='1.5.2')}
-        with tempfile.TemporaryDirectory() as directory,patch.dict(sys.modules,modules),patch.object(fresh_scene,'create_scene',side_effect=create),patch.object(fresh_scene,'verify_scene',side_effect=AssertionError('No plan comparison allowed')):
+        with tempfile.TemporaryDirectory() as directory,patch.dict(sys.modules,modules),patch.object(egl_lifecycle,'install'),patch.object(egl_lifecycle,'assert_healthy'),patch.object(fresh_scene,'create_scene',side_effect=create),patch.object(fresh_scene,'verify_scene',side_effect=AssertionError('No plan comparison allowed')):
             output=Path(directory)
+            original_gc = gc.isenabled()
             seeded_episode_sim.worker(0,[0,3],'CloseBlenderLid',output,'localhost',1,file_sha(DEFINITION),None)
+            self.assertEqual(gc.isenabled(), original_gc)
             data=json.loads((output/'worker0.json').read_text())
             self.assertEqual([r['episode'] for r in data['rows']],[0,3])
             self.assertTrue(all(r['episode_complete'] for r in data['rows']))
@@ -189,6 +194,7 @@ class SeedOnlyTests(unittest.TestCase):
             with patch.object(fresh_scene,'create_scene',return_value=(BlackEnv(),observation(),{})):
                 with self.assertRaisesRegex(ValueError,'All-zero RGB'):
                     seeded_episode_sim.worker(0,[3],'CloseBlenderLid',failed,'localhost',1,file_sha(DEFINITION),None)
+            self.assertEqual(gc.isenabled(), original_gc)
             self.assertFalse((failed/'worker0.json').exists())
             self.assertEqual(json.loads((failed/'worker0.error.json').read_text())['episode'],3)
             self.assertTrue((failed/'worker0.failed_observation.npz').exists())

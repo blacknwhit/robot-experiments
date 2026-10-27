@@ -1,6 +1,7 @@
 """Independent fixed episode seeds, asynchronous real environments, no PLANS."""
 import argparse
 import faulthandler
+import gc
 import json
 import multiprocessing as mp
 import os
@@ -12,6 +13,7 @@ import traceback
 from pathlib import Path
 
 import numpy as np
+import egl_lifecycle
 from episode_plan import atomic_json, file_sha
 from scene_suite import DEFINITION
 from seeded_evaluation import (PROTOCOL, HEALTH_VERSION, selected_episodes, partitions,
@@ -51,7 +53,13 @@ def worker(slot, ids, task, output, host, port, seed_sha, max_replans):
     rows = []
     episode = None
     began = None
+    automatic_gc = gc.isenabled()
     try:
+        egl_lifecycle.install()
+        # MuJoCo / EGL own native resources in Python reference cycles. Reclaim
+        # cycles only after closing an episode, not during context construction,
+        # drawing or readback. Normal reference-count deallocation still runs.
+        gc.disable()
         if file_sha(DEFINITION) != seed_sha:
             raise ValueError('Seed definition changed during worker startup')
         spec, seeds = task_seeds(task)
@@ -59,6 +67,7 @@ def worker(slot, ids, task, output, host, port, seed_sha, max_replans):
                               base_seed=7, strict_determinism=True, trace_determinism=False)
         for episode in ids:
             env, observation, _ = create_scene('robocasa/' + spec['task'], spec['horizon'], seeds[episode])
+            egl_lifecycle.assert_healthy()
             health = check_observation(observation)
             atomic_json(output / f'worker{slot}.initial.json', {'episode': episode, 'scene_seed': seeds[episode], 'health': health})
             set_policy_episode(model, episode)
@@ -71,6 +80,7 @@ def worker(slot, ids, task, output, host, port, seed_sha, max_replans):
             while not done:
                 actions = model.step(batch_observation(observation))['actions']
                 observation, reward, terminated, truncated, _ = env.step(unbatch_action(actions))
+                egl_lifecycle.assert_healthy()
                 check_observation(observation)
                 if not np.isfinite(reward):
                     raise ValueError('Non-finite environment reward')
@@ -85,12 +95,15 @@ def worker(slot, ids, task, output, host, port, seed_sha, max_replans):
                          'initial_health': health, 'started_at': started, 'finished_at': time.time()})
             env.close()
             env = None
+            gc.collect()
+            egl_lifecycle.assert_healthy()
             atomic_json(output / f'worker{slot}.progress.json', {'complete': False, 'slot': slot, 'ids': ids, 'rows': rows})
         if file_sha(DEFINITION) != seed_sha:
             raise ValueError('Seed definition changed during evaluation')
         atomic_json(output / f'worker{slot}.json', {'slot': slot, 'ids': ids, 'rows': rows,
                     'started': began, 'ended': time.time(), 'metadata': model.server_metadata,
-                    'simulator_versions': {'robocasa': robocasa.__version__, 'robosuite': robosuite.__version__}})
+                    'simulator_versions': {'robocasa': robocasa.__version__, 'robosuite': robosuite.__version__,
+                                           'egl_lifecycle': egl_lifecycle.VERSION}})
     except BaseException:
         error = {'episode': episode, 'traceback': traceback.format_exc(),
                  'completed_episodes': [row['episode'] for row in rows if row['episode_complete']]}
@@ -110,8 +123,15 @@ def worker(slot, ids, task, output, host, port, seed_sha, max_replans):
             if model is not None:
                 model.close()
         finally:
-            if env is not None:
-                env.close()
+            try:
+                if env is not None:
+                    env.close()
+                    env = None
+                gc.collect()
+                egl_lifecycle.assert_healthy()
+            finally:
+                if automatic_gc:
+                    gc.enable()
 
 
 def run(args):
