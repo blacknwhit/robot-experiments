@@ -19,7 +19,7 @@
 
 H100闭环吞吐：[独立任务共用GPU](docs/EVALUATION_SHARED_GPU.zh-CN.md)。可选每卡两路独立评测，保持每路batch1及原回合协议，通过共享smoke后启用。
 
-以后采用[新的固定2500场景协议](docs/ASTRA_FIXED_SCENES.zh-CN.md)：一次性只reset准备场景，后续模型共享同一集合并使用单卡单task多环境流水线。只有明确需要各模型旧串行场景链时，才使用[历史兼容入口](docs/EVALUATION_LEGACY_EXACT.zh-CN.md)。此前84–85%是H100单task有限rollout实测，不能保证所有任务或整项作业达到同样利用率；历史分数不混入新集合。
+以后采用[固定episode种子直接评测](docs/ASTRA_FIXED_SCENES.zh-CN.md)：`evaluate_seeded.py`读取统一任务/episode种子定义，每回合直接初始化，不预生成场景计划、不比较参考图像/state/轨迹。单卡单task多环境流水线、严格模型加载及输入/动作有效性检查保留。只有明确复现旧协议时才使用[历史兼容入口](docs/EVALUATION_LEGACY_EXACT.zh-CN.md)。此前利用率数字属于H100有限rollout实测，不能保证所有任务或整项作业；历史分数与新协议分开。
 
 布局：
 
