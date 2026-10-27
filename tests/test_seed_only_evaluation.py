@@ -1,5 +1,6 @@
 import copy
 import json
+import signal
 import sys
 import tempfile
 import types
@@ -117,6 +118,29 @@ class SeedOnlyTests(unittest.TestCase):
                 names.append(command[command.index('--task')+1])
         self.assertEqual(sorted(names),sorted(t['task'] for t in TASKS))
         self.assertEqual(len(names),len(set(names)))
+
+    def test_native_child_exit_is_preserved_before_sibling_cleanup(self):
+        class Child:
+            instances=[]
+            def __init__(self,**kwargs):
+                self.slot=len(self.instances);self.pid=100+self.slot;self.exitcode=-int(signal.SIGABRT) if self.slot==0 else None
+                self.instances.append(self)
+            def start(self):pass
+            def is_alive(self):return self.exitcode is None
+            def terminate(self):self.exitcode=-15
+            def join(self,timeout=None):pass
+            def kill(self):self.exitcode=-9
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)/'native-failure'
+            args=SimpleNamespace(diagnostic_episodes='0,3',diagnostic_max_replans=8,n_envs=2,
+                                 task='CloseBlenderLid',output=output,host='localhost',port=1,timeout=60)
+            with patch.object(seeded_episode_sim.mp,'get_context',return_value=SimpleNamespace(Process=Child)):
+                with self.assertRaisesRegex(RuntimeError,'worker failed'):seeded_episode_sim.run(args)
+            first=json.loads((output/'WORKER_FAILURE.json').read_text())['workers_before_cleanup']
+            final=json.loads((output/'worker_exit.json').read_text())['after_cleanup']
+            self.assertEqual(first[0]['exitcode'],-int(signal.SIGABRT));self.assertEqual(first[0]['signal'],'SIGABRT')
+            self.assertIsNone(first[1]['exitcode']);self.assertEqual(final[1]['signal'],'SIGTERM')
+            self.assertFalse((output/'result.json').exists())
 
     def test_actual_worker_uses_global_episode_without_trace_hashers_or_plan_checks(self):
         calls=[]; closed=[]

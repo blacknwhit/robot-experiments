@@ -98,7 +98,7 @@ PART=1
 
 完整且身份匹配的task可以复用。一个task中途失败时不会写成完整结果，也不会把异常计为任务失败分数或静默跳过；查清问题后重跑原命令，该未完整task按相同seed重跑。已有完整task不重复执行。
 
-失败证据位于`OUT/runs/<task>/<attempt>/`：优先检查`ERROR.json`、`simulation.log`、`simulation/worker*.error.json`和`simulation/worker_exit.json`；原生崩溃可能只有负退出码/信号而没有Python栈。观测异常会尽量保留`worker*.failed_observation.npz`。模型日志在`server.log`。外层“task failed”不是根因。
+失败证据位于`OUT/runs/<task>/<attempt>/`：优先检查`ERROR.json`、`simulation.log`、`simulation/worker*.log`、`worker*.error.json`和`worker_exit.json`。每个worker独立保存stdout/stderr并启用原生信号栈；`WORKER_FAILURE.json`保存发现异常时、清理其它worker之前的退出码，避免把后续SIGTERM误当根因。原生崩溃可能没有Python异常JSON；SIGKILL通常也没有可捕获的栈。观测异常会尽量保留`worker*.failed_observation.npz`。模型日志在`server.log`。外层“task failed”不是根因。
 
 ## 6. n_envs与利用率参考
 

@@ -1,7 +1,12 @@
 """Independent fixed episode seeds, asynchronous real environments, no PLANS."""
 import argparse
+import faulthandler
 import json
 import multiprocessing as mp
+import os
+import signal
+import socket
+import sys
 import time
 import traceback
 from pathlib import Path
@@ -11,6 +16,30 @@ from episode_plan import atomic_json, file_sha
 from scene_suite import DEFINITION
 from seeded_evaluation import (PROTOCOL, HEALTH_VERSION, selected_episodes, partitions,
                                task_seeds, check_observation, set_policy_episode)
+
+
+def exit_rows(children):
+    rows = []
+    for slot, child in enumerate(children):
+        code = child.exitcode
+        try:
+            name = signal.Signals(-code).name if code is not None and code < 0 else None
+        except ValueError:
+            name = 'UNKNOWN'
+        rows.append({'slot': slot, 'pid': child.pid, 'exitcode': code, 'signal': name})
+    return rows
+
+
+def logged_worker(slot, ids, task, output, host, port, seed_sha, max_replans):
+    # Install this before importing MuJoCo. Native signals may bypass Python's
+    # exception writer; the coordinator still records the original exit code.
+    with (output / f'worker{slot}.log').open('w', buffering=1) as log:
+        os.dup2(log.fileno(), 1)
+        os.dup2(log.fileno(), 2)
+        faulthandler.enable(file=sys.stderr, all_threads=True)
+        atomic_json(output / f'worker{slot}.started.json', {'slot': slot, 'ids': ids,
+                    'pid': os.getpid(), 'hostname': socket.gethostname(), 'started': time.time()})
+        worker(slot, ids, task, output, host, port, seed_sha, max_replans)
 
 
 def worker(slot, ids, task, output, host, port, seed_sha, max_replans):
@@ -99,18 +128,22 @@ def run(args):
     ctx = mp.get_context('spawn')
     try:
         for slot, group in enumerate(groups):
-            child = ctx.Process(target=worker, args=(slot, group, args.task, args.output, args.host,
+            child = ctx.Process(target=logged_worker, args=(slot, group, args.task, args.output, args.host,
                                 args.port, seed_sha, args.diagnostic_max_replans))
             child.start()
             children.append(child)
         deadline = time.monotonic() + args.timeout
         while any(child.is_alive() for child in children):
             if any(child.exitcode not in (None, 0) for child in children):
+                atomic_json(args.output / 'WORKER_FAILURE.json', {'detected_at': time.time(),
+                            'workers_before_cleanup': exit_rows(children)})
                 raise RuntimeError('Simulator worker failed; inspect worker*.error.json and worker_exit.json')
             if time.monotonic() >= deadline:
                 raise TimeoutError('Seed-only task evaluation exceeded timeout')
             time.sleep(.2)
         if any(child.exitcode != 0 for child in children):
+            atomic_json(args.output / 'WORKER_FAILURE.json', {'detected_at': time.time(),
+                        'workers_before_cleanup': exit_rows(children)})
             raise RuntimeError('Simulator worker failed; inspect worker exit codes')
         workers = [json.loads((args.output / f'worker{i}.json').read_text()) for i in range(args.n_envs)]
         rows = sorted((row for w in workers for row in w['rows']), key=lambda row: row['episode'])
@@ -138,6 +171,7 @@ def run(args):
                   'rollout_timing': {'started_at': min(w['started'] for w in workers), 'finished_at': max(w['ended'] for w in workers)}}
         atomic_json(args.output / 'result.json', result)
     finally:
+        before = exit_rows(children)
         for child in children:
             if child.is_alive():
                 child.terminate()
@@ -146,7 +180,7 @@ def run(args):
             if child.is_alive():
                 child.kill()
                 child.join(timeout=10)
-        atomic_json(args.output / 'worker_exit.json', [{'slot': i, 'pid': child.pid, 'exitcode': child.exitcode} for i, child in enumerate(children)])
+        atomic_json(args.output / 'worker_exit.json', {'before_cleanup': before, 'after_cleanup': exit_rows(children)})
 
 
 def main():
