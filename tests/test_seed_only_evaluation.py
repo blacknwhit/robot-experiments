@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import evaluate_seeded
 import fresh_scene
 import seeded_episode_sim
-import egl_lifecycle
+import simulator_renderer
 from episode_plan import atomic_json, file_sha
 from evaluate import TASKS
 from scene_suite import DEFINITION
@@ -29,6 +29,11 @@ def observation(value=70):
     return {**{key: np.full((1, 8, 8, 3), value, dtype=np.uint8) for key in VIDEO_KEYS},
             'state.test': np.ones((1, 16), dtype=np.float32),
             'annotation.human.task_description': np.asarray(['test instruction'])}
+
+
+def renderer_info():
+    return {'adapter': simulator_renderer.VERSION, 'engine': 'mujoco', 'backend': 'egl',
+            'msaa': 4, 'max_geom': 10000, 'gl_context_type': 'mujoco.egl.GLContext'}
 
 
 class SeedOnlyTests(unittest.TestCase):
@@ -45,7 +50,8 @@ class SeedOnlyTests(unittest.TestCase):
         requests = max_replans or spec['horizon']//5
         completed = max_replans is None
         rows = [{'episode': i, 'scene_seed': seeds[i], 'success': bool(i % 2), 'episode_complete': completed,
-                 'requests': requests, 'health_checks': requests+1, 'initial_health': check_observation(observation())} for i in ids]
+                 'requests': requests, 'health_checks': requests+1, 'initial_health': check_observation(observation()),
+                 'renderer': renderer_info()} for i in ids]
         successes = [r['success'] for r in rows] if completed else None
         metadata = {**identity, 'strict_full_state': {'all_loaded_values_exact_at_model_dtype': True},
                     'policy_rng_mode': 'stateless_request_v1', 'policy_seed_version': 'sha256_u32_v1'}
@@ -59,7 +65,7 @@ class SeedOnlyTests(unittest.TestCase):
                 'observation_health_version': HEALTH_VERSION, 'episodes': rows,
                 'successes': successes, 'num_successes': sum(successes) if completed else None,
                 'requests': requests*len(ids), 'policy_server_metadata': metadata,
-                'simulator_versions': {'robocasa': '1.0.0', 'robosuite': '1.5.2', 'egl_lifecycle': egl_lifecycle.VERSION}}
+                'simulator_versions': {'robocasa': '1.0.0', 'robosuite': '1.5.2', 'rgb_adapter': simulator_renderer.VERSION}}
 
     def test_seed_and_episode_coverage_is_independent_of_worker_count(self):
         self.assertFalse(seed_suite()['reference_plan_required'])
@@ -94,6 +100,7 @@ class SeedOnlyTests(unittest.TestCase):
                      lambda d: d['episodes'][3].update(scene_seed=7),
                      lambda d: d['episodes'][3].update(episode_complete=False),
                      lambda d: d['episodes'][3].update(health_checks=0),
+                     lambda d: d['episodes'][3]['renderer'].update(msaa=0),
                      lambda d: d.update(max_episode_steps=1350),
                      lambda d: d.update(reference_plan_required=True),
                      lambda d: d['policy_server_metadata'].update(checkpoint_sha256='c'*64))
@@ -174,7 +181,7 @@ class SeedOnlyTests(unittest.TestCase):
         name='examples.pi05_robocasa365.eval_files.model2pi05_robocasa365_interface'
         module=types.ModuleType(name);module.PolicyWrapper=Policy
         modules={name:module,'robocasa':SimpleNamespace(__version__='1.0.0'),'robosuite':SimpleNamespace(__version__='1.5.2')}
-        with tempfile.TemporaryDirectory() as directory,patch.dict(sys.modules,modules),patch.object(egl_lifecycle,'install'),patch.object(egl_lifecycle,'assert_healthy'),patch.object(fresh_scene,'create_scene',side_effect=create),patch.object(fresh_scene,'verify_scene',side_effect=AssertionError('No plan comparison allowed')):
+        with tempfile.TemporaryDirectory() as directory,patch.dict(sys.modules,modules),patch.object(simulator_renderer,'install'),patch.object(simulator_renderer,'assert_healthy'),patch.object(simulator_renderer,'retain_environment',return_value=renderer_info()),patch.object(simulator_renderer,'release_all'),patch.object(fresh_scene,'create_scene',side_effect=create),patch.object(fresh_scene,'verify_scene',side_effect=AssertionError('No plan comparison allowed')):
             output=Path(directory)
             original_gc = gc.isenabled()
             seeded_episode_sim.worker(0,[0,3],'CloseBlenderLid',output,'localhost',1,file_sha(DEFINITION),None)

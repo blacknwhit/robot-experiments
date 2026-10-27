@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 
 from common import ROOT, VARIANTS, activate, environment, runtime, sha256
-from egl_lifecycle import VERSION as EGL_LIFECYCLE_VERSION
+from simulator_renderer import VERSION as RGB_ADAPTER_VERSION
 from episode_plan import atomic_json
 from evaluate import TASKS, gpu_assignments, tasks_for_part
 from evaluate_task import bind_output_identity, check_port_available
@@ -38,12 +38,12 @@ def identity_for(args):
             'scene_seed_definition_sha256': seed_suite()['scene_seed_definition_sha256'],
             'task_registry_sha256': seed_suite()['task_registry_sha256'],
             'observation_health_version': HEALTH_VERSION, 'reference_plan_required': False,
-            'egl_lifecycle_version': EGL_LIFECYCLE_VERSION,
+            'rgb_adapter_version': RGB_ADAPTER_VERSION,
             'evaluation_kind': 'diagnostic' if args.diagnostic_episodes is not None else 'formal',
             'diagnostic_episode_ids': selected_episodes(args.diagnostic_episodes) if args.diagnostic_episodes is not None else None,
             'diagnostic_max_replans': args.diagnostic_max_replans,
             'entry_sources': {name: sha256(ROOT / 'scripts' / name) for name in
-                              ('evaluate_seeded.py', 'seeded_episode_sim.py', 'seeded_evaluation.py', 'fresh_scene.py', 'egl_lifecycle.py')}}
+                              ('evaluate_seeded.py', 'seeded_episode_sim.py', 'seeded_evaluation.py', 'fresh_scene.py', 'simulator_renderer.py')}}
 
 
 def validate_receipt(path, identity, task, ids, diagnostic, max_replans):

@@ -84,9 +84,9 @@ def set_policy_episode(model, episode):
 
 
 def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_replans=None):
-    from egl_lifecycle import VERSION as EGL_LIFECYCLE_VERSION
-    if data.get('simulator_versions', {}).get('egl_lifecycle') != EGL_LIFECYCLE_VERSION:
-        raise ValueError('Missing owned EGL lifecycle repair')
+    from simulator_renderer import VERSION as RGB_ADAPTER_VERSION
+    if data.get('simulator_versions', {}).get('rgb_adapter') != RGB_ADAPTER_VERSION:
+        raise ValueError('Missing native RGB adapter identity')
     spec, seeds = task_seeds(task)
     expected = {'env': 'robocasa/' + spec['task'], 'episode_protocol': PROTOCOL,
                 'scene_seed_definition_sha256': identity['scene_seed_definition_sha256'],
@@ -103,6 +103,12 @@ def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_rep
     if [row['episode'] for row in rows] != ids:
         raise ValueError('Missing, duplicated or reordered episodes')
     for episode, row in zip(ids, rows):
+        renderer = row.get('renderer', {})
+        if (renderer.get('adapter') != RGB_ADAPTER_VERSION or renderer.get('backend') != 'egl'
+                or renderer.get('engine') != 'mujoco' or renderer.get('msaa') != 4
+                or renderer.get('max_geom') != 10000
+                or renderer.get('gl_context_type') != 'mujoco.egl.GLContext'):
+            raise ValueError('Unexpected RGB rendering configuration')
         if row['scene_seed'] != seeds[episode] or type(row['success']) is not bool:
             raise ValueError('Wrong episode seed or raw success')
         requests = row['requests']
