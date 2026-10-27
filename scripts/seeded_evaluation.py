@@ -8,6 +8,7 @@ from episode_plan import file_sha
 from scene_suite import DEFINITION, definition
 
 PROTOCOL = 'fixed_episode_seeds_v1'
+EXECUTION_VERSION = 'single_process_envs_async_policy_v1'
 HEALTH_VERSION = 'rgb_shape_range_nonblack_and_finite_state_v1'
 VIDEO_KEYS = ('video.robot0_agentview_left', 'video.robot0_eye_in_hand', 'video.robot0_agentview_right')
 
@@ -89,6 +90,7 @@ def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_rep
         raise ValueError('Missing native RGB adapter identity')
     spec, seeds = task_seeds(task)
     expected = {'env': 'robocasa/' + spec['task'], 'episode_protocol': PROTOCOL,
+                'simulator_execution': EXECUTION_VERSION,
                 'scene_seed_definition_sha256': identity['scene_seed_definition_sha256'],
                 'episode_ids': ids, 'scene_seeds': [seeds[i] for i in ids], 'n_envs': n_envs,
                 'num_trials': len(ids), 'logical_environment_index': 0, 'seed': 7,

@@ -22,7 +22,7 @@ from episode_plan import atomic_json
 from evaluate import TASKS, gpu_assignments, tasks_for_part
 from evaluate_task import bind_output_identity, check_port_available
 from scene_suite import run_task_process, stop_process_group
-from seeded_evaluation import PROTOCOL, HEALTH_VERSION, seed_suite, selected_episodes, partitions, validate_result
+from seeded_evaluation import PROTOCOL, HEALTH_VERSION, EXECUTION_VERSION, seed_suite, selected_episodes, partitions, validate_result
 
 
 def identity_for(args):
@@ -35,6 +35,7 @@ def identity_for(args):
             'sim_freeze_sha256': sha256(args.home / 'receipts/sim.freeze.txt'),
             'inference_backend': 'cuda-graph-pipeline', 'inference_backend_version': 'cpu_gpu_pipeline_batch1_v1',
             'episode_protocol': PROTOCOL, 'n_envs': args.n_envs,
+            'simulator_execution': EXECUTION_VERSION,
             'scene_seed_definition_sha256': seed_suite()['scene_seed_definition_sha256'],
             'task_registry_sha256': seed_suite()['task_registry_sha256'],
             'observation_health_version': HEALTH_VERSION, 'reference_plan_required': False,
@@ -43,7 +44,7 @@ def identity_for(args):
             'diagnostic_episode_ids': selected_episodes(args.diagnostic_episodes) if args.diagnostic_episodes is not None else None,
             'diagnostic_max_replans': args.diagnostic_max_replans,
             'entry_sources': {name: sha256(ROOT / 'scripts' / name) for name in
-                              ('evaluate_seeded.py', 'seeded_episode_sim.py', 'seeded_evaluation.py', 'fresh_scene.py', 'simulator_renderer.py')}}
+                              ('evaluate_seeded.py', 'seeded_async_sim.py', 'seeded_evaluation.py', 'fresh_scene.py', 'simulator_renderer.py')}}
 
 
 def validate_receipt(path, identity, task, ids, diagnostic, max_replans):
@@ -133,7 +134,7 @@ def run_single(args, identity):
             sim_env.update(PYTHONPATH=os.pathsep.join((str(ROOT / 'scripts'), str(runtime(args.variant)))),
                            PYTHONHASHSEED='7', PYTHONFAULTHANDLER='1', MUJOCO_GL='egl',
                            PYOPENGL_PLATFORM='egl', MUJOCO_EGL_DEVICE_ID=egls[0])
-            command = [str(args.sim_python), str(ROOT / 'scripts/seeded_episode_sim.py'), '--task', args.task,
+            command = [str(args.sim_python), str(ROOT / 'scripts/seeded_async_sim.py'), '--task', args.task,
                        '--output', str(attempt / 'simulation'), '--port', str(args.port_base),
                        '--n-envs', str(args.n_envs), '--timeout', str(args.timeout)]
             if diagnostic:
@@ -145,7 +146,7 @@ def run_single(args, identity):
                 returncode = run_task_process(command, env=sim_env, log=log, timeout=args.timeout + 120)
             atomic_json(attempt / 'SIMULATOR_EXIT.json', {'returncode': returncode, 'ended': time.time()})
             if returncode != 0:
-                raise RuntimeError(f'Simulator exited {returncode}; see {attempt / "simulation.log"} and simulation/worker*.error.json')
+                raise RuntimeError(f'Simulator exited {returncode}; see {attempt / "simulation.log"} and simulation/SIMULATION_ERROR.json')
             result = json.loads((attempt / 'simulation/result.json').read_text())
             validate_result(result, args.task, ids, args.n_envs, identity, diagnostic, args.diagnostic_max_replans)
             if identity_for(args) != identity:

@@ -1,4 +1,4 @@
-"""Independent fixed episode seeds, asynchronous real environments, no PLANS."""
+"""Compatibility CLI for seeded_async_sim; legacy helpers retain audit coverage."""
 import argparse
 import faulthandler
 import gc
@@ -206,7 +206,7 @@ def run(args):
         atomic_json(args.output / 'worker_exit.json', {'before_cleanup': before, 'after_cleanup': exit_rows(children)})
 
 
-def main():
+def _legacy_main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--task', required=True)
     p.add_argument('--output', required=True, type=Path)
@@ -218,6 +218,8 @@ def main():
     p.add_argument('--timeout', type=int, default=14400)
     run(p.parse_args())
 
+
+from seeded_async_sim import main
 
 if __name__ == '__main__':
     main()

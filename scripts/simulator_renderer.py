@@ -138,13 +138,22 @@ def assert_healthy():
 
 
 def retain_environment(env):
-    live = env.unwrapped.env.sim._render_context_offscreen
-    if getattr(type(live), '_native_rgb_version', None) != VERSION:
+    return retain_environments([env])[0]
+
+
+def retain_environments(environments):
+    """Release reset-time leftovers, preserving every simultaneously live env."""
+    live = [env.unwrapped.env.sim._render_context_offscreen for env in environments]
+    if any(getattr(type(context), '_native_rgb_version', None) != VERSION for context in live):
         raise RuntimeError('Environment did not use the native RGB adapter')
     for context in list(_contexts):
-        if context is not live:
+        if context not in live:
             _release(context)
     assert_healthy()
+    return [describe(context) for context in live]
+
+
+def describe(live):
     return {'adapter': VERSION, 'engine': 'mujoco', 'backend': 'egl',
             'msaa': int(live.con.offSamples), 'max_geom': int(live.scn.maxgeom),
             'gl_context_type': type(live.gl_ctx).__module__ + '.' + type(live.gl_ctx).__name__}

@@ -21,7 +21,7 @@ import simulator_renderer
 from episode_plan import atomic_json, file_sha
 from evaluate import TASKS
 from scene_suite import DEFINITION
-from seeded_evaluation import (PROTOCOL, HEALTH_VERSION, VIDEO_KEYS, seed_suite, task_seeds,
+from seeded_evaluation import (PROTOCOL, HEALTH_VERSION, EXECUTION_VERSION, VIDEO_KEYS, seed_suite, task_seeds,
                                selected_episodes, partitions, check_observation, validate_result)
 
 
@@ -56,6 +56,7 @@ class SeedOnlyTests(unittest.TestCase):
         metadata = {**identity, 'strict_full_state': {'all_loaded_values_exact_at_model_dtype': True},
                     'policy_rng_mode': 'stateless_request_v1', 'policy_seed_version': 'sha256_u32_v1'}
         return {'complete': completed, 'evaluation_kind': 'diagnostic' if diagnostic else 'formal',
+                'simulator_execution': EXECUTION_VERSION,
                 'env': 'robocasa/'+task, 'episode_protocol': PROTOCOL,
                 'scene_seed_definition_sha256': identity['scene_seed_definition_sha256'],
                 'episode_ids': ids, 'scene_seeds': [seeds[i] for i in ids], 'num_trials': len(ids), 'n_envs': 4,
