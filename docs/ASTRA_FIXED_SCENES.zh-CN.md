@@ -1,178 +1,87 @@
-# 远端 Astra：固定episode种子直接评测（2026-10-28）
+# 远端 Astra：固定2500回合的高吞吐评测
 
-当前使用 **`fixed_episode_seeds_v1`** 协议。用户已决定取消预生成2500场景计划及初始图像/状态参考哈希对照。远端只需更新仓库并运行下面的现成入口，不再运行`scene_suite.py`，不传`--plan-dir`，不需要完整smoke或`SMOKE_ACCEPTED.json`。
+> 发布验收进行中：该分支的最终全50任务门槛尚未结束。合入main后按本页直接运行；不要从开发分支启动正式评测。
 
-这不是关闭所有错误检查：仍严格加载模型、检查观测和动作有效性、记录失败并核验50×50覆盖。不会根据“分数接近预期”自动认定实现正确，也不比较不同模型的轨迹。
+## 只需更新并运行
 
-## 1. 更新与环境
+远端Astra负责更新仓库、填写本机路径并运行现成入口，无需自行修改代码、生成场景计划或再次完成一套smoke。当前入口是 **`scripts/evaluate_parallel.py`**：每卡一份常驻模型，多task共用一组CPU仿真worker，每卡一个EGL渲染进程。不要混入旧r12/r13私有补丁，也不要继续使用旧单进程入口来期待同样的吞吐。
 
 ```bash
 git pull --ff-only origin main
+
 POLICY_PY=/absolute/path/to/policy/python
 SIM_PY=/absolute/path/to/simulator/python
 HOME_DIR=/absolute/path/to/robot-experiments-data
-```
-
-沿用[主交接文档](../HANDOFF.zh-CN.md)配置环境、模型和资源；保留真实的`$HOME_DIR/receipts/sim.freeze.txt`。不需要从旧r12/r13复制评测脚本，也不需要删除或覆盖旧的封存计划。
-
-容器/任务创建时设置`NVIDIA_DRIVER_CAPABILITIES=all`。入口使用EGL并按传入的物理设备映射绑定模拟器；CUDA与EGL编号必须对应同一张物理卡。不能默认CUDA内部的`cuda:0`等于宿主EGL设备0。策略与模拟器使用隔离的依赖路径；模拟器不会继承策略的NCCL预加载。
-
-新入口在每个仿真子进程内安装`mujoco331_native_rgb_owned_v1`：用 MuJoCo 3.3.1 官方 `Renderer` 管理离屏RGB绘制和读回，替换 robosuite 的旧离屏封装。物理 model/data、相机、场景选项、256×256图像、MSAA=4及Gym最终图像方向保持不变；输出缓冲区先清零，避免未写入时返回旧内存。回合切换时在资源所属EGL上下文内先释放 MuJoCo GPU资源，再关闭GL上下文，并恢复其它仍有效的上下文。自动循环GC延后到这些安全边界执行。
-
-该适配器限定本入口的主线程RGB评测；不支持深度、分割或交互扰动。**每张卡一个策略服务、一个仿真进程，在该进程中同时保留n_envs个独立环境。** 仿真主线程负责物理step、渲染、重置和释放；线程池只负责各环境独立的策略网络请求，不能把env/GL交给网络线程。这样避开当前H100环境中多个仿真进程分别持有EGL时的异常路径，同时保留多环境请求流水线。执行版本为`single_process_envs_async_policy_v1`。
-
-运行结果记录实际GLContext类型、MSAA和适配器版本。使用交接文档固定依赖和新Python进程，不叠加r12/r13的私有渲染补丁，不修改系统安装包。不需要远端Astra自行实现修复。正式入口调用`seeded_async_sim.py`；旧`seeded_episode_sim.py`命令也转到新入口，勿复制其中历史多进程辅助函数到远端启动脚本。
-
-## 2. 固定的是每个episode的种子
-
-```bash
-"$POLICY_PY" scripts/evaluate_seeded.py --check-only
-```
-
-此命令仅检查仓库内的[种子定义](../assets/eval_scene_seeds_v1.json)和[任务清单](../assets/eval_tasks.json)，不创建模拟器、不生成计划、不加载模型。应显示50任务、2500个计分回合以及`reference_plan_required: false`。
-
-- 每个task使用种子表前50个seed，对应固定episode编号0–49；旧第51个哨兵不参与本模式。
-- 每回合在构造前重设相关RNG，使用该episode的seed新建环境，结束后关闭。保留稳定的场景候选顺序修复。
-- 同进程的每个环境单独保存Python/NumPy RNG状态，构造/reset后捕获，每次完整step前恢复、step后保存；不是每步重新seed。环境自身的Generator仍由该环境独立拥有。策略网络线程不消费这些场景RNG。
-- **不要把四个worker固定为seed7/8/9/10。** 场景seed由task＋全局episode编号决定，改变n_envs不会改变种子集合或计分回合。
-- 策略随机数与场景seed分开：仍使用base7、task、逻辑环境0、全局episode编号、replan编号确定噪声，不使用物理worker编号。
-- 不读取或比较预先保存的图像、state或轨迹哈希。本模式保证固定seed和统一生成流程，不宣称不同GPU/驱动逐像素一致。
-
-## 3. 正式参数
-
-| 参数 | 设置 |
-|---|---|
-| 同时任务 | 每GPU一个task、一份模型服务 |
-| 每task环境数 | 默认4，可设1–50；n4已完成全50任务验收，n8/12/16另有真实模型前缀短测；没有实测证据支持调大后更快 |
-| 仿真进程 | 每task一个，主线程管理全部独立环境；异步网络线程连接同一策略服务 |
-| 推理 | `cuda-graph-pipeline`，原生batch1 |
-| 预测/执行 | 预测50步，每5个控制步重规划，10次去噪 |
-| horizon | 直接使用任务清单已有值，**不再乘1.5** |
-| task总墙钟超时 | 下方正式命令设置`--timeout 43200`（12小时），包括该task全部50回合；它不是单回合horizon |
-| 精度 | 原模型混合精度，TF32关闭 |
-| CPU线程 | 策略/仿真每进程OMP4、MKL4、OpenBLAS1 |
-| 校验 | 严格权重加载、首个真实请求eager/Graph对照、RGB形状/范围/全黑检查、有限状态/动作、回合覆盖 |
-| 不再要求 | 预生成PLANS、参考像素/state/轨迹完全一致、每权重完整smoke |
-
-首请求eager/Graph对照只核对加速推理是否与原生推理相符，使用真实请求，不额外跑场景；后续请求不重复eager计算。无需关闭它来取消场景哈希比较。
-
-## 4. 8卡正式评测：每卡一个task
-
-以下参数与用户当前8×H100、每卡4环境的设置对应。将权重/config等替换为真实路径。
-
-```bash
 VARIANT=baseline
-N_ENVS=4
 CONFIG=/absolute/path/to/baseline-resolved.yaml
 CHECKPOINT=/absolute/path/to/trained-model.safetensors
-OUT="$HOME_DIR/eval/${VARIANT}-70k-seed-only-v1-n${N_ENVS}"
-COMMON=(--variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
+OUT="$HOME_DIR/eval/${VARIANT}-70k-parallel-seeds-v1"
+
+"$POLICY_PY" scripts/evaluate_parallel.py \
+  --variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
   --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" --output "$OUT" \
-  --n-envs "$N_ENVS" --timeout 43200)
-
-"$POLICY_PY" scripts/evaluate_seeded.py "${COMMON[@]}" \
-  --all-tasks --gpu-ids 0,1,2,3,4,5,6,7 --egl-device-ids 0,1,2,3,4,5,6,7 \
-  --port-base 24090
+  --all-tasks --gpu-ids 0,1,2,3,4,5,6,7 \
+  --egl-device-ids 0,1,2,3,4,5,6,7 --port-base 24090 \
+  --n-envs 16 --tasks-per-gpu 8 --simulator-cpu-threads 1 \
+  --rgb-schedule final --initial-rgb deferred --timeout 43200
 ```
 
-每张卡顺序承担分配给它的task，同时只存在一个该入口的模型服务。n_envs=4时全机最多8个task、8个仿真进程、32个独立环境；所有50个task各跑固定50回合，共2500回合。不能取“最先完成的50个”，也不能遗漏或跳过报错回合。
+先按[主交接文档](../HANDOFF.zh-CN.md)安装环境、获取资源并准备模型config。保留真实的 `$HOME_DIR/receipts/sim.freeze.txt`，模拟器必须是固定依赖的MuJoCo3.3.1/RoboCasa环境。`SIM_PY`可以是已验证的解释器包装脚本。容器**创建时**设置 `NVIDIA_DRIVER_CAPABILITIES=all`。
 
-`--timeout`只限制一个task的总墙钟时间，不改变任何回合控制步数。当前H100的长任务4回合测试约需20分钟，不能据此保证50回合能在脚本默认4小时内完成，因此正式命令显式给12小时预算；这不是已测得的50回合耗时。平台的作业时限还需覆盖一张卡顺序分配到的所有task。不要通过缩短horizon或跳过回合规避超时。
+GPU和EGL编号必须实际指向同一物理GPU；示例0–7仅适用于两者顺序一致的机器。不要把策略内部的`cuda:0`当宿主EGL0。单卡、2卡、4卡只需相应缩短两组编号，例如2卡都填`0,1`；不用手工分50个task，入口自动分配。
 
-该参数不会改变集群自身的低利用率回收规则；本入口仍可能受CPU仿真限制，不能把较长超时或较大的n_envs当作高GPU利用率保证。
+正式运行不要传任何 `--diagnostic-*` 参数，不传 `--plan-dir`，不运行 `scene_suite.py`。不要截短horizon或按最先完成的回合计分。**保留示例中的n16/tasks8/final/deferred显式参数**，它们不是CLI默认值；省略后不会自动采用已测的高吞吐配置。可选 `--dry-run` 只打印种子覆盖和调度参数，不加载模型或运行场景。
 
-不同模型、权重、配置、代码、依赖记录或n_envs使用新的`OUT`。这个目录由`EVALUATION_IDENTITY.json`绑定运行身份；新协议结果不能混入旧r12/r13或PLANS模式输出。`query_fixed`等其它模型换对应VARIANT/config/checkpoint，保持同一任务和seed定义；本次不自动提交未被用户要求的模型评测。
+## 并发设置含义
 
-单卡只测指定task：
+| 参数 | 建议及含义 |
+|---|---|
+| n_envs | **每GPU总计16个**独立CPU仿真worker，不是每task16个 |
+| tasks-per-gpu | 每批最多8个task共享上述worker及一份模型；按GPU数和剩余任务自动缩小 |
+| 调度 | 按horizon估计首批工作量并均衡分配；一批完成后领取下一批，模型不重新加载 |
+| 推理 | `cuda-graph-pipeline`，batch1；请求流水线，无需增加模型副本 |
+| CPU线程 | 策略OMP/MKL4、OpenBLAS1；各仿真worker OMP/MKL1、OpenBLAS1 |
+| RGB | 保留策略实际读取的三路RGB；省略未被读取的中间绘制及构造期丢弃绘制 |
+| 预测/执行 | 预测50步、每5个控制步重规划、10次去噪 |
+| horizon | 直接使用任务清单已有值，不乘1.5、不缩短 |
+| 精度 | 原混合精度，TF32关闭 |
+| timeout | 每批task的总墙钟上限43200秒，不是单回合长度 |
 
-```bash
-"$POLICY_PY" scripts/evaluate_seeded.py "${COMMON[@]}" \
-  --task CloseBlenderLid --gpu-ids 0 --egl-device-ids 0 --port-base 24090
-```
+8卡时最多128个CPU物理worker，另有8份模型和8个渲染进程。此前的188vCPU配置可以从每卡16起步；不同CPU/内存配额需调整。实际验证的平台为单H10080GB、22vCPU/240GiB，不能把8卡吞吐直接乘8当成实测。
 
-如仍使用原来的4卡/2卡分片，`--part 1`至`--part 12`各配4卡，`--part 13`配2卡；每个分片共享同一模型的`OUT`。
+允许把n_envs改为8、12等值，**种子和2500回合集合不变**。较大值不必然更快；本次短测最终配置n16快于n8，但没有证明16是所有机器的全局最优。每次改变并发、代码、权重或配置使用新OUT。8卡50任务会先各领6个，剩余2个由先完成者继续领取；尾部任务变少时部分卡可能空闲，这是有限工作量的尾部，不应额外做无效计算抬高利用率。
 
-```bash
-PART=1
-if [ "$PART" -eq 13 ]; then
-  GPU_IDS=0,1
-  EGL_IDS=0,1
-else
-  GPU_IDS=0,1,2,3
-  EGL_IDS=0,1,2,3
-fi
-"$POLICY_PY" scripts/evaluate_seeded.py "${COMMON[@]}" \
-  --part "$PART" --gpu-ids "$GPU_IDS" --egl-device-ids "$EGL_IDS" \
-  --port-base "$((24090 + PART * 10))"
-```
+`--timeout`只限制批次墙钟，平台总时限还需覆盖该卡可能领取的全部批次。不要通过减少回合/物理步来绕过作业时限。
 
-## 5. 汇总、失败和恢复
+## 永久固定的2500个seed
 
-`--all-tasks`成功结束会自动汇总，也可执行：
+协议为 `fixed_episode_seeds_v1`，执行方式为 `parallel_physics_single_render_v1`。
 
-```bash
-"$POLICY_PY" scripts/evaluate_seeded.py "${COMMON[@]}" --summarize
-```
+- 50个task，每个固定episode编号0–49；seed来自仓库 `assets/eval_scene_seeds_v1.json` 的前50项。旧第51个哨兵不计分。
+- seed文件SHA256：`b1c5243b89f4d6283f01cb950bb93911269e8b9068f334062a869d604dca1c9b`。
+- scene seed由task和全局episode编号确定，不受GPU、worker、完成顺序或n_envs影响。不要把worker直接固定为7/8/9/10。
+- 策略噪声仍由base7、task、逻辑环境0、全局episode和replan编号确定；物理worker编号不参与。
+- 不预生成2500场景计划，不与封存初始图片/state/轨迹哈希比较。保留相同依赖和生成逻辑；固定seed不等于跨驱动逐像素保证。
+- baseline、query_fixed及后续兼容模型使用同一份任务/seed定义。更换模型只换VARIANT/config/checkpoint/OUT，无需重新生成seed或重新做完整验收。
 
-以`FINAL_ACCEPTED.json`为完整覆盖验收。它要求50份正式结果、2500个唯一task/episode组合、正确种子、原始Boolean成功数组及匹配运行身份；包含每份原始结果的SHA。它不宣称逐像素/轨迹相同。
+## 正确完成、汇总及恢复
 
-完整且身份匹配的task可以复用。一个task中途失败时不会写成完整结果，也不会把异常计为任务失败分数或静默跳过；查清问题后重跑原命令，该未完整task按相同seed重跑。已有完整task不重复执行。
+`--all-tasks`结束会自动汇总。正式成功标记为 `OUT/FINAL_ACCEPTED.json`，必须覆盖 **50个task、2500个唯一task/episode组合**，包含匹配身份、seed、原始Boolean成功数组和结果SHA。只有100回合的开发验收不等于正式成绩。
 
-失败证据位于`OUT/runs/<task>/<attempt>/`：优先检查`ERROR.json`、`simulation.log`、`SIMULATOR_EXIT.json`，以及`simulation/SIMULATION_ERROR.json`、`simulation/CLEANUP_ERROR.json`。`simulation/SIMULATION_PROCESS.json`记录实际进程身份；`simulation/env*.initial.json`和`simulation/env*.progress.json`记录各环境的全局episode。观测异常会尽量保留`simulation/failed_observation.npz`。仿真进程启用faulthandler，原生崩溃可能只有栈和退出信号，没有Python异常JSON；SIGKILL通常没有可捕获的栈。模型日志在`server.log`。外层“task failed”不是根因。旧多进程失败归档的worker*.error.json/worker_exit.json属于历史入口，勿与新执行版本混淆。
+每个task结果在`OUT/formal/`，模型日志在`OUT/services/<id>/`，批次及worker证据在`OUT/parallel-runs/<id>/`。保留模型严格加载、首个真实请求eager/Graph对照、RGB/状态/动作有效性及覆盖检查；它们不是已经取消的封存场景哈希门槛。
 
-## 6. n_envs与利用率参考
+发生错误时入口退出并清理自己创建的进程。优先查看批次`simulation.log`、`EXIT.json`以及`simulation/ERROR.json`、`CLEANUP_ERROR.json`、`worker_exit.json`和worker日志。原生崩溃可能只有信号/faulthandler栈，SIGKILL可能没有Python错误JSON；外层“task failed”不足以判断原因。不要把异常当成失败分数或跳过该seed。
 
-**当前入口先用`n_envs=4`。它已通过下方全50任务验证，但尚未达到70%–80%的GPU利用率目标。** 在本次H100的完整回合测试中，47/50个任务有完整rollout采样；这47项的任务平均GPU-util中位数为23.00%，范围14.54%–29.13%。另外3项存在采样缺口，未补算缺失时间。这里不是连续3小时或整项作业的平均值。
+修复外部问题后可重跑**完全相同命令和OUT**。入口只复用有完整提交标记、raw SHA、正常退出且身份匹配的task；未提交的一批会保留证据后按原seed重跑。一个输出目录只允许运行一个调度入口，不能拆成多个并发命令共同写入。若要单独测任务，用新OUT及 `--tasks WeighIngredients,PackIdenticalLunches` 替换`--all-tasks`，每项仍跑固定50回合。
 
-当前主线程承担CPU仿真与渲染，实际采样曾显示它在机器人控制器更新中运行而策略网络线程等待；这支持CPU侧限制，但不是完整的函数耗时剖析。多环境的网络请求可重叠，物理step仍由主线程逐环境执行；增加n_envs不会自动增加物理仿真的并行进程。
+已有全套结果需要重新汇总时，把同一命令中的`--all-tasks`替换为`--summarize`，其余身份参数保留。
 
-旧固定场景入口的84%–85%、93%以及n12/n24/n37容量数字属于另一条执行路径，不能用于本入口承诺。历史原始记录保留在[旧H100容量证据](../provenance/H100_PI05_ENV_CAPACITY.json)。不要为了利用率重复无效计算、降低精度、缩短正式回合或改场景。
+## 实际性能及验收范围
 
-### 新入口同卡n_envs对照（2026-10-28）
+同一张H10080GB/580.95.05、baseline70k，相同1280请求：旧单进程n4为936.27秒；新并行n16＋final/deferred为158.52秒，约 **5.91倍吞吐**。两组均包含仿真启动、reset及清理，排除共用模型加载；单次短测不能外推所有task。
 
-同一张H100、同一baseline70k、同一个`WeighIngredients`任务，四组均使用episode 0–15的相同16个种子，每回合前40次重规划，即每组640请求。策略服务先预热并在四组之间复用；仿真进程每组重新启动。运行源码与全50任务验收版本相同。
+新配置4800请求长测为367.91秒：**全仿真窗口平均71.07%，首个真实请求至最后回合完成平均89.37%**。这是已测窗口，不是连续3小时、8卡整作业或任意新机器保证。详细对照、逐轨迹/RNG验证及实现边界见 [技术与性能说明](PARALLEL_SEEDED_EVALUATION.zh-CN.md)。
 
-| n_envs | 仿真进程全程耗时（秒） | 请求/秒 | 全程GPU-util样本均值 | 首波满并发短窗口GPU-util | 峰值显存（GiB） |
-|---|---:|---:|---:|---:|---:|
-| 4 | 457.33 | 1.399 | 8.80% | 19.52% | 12.61 |
-| 8 | 460.97 | 1.388 | 10.14% | 22.76% | 16.33 |
-| 12 | 465.14 | 1.376 | 8.71% | 23.34% | 19.71 |
-| 16 | 467.86 | 1.368 | 9.21% | 20.64% | 23.46 |
+最终公开入口全50任务验收结果待完成后填入本节。远端535.129.03驱动尚未直接验证；这里不宣称已经定位旧r13的精确原生退出根因。
 
-**这次提高到16没有带来实际吞吐提升，也没有达到70%–80%。当前默认保留4，显存更低。** 这不是证明4对所有任务最优，也没有测试16以上的并发。
-
-读取该表时注意计时口径：
-
-- “全程”从仿真子进程启动到退出，包含导入、全部场景初始化、rollout、诊断初始快照与清理，不含四组共享的模型服务启动/预热。四组工作量相同，应主要比较此列耗时与请求/秒。
-- 这是200控制步的短前缀，初始化占比高，因此全程GPU-util不能当正式长回合利用率预测。上一段全50任务约23%的中位数是另一种窗口，不能混比。
-- 原始`rollout`计时排除了最初n个场景的初始化，却仍包含后续reset和尾波；n4到n16的rollout请求率上升，不等于整体效率提升。
-- 首波窗口去掉开始10秒，到第一个环境结束为止；四组分别覆盖前4/8/12/16个seed，子集不同，只描述各自满并发阶段，不是匹配场景子集的因果对照。所有报告窗口均检查了采样覆盖。
-- 单任务、固定顺序、每档一次测量；不能外推全50任务或连续3小时利用率，更不能保证通过集群的低利用率回收规则。此前被外部暂停的另一张GPU上的未完成对照已排除。
-
-这组结果与当前串行推进仿真的结构限制一致；恢复旧吞吐需要优先处理仿真并行，不能仅沿用旧入口的大n_envs建议。逐组结果SHA、计时和采样覆盖见[新入口H100并发实测](../provenance/SEED_ONLY_ENV_CAPACITY.json)。
-
-## 7. 开发者诊断模式（普通正式评测无需运行）
-
-```bash
-"$POLICY_PY" scripts/evaluate_seeded.py --variant baseline --home "$HOME_DIR" \
-  --config "$CONFIG" --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" \
-  --output "$HOME_DIR/eval/seed-only-diagnostic" --task PackIdenticalLunches \
-  --gpu-ids 0 --egl-device-ids 0 --n-envs 2 --diagnostic-episodes 0,3 \
-  --diagnostic-max-replans 8 --port-base 24590
-```
-
-诊断使用原horizon，仅在外层停止有限请求，未完成回合不产生成功率汇总。诊断结果与正式结果目录、身份分开，不能生成2500回合验收。普通换checkpoint无需先运行此模式。
-
-旧的像素哈希对照协议保留在[历史PLANS执行说明](ASTRA_RECORDED_PLANS_LEGACY.zh-CN.md)；既有封存文件和历史验收记录未删除或改写。
-
-## 8. 本版已完成的验收与边界
-
-2026-10-28在SCO H100 80GB、驱动580.95.05上，用PI0.5 baseline70k真实权重完成：
-
-- **全部50个task × 每task固定episode 0–3，n_envs=4，共200个完整回合。** 全部跑满原horizon，共72,360次策略请求、361,800个控制步；没有使用预生成计划或参考图像/state/轨迹比较。
-- 逐项复核种子、raw Boolean成功数组、结果与receipt SHA、813个严格加载权重键、代码/config/环境身份、退出状态及输入/动作有效性。最终写锁释放、评测进程退出、GPU显存归零。
-- 两个先后使用的H100实例各通过98项Linux CPU测试和n8的128请求前缀检查。首次实例被外部暂停后，33份已完整且身份匹配的task结果经复核保留，其余17项在新实例完成；未复用半个回合，未改运行源码。
-
-被测运行代码为`77836840709885d0ebde907d10ebd114b2b87a38`，source manifest为`ce30a84ebba6cee9e29d71906cb0e81d7d34ece136db4bd0d44670cd82e6d5c9`；之后只补交接文档与验收记录。逐任务证据和原始归档SHA见[本版验收记录](../provenance/SEED_ONLY_EVALUATION_VALIDATION.json)。
-
-这是评测实现验收，**不是50×50正式成绩**。验收控制器为节省加载时间，在顺序task之间复用一份策略服务；仿真入口和模型服务使用原封存公开代码。上面的公开正式入口会按task启动服务。未实际跑过8张物理卡同时评测，也未直接测试远端Astra的535.129.03驱动；远端r13原生退出的精确原因仍未确定。私有RGB中间帧复用候选未启用。正常换模型无需重新做这套200回合验收，直接按正式命令运行并保留入口自带检查即可。
+历史单进程结果见 `provenance/SEED_ONLY_EVALUATION_VALIDATION.json`；旧PLANS说明见 [历史协议](ASTRA_RECORDED_PLANS_LEGACY.zh-CN.md)。这些记录保留，不能用历史84%–85%等数字替代本入口的实际采样。

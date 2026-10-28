@@ -1,50 +1,67 @@
-# 多任务共享GPU、固定2500回合评测
+# 多任务共享GPU的固定种子评测
 
-> 开发中：本分支尚未完成新入口全50任务验收。不要把下列候选参数当成已经测得的最优值；发布前需填入实际测量与验收证据。
+> 发布状态：最终公开入口正在进行全50任务验收，尚未合入main。以下短测结果已经核验；全50结论另见发布验收记录，不能提前视为通过。
 
-本入口优化的是执行调度，不改变评测集：50个task，每个task固定episode 0–49，使用仓库`assets/eval_scene_seeds_v1.json`中已发布的对应种子。总数2500，不取最先完成的回合，不随GPU数、worker数或执行顺序改seed。不生成场景计划，不比较封存图像，不按旧分数筛选结果。
+正式操作只需阅读 [ASTRA_FIXED_SCENES.zh-CN.md](ASTRA_FIXED_SCENES.zh-CN.md)。本文解释实现及性能口径。
 
-每个GPU常驻一份模型，多个task共享它。独立CPU仿真进程推进原RoboCasa环境；每GPU只有一个进程持有EGL并进行绘制。CPU进程发送原MuJoCo完整绘制场景，渲染端不重新计算物理，不重新编译XML。每次策略推理仍是原batch1、原精度和CUDA Graph；50步动作预测、每5步重规划、10次去噪、原horizon及成功判定不变。
+## 解决的瓶颈
 
-## 运行
+此前安全入口把多个环境放在同一个仿真进程中，网络请求可重叠，但物理step依次执行。H100经常等待CPU产生下一张观测；单纯增加n_envs没有解决物理仿真的串行瓶颈。同时，构造和reset会重复创建渲染资源，短回合的初始化占比很高。
 
-依赖、模型配置与环境准备沿用`HANDOFF.zh-CN.md`。需要MuJoCo3.3.1、真实`receipts/sim.freeze.txt`以及正确的CUDA/EGL物理设备映射。容器创建时设置`NVIDIA_DRIVER_CAPABILITIES=all`。不要复制r12/r13私有补丁。
+新入口 `scripts/evaluate_parallel.py` 做四项改动：
 
-```bash
-POLICY_PY=/absolute/path/to/policy/python
-SIM_PY=/absolute/path/to/simulator/python
-HOME_DIR=/absolute/path/to/robot-experiments-data
-VARIANT=baseline
-CONFIG=/absolute/path/to/baseline-resolved.yaml
-CHECKPOINT=/absolute/path/to/trained-model.safetensors
-OUT="$HOME_DIR/eval/${VARIANT}-parallel-seeded-new-output"
+1. 每张GPU常驻一份策略模型，完成一批task后继续领取下一批；每卡可同时处理多个task。按horizon从长到短，将首批任务分给累计步数估计最少的卡，加载模型前为每张实际使用的卡预留工作。8卡首批每卡6项的horizon权重为11100–11250，避免连续切片造成首卡22800、末卡3000的明显不均；这是步数估计，不是8卡真实墙钟实测。单GPU时任务顺序不变。
+2. 每卡建议16个独立CPU仿真worker。它们并行执行物理和控制器，每卡只有一个渲染进程持有EGL，避开多个进程各自拥有GL资源的路径。
+3. CPU worker传输原MuJoCo完整抽象绘制场景，由渲染端原样绘制。不是只传qpos后重新forward，也不在渲染端重新编译XML。`--rgb-schedule final`只省略每5步动作块中未被策略消费的中间RGB，物理步、奖励、成功判断及非图像observable更新照常执行。
+4. `--initial-rgb deferred`省略构造中最终会丢弃的GPU绘制/模型上传，最终reset的真实RGB必须生成。代码校验三处构造方法SHA和hard_reset等前提；占位图像不得进入策略。受校验的方法或运行前提不匹配时明确报错，其余依赖仍按交接文档锁定。
 
-"$POLICY_PY" scripts/evaluate_parallel.py \
-  --variant "$VARIANT" --home "$HOME_DIR" --config "$CONFIG" \
-  --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" --output "$OUT" \
-  --all-tasks --gpu-ids 0,1,2,3,4,5,6,7 \
-  --egl-device-ids 0,1,2,3,4,5,6,7 --port-base 24090 \
-  --n-envs 8 --tasks-per-gpu 2 --simulator-cpu-threads 1 --timeout 43200
-```
+推理仍为batch1、原混合精度、TF32关闭、10步去噪、预测50步动作、每5步重规划。多环境请求形成流水线，不改模型数学或改成批量推理。
 
-- `--n-envs`：**每GPU总共多少个CPU仿真worker**，不是每task的数量。候选值8；实际推荐待实测。
-- `--tasks-per-gpu`：一张GPU同时领取多少个task组成一批，批内交错分配episode给worker。候选值2。当前实现完成整批后再领取下一批；它不是跨GPU逐episode工作窃取。
-- GPU数量由`--gpu-ids`指定，可以1、2、4、8等；每个CUDA编号对应的EGL编号必须正确。不能把`cuda:0`逻辑编号直接当宿主EGL编号。
-- 全机最多GPU数×n_envs个CPU worker，加每GPU一个渲染进程和一个模型服务。按实际CPU配额调整worker数；增加模型副本不是此入口的工作方式。
-- 策略OMP/MKL默认4、OpenBLAS1；CPU worker的OMP/MKL由`--simulator-cpu-threads`控制，OpenBLAS保持1。
-- `--timeout`是每批task的墙钟上限，不改变episode horizon。根据实际时限设置足够预算，不能靠截短回合提速。
-- 正式命令不传`--diagnostic-episodes`、`--diagnostic-max-replans`或`--diagnostic-trace`。
+## 固定2500个回合
 
-只跑特定task可以把`--all-tasks`替换为`--tasks WeighIngredients,PackIdenticalLunches`；它们仍分别完成固定50个回合。每次更换模型、种子定义、源码、配置或调度参数，用新的输出目录。精确相同配置的中断运行可以重执行相同命令，完整且身份相符的task结果才会跳过；未完成task不会作为正式结果计分。
+固定集合为50个task各episode 0–49，使用 `assets/eval_scene_seeds_v1.json` 的前50个对应seed。该文件SHA256为：
 
-## 完成与失败
+`b1c5243b89f4d6283f01cb950bb93911269e8b9068f334062a869d604dca1c9b`
 
-正式全套结果只有在50个task均通过身份及原始episode覆盖核验后，才生成`FINAL_ACCEPTED.json`，其trials必须是2500。每个task的原始结果在`formal/`；GPU服务日志在`services/`；每批仿真、worker日志、阶段错误和退出码在`parallel-runs/`。
+GPU数量、worker数量、任务领取顺序不参与种子选择。策略噪声也按task、全局episode和replan编号确定，不使用物理worker编号。每个回合构造前设定自己的RNG；执行期间沿用其独立RNG状态，不是每步重新seed。
 
-保留严格权重加载、首个真实请求的eager/Graph对照、有效RGB/状态/动作检查以及固定回合覆盖检查。这些与已取消的参考图像哈希门槛不同。失败回合不能跳过、不能替换种子，也不能将诊断输出复制成正式结果。
+不生成PLANS，不与封存图片/state哈希比较，不承诺跨GPU/驱动逐像素一致。固定的是种子及生成流程；不同模型必须使用同一任务/种子定义和协议，不以“分数接近预期”作为正确性证明。
 
-如果在原生仿真/渲染报错，保留具体worker日志、ERROR/CLEANUP_ERROR和退出码。远端Astra负责更新并运行现成入口，修复由主对话完成。当前传输限定MuJoCo3.3.1原RGB流程；未支持的native plugin、运行时GPU纹理/mesh上传会明确失败，不能静默忽略。
+## H100真实短测
 
-## 性能口径
+同一张H100 80GB、驱动580.95.05、baseline70k真实权重；两个task为WeighIngredients及PackIdenticalLunches，每个task固定episode 0–7，每回合80次重规划，合计1280请求/6400控制步。策略预热后在各组间复用；以下包含仿真启动、初始化、rollout和清理，**不包含共用模型的加载时间**。
 
-优先看完成同一批固定回合的总墙钟时间与GPU小时，同时记录每张GPU在真实评测过程的利用率。初始化、reset及尾部等待单独报告，不能把仅活跃片段的利用率冒充全流程或连续3小时平均值。不会用额外无效计算维持利用率。
+| 执行方式 | 总耗时 | 全仿真窗口GPU-util采样均值 |
+|---|---:|---:|
+| 单仿真进程n4，两个task顺序运行 | 936.27秒 | 10.48% |
+| 并行CPU n8、原全部RGB | 256.47秒 | 36.95% |
+| 并行CPU n16、final RGB、deferred初始化 | 158.52秒 | 42.49% |
+
+相同工作量耗时约缩短到原来的1/5.91。每档仅测一次，不是所有任务的普遍加速比。
+
+最后配置另做16个回合、每回合300次重规划，共4800请求：
+
+- 仿真启动至退出：367.91秒，GPU-util均值 **71.07%**。
+- 首次真实策略请求至最后回合完成：289.81秒，GPU-util均值 **89.37%**。
+- 两个窗口均不含共用模型加载；第二个窗口也排除了初始空等，不能冒充整项作业或连续3小时平均。
+
+该结果说明真实推理工作已可以持续供给GPU。不保证任意CPU配额、任务组合或驱动都达到相同利用率。全50任务公开入口的实际统计应单独报告，不能拿短测代替。
+
+## 保持计算内容的验证
+
+- 原单进程绘制与新CPU并行/单EGL拥有者：4个环境、20个观测的三路RGB、非图像state、MuJoCo状态、reward/done完全一致。
+- 真实模型的成对轨迹：8个固定回合各8次重规划，对比观测、动作、状态和奖励。随后分别验证final RGB、deferred初始化，并加入Python/NumPy/环境RNG逐项对照，均一致。
+- 不同并发数的初始观测一致性通过。这是开发者优化验收，不会给每个新模型增加封存场景哈希门槛。
+- 首版源码Linux CPU检查107项（1跳过）、原生模拟器检查8项通过。首批均衡调度新增两项回归，已完成针对性CPU检查；最终组合Linux及全50任务应用门槛另计。
+
+这些是实际覆盖范围，不代表全部2500个回合都做过逐帧对照。
+
+## 并发、恢复和边界
+
+推荐起点为每卡 `--n-envs 16 --tasks-per-gpu 8 --simulator-cpu-threads 1`，`--rgb-schedule final --initial-rgb deferred`。这些高吞吐参数必须显式传入；CLI兼容默认仍为8/2/all/all。`n_envs`是每卡总worker数；`tasks-per-gpu`是批大小上限，实际会按剩余任务和GPU数缩小。8卡时初始50个task先各领6个、剩余2个留给先完成者。当前按整批领取和提交，最后少量任务仍可能产生尾部空闲；不是跨GPU逐episode窃取。
+
+每卡16个worker需要足够CPU、内存和渲染资源。先看固定工作量的总墙钟和CPU配额；不能仅为提高GPU-util反复加进程。8卡×16最多128个物理worker，另加策略/渲染进程。模型共享而非每个task复制一份。
+
+每批完成后先核验所有原始回合，再写task结果和身份receipt，最后写`ACCEPTED.json`作为提交点。恢复校验提交标记、raw SHA、正常进程退出、种子和配置身份；半批结果不作为正式分数。主入口持有输出锁，不能启动两个入口写同一输出目录。
+
+传输限定MuJoCo3.3.1和本评测原RGB流程。视频/历史图像消费、深度/分割、图像随机filter/delay、native plugin或运行时纹理/mesh上传不在已验收范围，前提不符会失败。保留worker错误、原生信号、cleanup和渲染日志；不能跳过失败seed换一个重测。

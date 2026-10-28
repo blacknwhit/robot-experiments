@@ -49,6 +49,39 @@ class FragmentTests(unittest.TestCase):
                 while not queue.empty():ids.append(queue.get_nowait())
                 self.assertEqual(sorted(ids),list(range(50)))
 
+    def test_real_task_horizons_do_not_concentrate_long_work_on_first_gpu(self):
+        from evaluate_parallel import reserve_initial_batches, TASKS
+        ordered=sorted(TASKS,key=lambda task:(-task['horizon'],task['task']))
+        weights={task['task']:task['horizon'] for task in ordered}
+        for gpu_count in (2,4,8):
+            queue=Queue()
+            for task in ordered:queue.put(task['task'])
+            batches,size=reserve_initial_batches(queue,gpu_count,8,weights)
+            assigned=[name for batch in batches for name in batch]
+            remaining=[]
+            while not queue.empty():remaining.append(queue.get_nowait())
+            self.assertEqual(sorted(assigned+remaining),sorted(weights))
+            self.assertEqual(len(assigned),len(set(assigned)))
+            self.assertTrue(all(len(batch)==size for batch in batches))
+            loads=[sum(weights[name] for name in batch) for batch in batches]
+            old_loads=[sum(task['horizon'] for task in ordered[i*size:(i+1)*size]) for i in range(gpu_count)]
+            self.assertLess(max(loads)-min(loads),max(old_loads)-min(old_loads))
+            self.assertLessEqual(max(loads)/min(loads),1.25)
+
+    def test_one_gpu_keeps_exact_batch_order_and_pending_work(self):
+        from evaluate_parallel import reserve_initial_batches, TASKS
+        ordered=sorted(TASKS,key=lambda task:(-task['horizon'],task['task']))
+        names=[task['task'] for task in ordered];weights={task['task']:task['horizon'] for task in ordered}
+        for requested in (1,2,8,50):
+            queue=Queue()
+            for name in names:queue.put(name)
+            batches,size=reserve_initial_batches(queue,1,requested,weights)
+            self.assertEqual(batches,[names[:requested]])
+            self.assertEqual(size,requested)
+            pending=[]
+            while not queue.empty():pending.append(queue.get_nowait())
+            self.assertEqual(pending,names[requested:])
+
     def test_deferred_constructor_scope_restores_on_error_and_requires_hard_reset(self):
         import render_rpc
         with patch.object(render_rpc,'_defer_enabled',True), patch.object(render_rpc,'_construction_checked',True):

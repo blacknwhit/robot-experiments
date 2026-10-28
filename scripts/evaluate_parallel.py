@@ -38,12 +38,26 @@ def selected_tasks(args):
     return [t for t in TASKS if t['task'] in names]
 
 
-def reserve_initial_batches(queue, gpu_count, max_batch):
-    """Give every used GPU work before any policy starts loading."""
+def reserve_initial_batches(queue, gpu_count, max_batch, task_weights=None):
+    """Reserve work for every GPU, balancing the supplied longest-first queue.
+
+    A contiguous slice would put all longest tasks on the first GPU. Assign
+    each next task to the lightest non-full slot. With one GPU, task order and
+    batch membership are exactly the same as the prior implementation.
+    """
     active=min(gpu_count,queue.qsize())
     if active<1:return [],0
     size=min(max_batch,max(1,queue.qsize()//active))
-    return [[queue.get_nowait() for _ in range(size)] for _ in range(active)],size
+    batches=[[] for _ in range(active)]
+    loads=[0.]*active
+    for _ in range(active*size):
+        task=queue.get_nowait()
+        weight=1 if task_weights is None else task_weights[task]
+        if not isinstance(weight,(int,float)) or not 0<weight<float('inf'):
+            raise ValueError('Task scheduling weight must be finite and positive')
+        slot=min((i for i in range(active) if len(batches[i])<size),key=lambda i:(loads[i],len(batches[i]),i))
+        batches[slot].append(task);loads[slot]+=weight
+    return batches,size
 
 
 def parallel_identity(args):
@@ -52,7 +66,7 @@ def parallel_identity(args):
                     simulator_cpu_threads=args.simulator_cpu_threads,
                     rgb_schedule=getattr(args,'rgb_schedule','all'),
                     initial_rgb=getattr(args,'initial_rgb','all'),
-                    task_scheduling='longest_horizon_first_reserved_dynamic_batches_v2')
+                    task_scheduling='horizon_balanced_reserved_dynamic_batches_v3')
     identity['entry_sources'].update({name:sha256(ROOT/'scripts'/name) for name in
         ('evaluate_parallel.py','parallel_seeded_sim.py','render_rpc.py','render_scene_packet.py','final_frame_rgb.py')})
     return identity
@@ -174,7 +188,8 @@ def run(args, identity, tasks):
             queue.put(task['task'])
     if queue.empty():return
     gpus,egls=gpu_assignments(args.gpu_ids,args.egl_device_ids)
-    initial_batches,batch_size=reserve_initial_batches(queue,len(gpus),args.tasks_per_gpu)
+    initial_batches,batch_size=reserve_initial_batches(queue,len(gpus),args.tasks_per_gpu,
+                                                     {task['task']:task['horizon'] for task in tasks})
     failed=threading.Event()
     def slot(index):
         gpu,egl,port=gpus[index],egls[index],args.port_base+index

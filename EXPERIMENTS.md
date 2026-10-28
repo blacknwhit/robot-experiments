@@ -23,7 +23,7 @@
 ## 公共资料
 
 - [历史PI0.5/FIXED/v2部署参考](HANDOFF.zh-CN.md)：资源来源、旧配方和空白集群准备；不会替代各实验的独立手册。
-- [固定episode种子直接评测](docs/ASTRA_FIXED_SCENES.zh-CN.md)：单卡单task、多环境异步；具体checkpoint与输出目录由各实验指定。
+- [固定2500回合高吞吐评测](docs/ASTRA_FIXED_SCENES.zh-CN.md)：每卡一份常驻模型，多task共用并行环境；具体checkpoint与输出目录由各实验指定。
 - [第三方许可证](THIRD_PARTY_NOTICES.md)、[来源记录](provenance/PORTABILITY.md)。GitHub不保存大数据、GT数组或模型权重。
 
 本总览的评测操作说明更新于2026-10-28；实验历史结果仍保留各自日期。这不是SCO实时任务看板。

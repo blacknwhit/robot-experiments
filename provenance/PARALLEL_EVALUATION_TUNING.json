@@ -1,0 +1,681 @@
+{
+  "date": "2026-10-28",
+  "scope": "bounded implementation and performance tests; no benchmark score",
+  "scene_seed_definition_sha256": "b1c5243b89f4d6283f01cb950bb93911269e8b9068f334062a869d604dca1c9b",
+  "tasks": [
+    "WeighIngredients",
+    "PackIdenticalLunches"
+  ],
+  "same_workload_requests": 1280,
+  "same_workload_episode_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "same_workload_replans_per_episode": 80,
+  "timing": "simulator process startup through exit, model already resident; includes imports/reset/cleanup",
+  "gpu_util": "arithmetic mean of nvidia-smi utilization samples inside stated timestamps; not SM occupancy",
+  "stages": {
+    "V2": {
+      "accepted": true,
+      "archive_sha256": "c2dd50f5973d394b61895acbd2472fb226b7c57a33a7e3c51deacbc68b705446",
+      "source_manifest_sha256": "018001c532da9dc1002d98a193bcf6b9dd2a977237a0df3879587438e871fa01",
+      "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+      "gpu": "NVIDIA H100 80GB HBM3, 580.95.05",
+      "rows": [
+        {
+          "case": "trace_serial",
+          "wall_seconds": 313.7465388774872,
+          "requests": 64,
+          "gpu_util_mean": 1.5420560747663552,
+          "samples": 214,
+          "peak_mib": 12252.0,
+          "started": 1793174394.2043068,
+          "ended": 1793174707.9508457,
+          "controller_gpu_util_mean": 1.5492957746478873,
+          "late_sample_count": 1,
+          "max_sample_gap_seconds": 2.008957862854004,
+          "result_sha256": {
+            "WeighIngredients": "fa71990ef6ce7182516d2f9c8ebe9e7aa804bb89f2a72db4965f0cb4ca7be924",
+            "PackIdenticalLunches": "4f47f586ca329ccbaaad7b251e6e09aeb4d61107314af589de6cd56df50c29f5"
+          },
+          "requests_per_second": 0.20398631401314338
+        },
+        {
+          "case": "trace_parallel",
+          "wall_seconds": 91.47356104850769,
+          "requests": 64,
+          "gpu_util_mean": 5.85,
+          "samples": 60,
+          "peak_mib": 19363.0,
+          "started": 1793174707.9687843,
+          "ended": 1793174799.4423454,
+          "controller_gpu_util_mean": 5.85,
+          "late_sample_count": 0,
+          "max_sample_gap_seconds": 2.0208027362823486,
+          "result_sha256": {
+            "WeighIngredients": "a78a351de44867a61d06af0ab82a77f109ed04676ef2e2271ff92cfdf17c6138",
+            "PackIdenticalLunches": "3bf4787ea6981453e418d3dca8d3084f006d08a94ddf819f2ed7112db0943b54"
+          },
+          "requests_per_second": 0.6996557176347525
+        },
+        {
+          "case": "perf_serial",
+          "wall_seconds": 936.2721498012543,
+          "requests": 1280,
+          "gpu_util_mean": 10.4784,
+          "samples": 625,
+          "peak_mib": 13018.0,
+          "started": 1793174799.5206618,
+          "ended": 1793175735.7928116,
+          "controller_gpu_util_mean": 10.495192307692308,
+          "late_sample_count": 1,
+          "max_sample_gap_seconds": 2.140409231185913,
+          "result_sha256": {
+            "WeighIngredients": "c51b4bafd407604dae037af0f2b01592b363299ccc13c031484ee70223bdb95f",
+            "PackIdenticalLunches": "52d3757faca0feec82eeaf54c511f25e9b6a7f5746312b3e8c46ff9afd5060f4"
+          },
+          "requests_per_second": 1.3671238648631276
+        },
+        {
+          "case": "perf_parallel8",
+          "wall_seconds": 256.4678084850311,
+          "requests": 1280,
+          "gpu_util_mean": 36.953216374269005,
+          "samples": 171,
+          "peak_mib": 19676.0,
+          "started": 1793175735.872616,
+          "ended": 1793175992.3404245,
+          "controller_gpu_util_mean": 36.953216374269005,
+          "late_sample_count": 0,
+          "max_sample_gap_seconds": 1.8829536437988281,
+          "result_sha256": {
+            "WeighIngredients": "597175bd6328598a11d6aa6d3ff73cacfb65222846e5bce352feaa75496d74c8",
+            "PackIdenticalLunches": "1b1aee9b390d0662019fd6a56f5a0c09cd5eef56b88337a72528431ef623b306"
+          },
+          "requests_per_second": 4.990879781603108
+        },
+        {
+          "case": "perf_parallel12",
+          "wall_seconds": 285.8376967906952,
+          "requests": 1280,
+          "gpu_util_mean": 33.47692307692308,
+          "samples": 195,
+          "peak_mib": 28661.0,
+          "started": 1793175992.3602254,
+          "ended": 1793176278.1979222,
+          "controller_gpu_util_mean": 33.644329896907216,
+          "late_sample_count": 1,
+          "max_sample_gap_seconds": 1.9241914749145508,
+          "result_sha256": {
+            "WeighIngredients": "d1cfa6a8f557e392c4a4d285f812da649ef61d407c1fbb2bbd7fce424c33155f",
+            "PackIdenticalLunches": "9b0ea3543224bbbae5bf4b8ceda717639d80bd6de377bc3a3e494db2d2d7f414"
+          },
+          "requests_per_second": 4.478065749799547
+        }
+      ],
+      "trajectory_parity": {
+        "episodes": 8,
+        "replans_per_episode": 8,
+        "exact": true
+      },
+      "scope": "two-task bounded prefixes, not full50 acceptance or benchmark scores",
+      "limitations": [
+        "one trial per setting",
+        "same GPU fixed order",
+        "shared policy loading excluded",
+        "whole simulator wall includes initialization, snapshots, rollout and cleanup"
+      ],
+      "gpu_cohort": "same_physical_h100_tuning",
+      "independent_audit_sha256": "d2f94904428935df6436dc0a108cccf3681ba3ee84922828e797d54abf01f182"
+    },
+    "V3": {
+      "accepted": true,
+      "stage": "v3",
+      "archive_sha256": "a2288968f76d0da81a9c812790b54c515a62c6e99c21c4bbaabafd309805008f",
+      "source_manifest_sha256": "c7af795e74f9e5ff29866ed868520aa0ced7192298783c714a3001bcb6706a61",
+      "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+      "gpu": "NVIDIA H100 80GB HBM3, 580.95.05",
+      "rows": [
+        {
+          "case": "trace_all",
+          "rgb_schedule": "all",
+          "n_envs": 8,
+          "wall_seconds": 107.97021532058716,
+          "requests": 64,
+          "gpu_util_mean": 7.422535211267606,
+          "samples": 71,
+          "peak_mib": 19744.0,
+          "started": 1793177027.2555065,
+          "ended": 1793177135.2257218,
+          "controller_gpu_util_mean": 7.422535211267606,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 39.532630920410156,
+          "first_request_to_last_episode_gpu_util": 15.5,
+          "requests_per_process_second": 0.5927560652719828,
+          "result_sha256": {
+            "WeighIngredients": "db27951a8fb2a580551c30ca4e5b99bd74bc11bec7feb9cae0f6a1832285e199",
+            "PackIdenticalLunches": "4988eef773a7030269d3fe356f5eba39ebf831b5c18f6eb8ac76bc0da7a22abf"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 8,
+            "render_frames": 1128,
+            "render_seconds": 43.87577721569687,
+            "render_timing": {
+              "register_seconds": 27.079159664921463,
+              "context_seconds": 11.370571940205991,
+              "scene_copy_seconds": 0.08294923789799213,
+              "draw_seconds": 3.2437917152419686
+            },
+            "wall_seconds": 106.73036289215088
+          }
+        },
+        {
+          "case": "trace_final",
+          "rgb_schedule": "final",
+          "n_envs": 8,
+          "wall_seconds": 119.93369507789612,
+          "requests": 64,
+          "gpu_util_mean": 3.948717948717949,
+          "samples": 78,
+          "peak_mib": 19363.0,
+          "started": 1793177135.3331761,
+          "ended": 1793177255.2668712,
+          "controller_gpu_util_mean": 3.948717948717949,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 43.123318910598755,
+          "first_request_to_last_episode_gpu_util": 7.785714285714286,
+          "requests_per_process_second": 0.5336281847935431,
+          "result_sha256": {
+            "WeighIngredients": "9f37f974296b85321808d0829a91aa209298eeec0f7ce7944715a42e24124724",
+            "PackIdenticalLunches": "2daeb343b22531f435e09b2aa92a730d4ce790bc013fa16a00b949da02f4454c"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 8,
+            "render_frames": 360,
+            "render_seconds": 46.31799612008035,
+            "render_timing": {
+              "register_seconds": 30.259308458305895,
+              "context_seconds": 12.669974419288337,
+              "scene_copy_seconds": 0.036199815571308136,
+              "draw_seconds": 1.5059615867212415
+            },
+            "wall_seconds": 118.58903288841248
+          }
+        },
+        {
+          "case": "perf_final8",
+          "rgb_schedule": "final",
+          "n_envs": 8,
+          "wall_seconds": 285.3844041824341,
+          "requests": 1280,
+          "gpu_util_mean": 25.915343915343914,
+          "samples": 189,
+          "peak_mib": 20314.0,
+          "started": 1793177255.3997922,
+          "ended": 1793177540.7841964,
+          "controller_gpu_util_mean": 26.0531914893617,
+          "late_sample_count": 1,
+          "first_request_to_last_episode_seconds": 209.35020446777344,
+          "first_request_to_last_episode_gpu_util": 34.141843971631204,
+          "requests_per_process_second": 4.485178521464511,
+          "result_sha256": {
+            "WeighIngredients": "12db61d1acca0d9e297f985960c677f8404df2e49aee1e1c9fe7e9d9995f9447",
+            "PackIdenticalLunches": "02684d09da3f0e3f71a48c59637788b7bf9176ff7629a66c316f49143e266746"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 16,
+            "render_frames": 4176,
+            "render_seconds": 102.18002135492861,
+            "render_timing": {
+              "register_seconds": 58.28071768488735,
+              "context_seconds": 23.655474384315312,
+              "scene_copy_seconds": 0.41778392251580954,
+              "draw_seconds": 15.940298387780786
+            },
+            "wall_seconds": 283.9322142601013
+          }
+        },
+        {
+          "case": "perf_final12",
+          "rgb_schedule": "final",
+          "n_envs": 12,
+          "wall_seconds": 264.5549738407135,
+          "requests": 1280,
+          "gpu_util_mean": 29.028248587570623,
+          "samples": 177,
+          "peak_mib": 28641.0,
+          "started": 1793177540.8007913,
+          "ended": 1793177805.355765,
+          "controller_gpu_util_mean": 29.028248587570623,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 157.91527700424194,
+          "first_request_to_last_episode_gpu_util": 46.532710280373834,
+          "requests_per_process_second": 4.838313872604331,
+          "result_sha256": {
+            "WeighIngredients": "a549f1cfbbd5c73d2706033f7b349b792d7bbea8c8b20a32f3f529cc0e6cd497",
+            "PackIdenticalLunches": "d09d7d4bb88176b82fd34d450e3cbb8232dd45638e4d0522b2c8e4494629d7ab"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 16,
+            "render_frames": 4176,
+            "render_seconds": 91.84330252371728,
+            "render_timing": {
+              "register_seconds": 50.178725375793874,
+              "context_seconds": 21.418759469874203,
+              "scene_copy_seconds": 0.3085487885400653,
+              "draw_seconds": 16.432845580391586
+            },
+            "wall_seconds": 260.39219188690186
+          }
+        },
+        {
+          "case": "perf_final16",
+          "rgb_schedule": "final",
+          "n_envs": 16,
+          "wall_seconds": 208.79379153251648,
+          "requests": 1280,
+          "gpu_util_mean": 34.177304964539005,
+          "samples": 141,
+          "peak_mib": 36075.0,
+          "started": 1793177805.3742726,
+          "ended": 1793178014.168064,
+          "controller_gpu_util_mean": 34.177304964539005,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 81.23880243301392,
+          "first_request_to_last_episode_gpu_util": 86.46296296296296,
+          "requests_per_process_second": 6.130450482291565,
+          "result_sha256": {
+            "WeighIngredients": "3428ccb6d7a2f1b21b6ec4e4c54822a08d46793780eea67023568300dae3dc2e",
+            "PackIdenticalLunches": "998d9946c6f96a84d299cecc1b8e87749604125f56098a3d714d08e8aaa79fbf"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 16,
+            "render_frames": 4176,
+            "render_seconds": 96.16472047101706,
+            "render_timing": {
+              "register_seconds": 52.53876449819654,
+              "context_seconds": 22.683152478188276,
+              "scene_copy_seconds": 0.2801457131281495,
+              "draw_seconds": 17.116820141673088
+            },
+            "wall_seconds": 207.30087280273438
+          }
+        },
+        {
+          "case": "long_final16",
+          "rgb_schedule": "final",
+          "n_envs": 16,
+          "wall_seconds": 414.0679178237915,
+          "requests": 4800,
+          "gpu_util_mean": 63.410714285714285,
+          "samples": 280,
+          "peak_mib": 36075.0,
+          "started": 1793178014.2327127,
+          "ended": 1793178428.3006306,
+          "controller_gpu_util_mean": 63.410714285714285,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 284.6761586666107,
+          "first_request_to_last_episode_gpu_util": 90.72395833333333,
+          "requests_per_process_second": 11.592301150080074,
+          "result_sha256": {
+            "WeighIngredients": "3c72a01a05427d8e7e1b71eb230f9e7a15b20ba6b191f088af67853a59901998",
+            "PackIdenticalLunches": "4065a89fd26f1dccea321ebfa356cfef62a50b1a61eb25e9ab794c28dcff6a24"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 16,
+            "render_frames": 14736,
+            "render_seconds": 141.52719098236412,
+            "render_timing": {
+              "register_seconds": 51.69156552478671,
+              "context_seconds": 22.718384578824043,
+              "scene_copy_seconds": 1.1576383179053664,
+              "draw_seconds": 60.60760724171996
+            },
+            "wall_seconds": 412.60884714126587
+          }
+        }
+      ],
+      "trajectory_and_rng_exact": [
+        [
+          "WeighIngredients",
+          0
+        ],
+        [
+          "WeighIngredients",
+          1
+        ],
+        [
+          "WeighIngredients",
+          2
+        ],
+        [
+          "WeighIngredients",
+          3
+        ],
+        [
+          "PackIdenticalLunches",
+          0
+        ],
+        [
+          "PackIdenticalLunches",
+          1
+        ],
+        [
+          "PackIdenticalLunches",
+          2
+        ],
+        [
+          "PackIdenticalLunches",
+          3
+        ]
+      ],
+      "initial_observations_equal_across_concurrency": 32,
+      "selected_workers": 16,
+      "benchmark_score": false,
+      "full50_acceptance": false,
+      "limitations": [
+        "one trial per setting",
+        "shared model loading excluded",
+        "initialization and cleanup included in main window",
+        "first-request window includes staggered resets and is not comparable steady-state coverage across worker counts"
+      ],
+      "gpu_cohort": "same_physical_h100_tuning",
+      "independent_audit_sha256": "12247eaf47a86464ea1dae6bb7b48a952fcda0b73db877b4b688e611fa8375c1"
+    },
+    "V4": {
+      "accepted": true,
+      "stage": "v4",
+      "archive_sha256": "8e70de30abd8b880fcbdddbf2992dea2e3a5088581a4d68ba72e0748f320a480",
+      "source_manifest_sha256": "1713e2fdd3b46364485315337d2e530fcba4f0546156d205d8dff5c1546d07c8",
+      "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+      "gpu": "NVIDIA H100 80GB HBM3, 580.95.05",
+      "rows": [
+        {
+          "case": "trace_fullinit",
+          "rgb_schedule": "final",
+          "initial_rgb": "all",
+          "n_envs": 8,
+          "wall_seconds": 89.40604138374329,
+          "requests": 64,
+          "gpu_util_mean": 5.7,
+          "samples": 60,
+          "peak_mib": 18972.0,
+          "started": 1793179300.9640694,
+          "ended": 1793179390.3701108,
+          "controller_gpu_util_mean": 5.7,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 16.083688497543335,
+          "first_request_to_last_episode_gpu_util": 21.727272727272727,
+          "requests_per_process_second": 0.7158352949025336,
+          "result_sha256": {
+            "WeighIngredients": "20c66f7a1032221f2535bc1153cffa29bcc69be4bb83acc8a0ddc2f5db5af580",
+            "PackIdenticalLunches": "fdad3f6aed4710f7878771634d45eeebc8dfccded6a5b620479b7523cfb19ded"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 8,
+            "render_frames": 360,
+            "render_seconds": 40.797405974939466,
+            "render_timing": {
+              "register_seconds": 26.057177652604878,
+              "context_seconds": 11.492868390865624,
+              "scene_copy_seconds": 0.02779578138142824,
+              "draw_seconds": 1.3409400042146444
+            },
+            "registered_models": 16,
+            "peak_contexts": 13,
+            "wall_seconds": 88.1492850780487
+          }
+        },
+        {
+          "case": "trace_deferred",
+          "rgb_schedule": "final",
+          "initial_rgb": "deferred",
+          "n_envs": 8,
+          "wall_seconds": 79.5205147266388,
+          "requests": 64,
+          "gpu_util_mean": 7.173076923076923,
+          "samples": 52,
+          "peak_mib": 12890.0,
+          "started": 1793179390.4055138,
+          "ended": 1793179469.9260285,
+          "controller_gpu_util_mean": 7.313725490196078,
+          "late_sample_count": 1,
+          "first_request_to_last_episode_seconds": 31.17995810508728,
+          "first_request_to_last_episode_gpu_util": 18.65,
+          "requests_per_process_second": 0.8048237642828092,
+          "result_sha256": {
+            "WeighIngredients": "344a15458c0e530f1c352e9c5133d31bc2cb708da1352d7f61d59500d5034483",
+            "PackIdenticalLunches": "bd91778d541febc8627558be1fa21b0d71869a6f85081b194e04d27b6d9f05de"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 8,
+            "render_frames": 240,
+            "render_seconds": 20.93793419189751,
+            "render_timing": {
+              "register_seconds": 13.267513843253255,
+              "context_seconds": 5.666670034639537,
+              "scene_copy_seconds": 0.019509129226207733,
+              "draw_seconds": 0.7984949890524149
+            },
+            "registered_models": 8,
+            "peak_contexts": 5,
+            "wall_seconds": 78.41462826728821
+          }
+        },
+        {
+          "case": "perf_deferred8",
+          "rgb_schedule": "final",
+          "initial_rgb": "deferred",
+          "n_envs": 8,
+          "wall_seconds": 215.66145658493042,
+          "requests": 1280,
+          "gpu_util_mean": 31.35135135135135,
+          "samples": 148,
+          "peak_mib": 15770.0,
+          "started": 1793179470.0661533,
+          "ended": 1793179685.7276099,
+          "controller_gpu_util_mean": 31.35135135135135,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 168.79562091827393,
+          "first_request_to_last_episode_gpu_util": 39.474137931034484,
+          "requests_per_process_second": 5.935228391151659,
+          "result_sha256": {
+            "WeighIngredients": "00facdbce595b5ab0330a0b9760f0693e3ee282f2ebb7656c8a5ff0bccd8ebf1",
+            "PackIdenticalLunches": "f27fafb48e9b2045d57b9881cc9713a4a9d0876f01cba296d43fe9653b17ab49"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 16,
+            "render_frames": 3936,
+            "render_seconds": 55.272336260415614,
+            "render_timing": {
+              "register_seconds": 26.90377772320062,
+              "context_seconds": 11.855286579579115,
+              "scene_copy_seconds": 0.31407703645527363,
+              "draw_seconds": 14.378762774169445
+            },
+            "registered_models": 16,
+            "peak_contexts": 8,
+            "wall_seconds": 214.0640766620636
+          }
+        },
+        {
+          "case": "perf_deferred16",
+          "rgb_schedule": "final",
+          "initial_rgb": "deferred",
+          "n_envs": 16,
+          "wall_seconds": 158.52030777931213,
+          "requests": 1280,
+          "gpu_util_mean": 42.490566037735846,
+          "samples": 106,
+          "peak_mib": 23385.0,
+          "started": 1793179685.743585,
+          "ended": 1793179844.263893,
+          "controller_gpu_util_mean": 42.490566037735846,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 87.82062268257141,
+          "first_request_to_last_episode_gpu_util": 74.13559322033899,
+          "requests_per_process_second": 8.074675213108865,
+          "result_sha256": {
+            "WeighIngredients": "283c1bfffe5658e7ca98980420f6c79ae15472acfa88aaaca85fc191021cefd5",
+            "PackIdenticalLunches": "093452ef8d29d0f719cc2643aea978d3f9abb8c027865654a6a7bc6ac4b49107"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 16,
+            "render_frames": 3936,
+            "render_seconds": 58.246520523913205,
+            "render_timing": {
+              "register_seconds": 27.154358683153987,
+              "context_seconds": 11.950271620415151,
+              "scene_copy_seconds": 0.30175441689789295,
+              "draw_seconds": 16.642043334431946
+            },
+            "registered_models": 16,
+            "peak_contexts": 16,
+            "wall_seconds": 157.31637358665466
+          }
+        },
+        {
+          "case": "long_deferred16",
+          "rgb_schedule": "final",
+          "initial_rgb": "deferred",
+          "n_envs": 16,
+          "wall_seconds": 367.91399478912354,
+          "requests": 4800,
+          "gpu_util_mean": 71.07142857142857,
+          "samples": 252,
+          "peak_mib": 23385.0,
+          "started": 1793179844.3534234,
+          "ended": 1793180212.2674181,
+          "controller_gpu_util_mean": 71.07142857142857,
+          "late_sample_count": 0,
+          "first_request_to_last_episode_seconds": 289.81090331077576,
+          "first_request_to_last_episode_gpu_util": 89.37185929648241,
+          "requests_per_process_second": 13.046527362328812,
+          "result_sha256": {
+            "WeighIngredients": "d95be8f1b1ff8e2f2b382e39d33a6d54f870402306ad9a52ad5d4e6982dee9d6",
+            "PackIdenticalLunches": "4f52fa8781bd84bf6bca0fda3e6717364b4efa1390c6026448d6ef08c7567f2d"
+          },
+          "render_stats": {
+            "tasks": [
+              "WeighIngredients",
+              "PackIdenticalLunches"
+            ],
+            "episodes": 16,
+            "render_frames": 14496,
+            "render_seconds": 102.04251815099269,
+            "render_timing": {
+              "register_seconds": 26.771942656487226,
+              "context_seconds": 11.845415836200118,
+              "scene_copy_seconds": 1.0568147879093885,
+              "draw_seconds": 59.080929255113006
+            },
+            "registered_models": 16,
+            "peak_contexts": 16,
+            "wall_seconds": 366.53083062171936
+          }
+        }
+      ],
+      "trajectory_and_rng_exact": [
+        [
+          "WeighIngredients",
+          0
+        ],
+        [
+          "WeighIngredients",
+          1
+        ],
+        [
+          "WeighIngredients",
+          2
+        ],
+        [
+          "WeighIngredients",
+          3
+        ],
+        [
+          "PackIdenticalLunches",
+          0
+        ],
+        [
+          "PackIdenticalLunches",
+          1
+        ],
+        [
+          "PackIdenticalLunches",
+          2
+        ],
+        [
+          "PackIdenticalLunches",
+          3
+        ]
+      ],
+      "initial_observations_equal_across_concurrency": 16,
+      "selected_workers": 16,
+      "benchmark_score": false,
+      "full50_acceptance": false,
+      "limitations": [
+        "one trial per setting",
+        "shared model loading excluded",
+        "initialization and cleanup included in main window",
+        "first-request window includes staggered resets and is not comparable steady-state coverage across worker counts"
+      ],
+      "gpu_cohort": "same_physical_h100_tuning",
+      "independent_audit_sha256": "d7a290d56c3d931614cdd6bcd27ef370723bfadbf1eac1367efdfb6bcacf2db7"
+    }
+  },
+  "recommended_parameters": {
+    "n_envs": 16,
+    "tasks_per_gpu": 8,
+    "simulator_cpu_threads": 1,
+    "rgb_schedule": "final",
+    "initial_rgb": "deferred"
+  },
+  "three_hour_utilization_guaranteed": false,
+  "eight_physical_gpu_run": false
+}
