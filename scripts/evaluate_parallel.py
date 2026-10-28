@@ -12,6 +12,7 @@ from pathlib import Path
 from queue import Queue, Empty
 import socket
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -24,7 +25,7 @@ from episode_plan import atomic_json
 from evaluate import TASKS, gpu_assignments
 from evaluate_task import bind_output_identity, check_port_available
 from evaluate_seeded import identity_for, validate_receipt, summarize
-from scene_suite import run_task_process, stop_process_group
+from scene_suite import stop_process_group
 from seeded_evaluation import PARALLEL_EXECUTION_VERSION, selected_episodes, validate_result, seed_suite
 
 
@@ -37,13 +38,21 @@ def selected_tasks(args):
     return [t for t in TASKS if t['task'] in names]
 
 
+def reserve_initial_batches(queue, gpu_count, max_batch):
+    """Give every used GPU work before any policy starts loading."""
+    active=min(gpu_count,queue.qsize())
+    if active<1:return [],0
+    size=min(max_batch,max(1,queue.qsize()//active))
+    return [[queue.get_nowait() for _ in range(size)] for _ in range(active)],size
+
+
 def parallel_identity(args):
     identity=identity_for(args)
     identity.update(simulator_execution=PARALLEL_EXECUTION_VERSION, tasks_per_gpu=args.tasks_per_gpu,
                     simulator_cpu_threads=args.simulator_cpu_threads,
                     rgb_schedule=getattr(args,'rgb_schedule','all'),
                     initial_rgb=getattr(args,'initial_rgb','all'),
-                    task_scheduling='longest_horizon_first_dynamic_batches_v1')
+                    task_scheduling='longest_horizon_first_reserved_dynamic_batches_v2')
     identity['entry_sources'].update({name:sha256(ROOT/'scripts'/name) for name in
         ('evaluate_parallel.py','parallel_seeded_sim.py','render_rpc.py','render_scene_packet.py','final_frame_rgb.py')})
     return identity
@@ -103,7 +112,7 @@ def summarize_committed(args,identity):
     summarize(args,identity)
 
 
-def start_policy(args, identity, gpu, port, directory):
+def start_policy(args, identity, gpu, port, directory, cancelled=None):
     check_port_available(port)
     env=environment(args.variant)
     env.update(CUDA_VISIBLE_DEVICES=gpu, PYTHONHASHSEED='7', OPENPI_DATA_HOME=str(args.home/'cache/openpi'))
@@ -114,6 +123,8 @@ def start_policy(args, identity, gpu, port, directory):
     try:
         deadline=time.monotonic()+1200
         while True:
+            if cancelled is not None and cancelled.is_set():
+                raise InterruptedError('Policy startup cancelled')
             if server.poll() is not None:
                 raise RuntimeError('Policy startup failed: '+str(directory/'server.log'))
             try:
@@ -134,6 +145,21 @@ def start_policy(args, identity, gpu, port, directory):
         raise
 
 
+def run_simulator(command, *, env, log, timeout, cancelled, server=None):
+    process=subprocess.Popen(command,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+    deadline=time.monotonic()+timeout
+    try:
+        while process.poll() is None:
+            if cancelled.is_set():raise InterruptedError('Evaluation cancelled')
+            if server is not None and server.poll() is not None:raise RuntimeError('Policy service exited during simulation')
+            if time.monotonic()>deadline:raise TimeoutError('Simulator exceeded batch timeout')
+            try:process.wait(timeout=.5)
+            except subprocess.TimeoutExpired:pass
+        return process.returncode
+    finally:
+        stop_process_group(process)
+
+
 def run(args, identity, tasks):
     import fcntl
     activate(args.variant)
@@ -148,6 +174,7 @@ def run(args, identity, tasks):
             queue.put(task['task'])
     if queue.empty():return
     gpus,egls=gpu_assignments(args.gpu_ids,args.egl_device_ids)
+    initial_batches,batch_size=reserve_initial_batches(queue,len(gpus),args.tasks_per_gpu)
     failed=threading.Event()
     def slot(index):
         gpu,egl,port=gpus[index],egls[index],args.port_base+index
@@ -157,13 +184,9 @@ def run(args, identity, tasks):
         try:
             with (args.output/('gpu-'+gpu.replace('/','_')+'.lock')).open('a+') as gpu_lock:
                 fcntl.flock(gpu_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-                server=start_policy(args,identity,gpu,port,directory)
-                while not failed.is_set():
-                    batch=[]
-                    for _ in range(args.tasks_per_gpu):
-                        try:batch.append(queue.get_nowait())
-                        except Empty:break
-                    if not batch:break
+                server=start_policy(args,identity,gpu,port,directory,cancelled=failed)
+                batch=initial_batches[index]
+                while batch and not failed.is_set():
                     with ExitStack() as locks:
                         for task in batch:
                             lock=locks.enter_context((args.output/(task+'.lock')).open('a+'))
@@ -191,7 +214,7 @@ def run(args, identity, tasks):
                         atomic_json(attempt/'STARTED.json',{'identity':identity,'gpu':gpu,'egl':egl,'tasks':batch,
                                     'command':command,'hostname':socket.gethostname(),'started':time.time()})
                         with (attempt/'simulation.log').open('w') as log:
-                            code=run_task_process(command,env=env,log=log,timeout=args.timeout+120)
+                            code=run_simulator(command,env=env,log=log,timeout=args.timeout+120,cancelled=failed,server=server)
                         atomic_json(attempt/'EXIT.json',{'returncode':code,'ended':time.time()})
                         if code:raise RuntimeError(f'Simulator failed {code}; see {attempt}')
                         if server.poll() is not None:raise RuntimeError('Policy exited during evaluation')
@@ -212,15 +235,25 @@ def run(args, identity, tasks):
                         atomic_json(attempt/'ACCEPTED.json',{'tasks':batch,'diagnostic_only':diagnostic,
                                     'identity':identity,'results':results})
                         print(json.dumps({'completed_tasks':batch,'gpu':gpu,'remaining_tasks':queue.qsize()}),flush=True)
+                    batch=[]
+                    for _ in range(batch_size):
+                        try:batch.append(queue.get_nowait())
+                        except Empty:break
         except BaseException:
             failed.set()
             atomic_json(directory/'ERROR.json',{'traceback':traceback.format_exc()})
             raise
         finally:
             if server is not None:stop_process_group(server)
-    with ThreadPoolExecutor(max_workers=min(len(gpus),queue.qsize())) as pool:
-        futures=[pool.submit(slot,i) for i in range(min(len(gpus),queue.qsize()))]
-        for future in as_completed(futures):future.result()
+    previous={sig:signal.getsignal(sig) for sig in (signal.SIGINT,signal.SIGTERM)}
+    for sig in previous:signal.signal(sig,lambda signum,frame:failed.set())
+    try:
+        with ThreadPoolExecutor(max_workers=len(initial_batches)) as pool:
+            futures=[pool.submit(slot,i) for i in range(len(initial_batches))]
+            for future in as_completed(futures):future.result()
+        if failed.is_set():raise InterruptedError('Evaluation interrupted before completion')
+    finally:
+        for sig,handler in previous.items():signal.signal(sig,handler)
     if file_signatures(args)!=signatures or parallel_identity(args)!=identity:
         raise ValueError('Final source/weight/config integrity verification failed')
     verify_sources()

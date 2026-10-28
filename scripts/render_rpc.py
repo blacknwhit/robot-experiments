@@ -176,6 +176,22 @@ def install(connection, defer_construction=False):
     simulator_renderer.install = lambda: simulator_renderer.VERSION
     simulator_renderer.retain_environments = retain_environments
     simulator_renderer.release_all = release_all
+    if defer_construction:
+        from examples.pi05_robocasa365.eval_files import simulation_env
+        original_create = simulation_env.create_single_env
+        if getattr(original_create, '_deferred_constructor', False):
+            raise RuntimeError('Constructor optimization was already installed')
+        def deferred_create(*args, **kwargs):
+            with construction_scope():
+                env = original_create(*args, **kwargs)
+            try:
+                validate_final_reset(env)
+                return env
+            except BaseException:
+                env.close()
+                raise
+        deferred_create._deferred_constructor = True
+        simulation_env.create_single_env = deferred_create
 
 
 class RenderOwner:

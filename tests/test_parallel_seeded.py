@@ -4,6 +4,10 @@ from pathlib import Path
 import sys
 import json
 import tempfile
+import subprocess
+import threading
+import os
+from queue import Queue
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -18,6 +22,33 @@ from common import sha256
 
 
 class FragmentTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith('linux'),'POSIX session cleanup')
+    def test_cancelled_simulator_leaves_no_running_child(self):
+        import evaluate_parallel
+        started=[];real_popen=subprocess.Popen
+        def spawn(*args,**kwargs):
+            p=real_popen(*args,**kwargs);started.append(p);return p
+        cancelled=threading.Event();cancelled.set()
+        with tempfile.TemporaryFile(mode='w+') as log, patch.object(evaluate_parallel.subprocess,'Popen',side_effect=spawn):
+            with self.assertRaises(InterruptedError):
+                evaluate_parallel.run_simulator([sys.executable,'-c','import time;time.sleep(60)'],
+                    env=dict(os.environ),log=log,timeout=60,cancelled=cancelled)
+        self.assertIsNotNone(started[0].poll())
+
+    def test_large_task_batch_still_reserves_work_for_every_gpu_without_duplicates(self):
+        from evaluate_parallel import reserve_initial_batches
+        for gpu_count in (1,2,4,8,50):
+            for requested in (1,2,8,50):
+                queue=Queue()
+                for task in range(50):queue.put(task)
+                batches,size=reserve_initial_batches(queue,gpu_count,requested)
+                self.assertEqual(len(batches),gpu_count)
+                self.assertTrue(all(batches))
+                self.assertLessEqual(size,requested)
+                ids=[task for batch in batches for task in batch]
+                while not queue.empty():ids.append(queue.get_nowait())
+                self.assertEqual(sorted(ids),list(range(50)))
+
     def test_deferred_constructor_scope_restores_on_error_and_requires_hard_reset(self):
         import render_rpc
         with patch.object(render_rpc,'_defer_enabled',True), patch.object(render_rpc,'_construction_checked',True):
