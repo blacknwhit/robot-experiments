@@ -24,6 +24,7 @@
 
 - [历史PI0.5/FIXED/v2部署参考](HANDOFF.zh-CN.md)：资源来源、旧配方和空白集群准备；不会替代各实验的独立手册。
 - [固定2500回合高吞吐评测](docs/ASTRA_FIXED_SCENES.zh-CN.md)：每卡一份常驻模型，多task共用并行环境；具体checkpoint与输出目录由各实验指定。
+- [多版本模型接入与选择](docs/EVALUATION_MODELS.zh-CN.md)：已登记版本、配置/权重映射、模型侧适配及各版本验证边界。
 - [第三方许可证](THIRD_PARTY_NOTICES.md)、[来源记录](provenance/PORTABILITY.md)。GitHub不保存大数据、GT数组或模型权重。
 
 本总览的评测操作说明更新于2026-10-28；实验历史结果仍保留各自日期。这不是SCO实时任务看板。

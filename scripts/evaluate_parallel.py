@@ -62,6 +62,12 @@ def reserve_initial_batches(queue, gpu_count, max_batch, task_weights=None):
 
 def parallel_identity(args):
     identity=identity_for(args)
+    if getattr(args,'model_spec',None):
+        from robot_eval.spec import load_spec,probe_environment
+        spec=load_spec(args.model_spec,config=args.config,checkpoint=args.checkpoint)
+        details=spec.details(probe_environment(spec,spec.policy_environment(home=args.home)))
+        args._model_details=details
+        identity.update(details['identity'])
     identity.update(simulator_execution=PARALLEL_EXECUTION_VERSION, tasks_per_gpu=args.tasks_per_gpu,
                     simulator_cpu_threads=args.simulator_cpu_threads,
                     rgb_schedule=getattr(args,'rgb_schedule','all'),
@@ -80,6 +86,9 @@ def file_signatures(args):
     """
     paths=[args.checkpoint,args.config,args.home/'receipts/sim.freeze.txt',ROOT/'provenance/source_files.sha256']
     paths.extend(ROOT/line.split('  ',1)[1] for line in (ROOT/'provenance/source_files.sha256').read_text().splitlines())
+    if getattr(args,'model_spec',None):
+        from robot_eval.spec import load_spec
+        paths.extend(load_spec(args.model_spec,config=args.config,checkpoint=args.checkpoint).files())
     signatures={}
     for path in paths:
         stat=path.stat()
@@ -128,10 +137,16 @@ def summarize_committed(args,identity):
 
 def start_policy(args, identity, gpu, port, directory, cancelled=None):
     check_port_available(port)
-    env=environment(args.variant)
+    env=environment('baseline' if getattr(args,'model_spec',None) else args.variant)
     env.update(CUDA_VISIBLE_DEVICES=gpu, PYTHONHASHSEED='7', OPENPI_DATA_HOME=str(args.home/'cache/openpi'))
     command=[sys.executable,str(ROOT/'scripts/server.py'),'--variant',args.variant,'--config',str(args.config),
              '--checkpoint',str(args.checkpoint),'--port',str(port),'--inference-backend','cuda-graph-pipeline']
+    if getattr(args,'model_spec',None):
+        from robot_eval.spec import load_spec
+        spec=load_spec(args.model_spec,config=args.config,checkpoint=args.checkpoint)
+        env=spec.policy_environment(gpu=gpu,home=args.home)
+        command=[str(spec.policy_python),str(ROOT/'scripts/adapter_server.py'),'--model-spec',str(args.model_spec),
+                 '--manifest',str(args.output/'MODEL_MANIFEST.json'),'--port',str(port)]
     with (directory/'server.log').open('w') as log:
         server=subprocess.Popen(command,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
     try:
@@ -152,6 +167,8 @@ def start_policy(args, identity, gpu, port, directory, cancelled=None):
         finally: client.close()
         for key in ('variant','checkpoint_sha256','config_sha256','inference_backend','inference_backend_version'):
             if metadata.get(key)!=identity[key]:raise ValueError('Foreign policy identity: '+key)
+        if getattr(args,'model_spec',None) and metadata.get('model_spec_fingerprint')!=identity['model_spec_fingerprint']:
+            raise ValueError('Foreign model adapter fingerprint')
         atomic_json(directory/'POLICY_READY.json', {'pid':server.pid,'port':port,'gpu':gpu,'metadata':metadata})
         return server
     except BaseException:
@@ -176,7 +193,8 @@ def run_simulator(command, *, env, log, timeout, cancelled, server=None):
 
 def run(args, identity, tasks):
     import fcntl
-    activate(args.variant)
+    sim_variant='baseline' if getattr(args,'model_spec',None) else args.variant
+    activate(sim_variant)
     ids=selected_episodes(args.diagnostic_episodes)
     diagnostic=args.diagnostic_episodes is not None
     category='diagnostic' if diagnostic else 'formal'
@@ -214,9 +232,9 @@ def run(args, identity, tasks):
                                 if source.exists():
                                     (attempt/'uncommitted_previous').mkdir(exist_ok=True)
                                     shutil.copy2(source,attempt/'uncommitted_previous'/source.name)
-                        env=environment(args.variant,shim=False,overlay=False,cpu_threads=args.simulator_cpu_threads)
+                        env=environment(sim_variant,shim=False,overlay=False,cpu_threads=args.simulator_cpu_threads)
                         env.pop('CUDA_VISIBLE_DEVICES',None);env.pop('LD_PRELOAD',None)
-                        env.update(PYTHONPATH=os.pathsep.join((str(ROOT/'scripts'),str(runtime(args.variant)))),
+                        env.update(PYTHONPATH=os.pathsep.join((str(ROOT/'scripts'),str(runtime(sim_variant)))),
                                    PYTHONHASHSEED='7',PYTHONFAULTHANDLER='1',MUJOCO_GL='egl',
                                    PYOPENGL_PLATFORM='egl',MUJOCO_EGL_DEVICE_ID=egl)
                         command=[str(args.sim_python),str(ROOT/'scripts/parallel_seeded_sim.py'),'--tasks',','.join(batch),
@@ -276,8 +294,11 @@ def run(args, identity, tasks):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--variant',choices=VARIANTS,required=True)
-    for key in ('home','config','checkpoint','sim-python','output'):p.add_argument('--'+key,type=Path,required=True)
+    model=p.add_mutually_exclusive_group(required=True)
+    model.add_argument('--variant',choices=VARIANTS)
+    model.add_argument('--model-spec',type=Path,help='External model adapter specification; benchmark code stays fixed')
+    for key in ('home','sim-python','output'):p.add_argument('--'+key,type=Path,required=True)
+    for key in ('config','checkpoint'):p.add_argument('--'+key,type=Path)
     mode=p.add_mutually_exclusive_group(required=True)
     mode.add_argument('--all-tasks',action='store_true')
     mode.add_argument('--tasks')
@@ -292,6 +313,14 @@ def main():
     p.add_argument('--diagnostic-episodes');p.add_argument('--diagnostic-max-replans',type=int)
     p.add_argument('--timeout',type=int,default=28800);p.add_argument('--dry-run',action='store_true')
     args=p.parse_args()
+    if args.model_spec:
+        from robot_eval.spec import load_spec
+        args.model_spec=args.model_spec.resolve()
+        spec=load_spec(args.model_spec,config=args.config,checkpoint=args.checkpoint)
+        args.config,args.checkpoint,args.variant=spec.config,spec.checkpoint,spec.model_id
+        if spec.data['test_only'] and args.diagnostic_episodes is None:p.error('Test-only adapters require diagnostic episodes')
+    elif args.config is None or args.checkpoint is None:
+        p.error('--variant requires --config and --checkpoint')
     for key in ('home','config','checkpoint','sim_python','output'):setattr(args,key,getattr(args,key).resolve())
     selected_episodes(args.diagnostic_episodes)
     if args.diagnostic_max_replans is not None and (args.diagnostic_episodes is None or args.diagnostic_max_replans<1):
@@ -308,6 +337,7 @@ def main():
     import fcntl
     with (args.output/'orchestrator.lock').open('a+') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        if args.model_spec:atomic_json(args.output/'MODEL_MANIFEST.json',args._model_details)
         if args.summarize:summarize_committed(args,identity)
         else:
             run(args,identity,tasks)

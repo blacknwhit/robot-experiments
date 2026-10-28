@@ -26,10 +26,11 @@ from seeded_evaluation import PROTOCOL, HEALTH_VERSION, EXECUTION_VERSION, seed_
 
 
 def identity_for(args):
-    import yaml
-    config = yaml.safe_load(args.config.read_text())
-    if config['portable']['variant'] != args.variant:
-        raise ValueError('Config variant mismatch')
+    if not getattr(args,'model_spec',None):
+        import yaml
+        config = yaml.safe_load(args.config.read_text())
+        if config['portable']['variant'] != args.variant:
+            raise ValueError('Config variant mismatch')
     return {'variant': args.variant, 'checkpoint_sha256': sha256(args.checkpoint),
             'config_sha256': sha256(args.config), 'source_manifest_sha256': sha256(ROOT / 'provenance/source_files.sha256'),
             'sim_freeze_sha256': sha256(args.home / 'receipts/sim.freeze.txt'),
