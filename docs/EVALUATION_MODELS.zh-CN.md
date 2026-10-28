@@ -147,7 +147,7 @@ class MyAdapter(ModelAdapter):
 
 跨模型**16/16对**初始三路RGB、机器人状态数组、MuJoCo状态hash及RNG状态hash全部一致。范围为CloseBlenderLid、CloseFridge、CloseToasterOvenDoor、CoffeeSetupMug各episode0–3；baseline在n_envs4/8/16的相同16个初始观测也逐值一致。未逐一重跑比较2500场景，不外推跨驱动逐像素保证。正式评测仍只读取固定种子定义，没有恢复参考图片/轨迹hash门槛；不同模型的后续动作及轨迹允许不同。
 
-单H10080GB、22vCPU、240GiB，模型常驻且共用一次预热；每档4task×4episode×40请求=640次策略请求。每次请求仍输出50步动作、执行5步，本诊断截短回合，不能计入正式成功率。
+以下三档性能对照**仅使用PI0.5 baseline70k**；FIXED完成了模型接口与场景对照，不套用此表速度/利用率。单H10080GB、22vCPU、240GiB，模型常驻且共用一次预热；每档4task×4episode×40请求=640次策略请求。每次请求仍输出50步动作、执行5步，本诊断截短回合，不能计入正式成功率。
 
 | n_envs | 整段仿真耗时 | 请求/秒（含初始化） | 整段GPU-util | 首请求→末步GPU-util |
 |---:|---:|---:|---:|---:|
