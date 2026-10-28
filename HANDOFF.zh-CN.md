@@ -180,7 +180,7 @@ $H/runs/<run-id>/checkpoints/steps_70000_model.safetensors
 
 ### 9.1 当前入口：每GPU一个task，多环境
 
-**后续新评测请直接执行[远端Astra固定episode种子说明](docs/ASTRA_FIXED_SCENES.zh-CN.md)**：使用`evaluate_seeded.py`，按task/episode固定种子直接创建环境，不再预生成或读取`PLANS`，不比较参考像素/state/轨迹。每GPU一个task、默认4环境、原生batch1异步流水线；无需每权重完整smoke。支持8卡一次调度全50任务，也支持原12个四卡分片和1个两卡分片。黑图、无效状态/动作及覆盖检查仍保留。下面的命令仅用于明确选择历史协议的复现，结果与新协议分开。
+**后续新评测请直接执行[远端Astra固定episode种子说明](docs/ASTRA_FIXED_SCENES.zh-CN.md)**：使用`evaluate_parallel.py`，按task/episode固定种子直接创建环境，不再预生成或读取`PLANS`，不比较参考像素/state/轨迹。每GPU一份常驻模型，多task共享并行CPU仿真和单EGL渲染进程、原生batch1流水线；显式参数见该文档，无需每权重完整smoke。支持1/2/4/8卡统一入口自动分配全50任务；一个输出目录只允许一个入口，不再拆13个命令共同写入。黑图、无效状态/动作及覆盖检查仍保留。下面的命令仅用于明确选择历史协议的复现，结果与新协议分开。
 
 ### 9.2 历史协议：仅用于明确复现旧分数
 
