@@ -29,7 +29,7 @@ export PY="$E/envs/policy/bin/python"
 # 按主手册重新记录experiment.env中的PY，并复查v3导入与最小GPU路径。
 ```
 
-缺一两个依赖也可在独立环境内只补查明的差异；不要因为错误导入了真实simulator就盲装依赖掩盖PYTHONPATH问题。若要更换simulator版本、资产或环境，该变化会影响固定场景身份，需用新的环境记录和计划集合，不能覆盖旧freeze后继续冒称相同场景。
+缺一两个依赖也可在独立环境内只补查明的差异；不要因为错误导入了真实simulator就盲装依赖掩盖PYTHONPATH问题。若更换simulator版本、资产或环境，使用新的环境记录和评测OUT并保留旧freeze；当前评测仍使用统一的task/episode种子定义，不重新生成PLANS。环境改变可能影响实际场景与渲染，不能仅凭seed相同声称逐像素或轨迹相同。
 
 ## 2. 真正的空白集群
 

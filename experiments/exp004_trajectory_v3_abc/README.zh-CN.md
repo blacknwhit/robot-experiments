@@ -38,8 +38,8 @@ B/C时间块为width256、8heads、FFN512、pre-LN残差、dropout0。C保留旧
 | GT准备/分片生成/全集校验 | `scripts/prepare_gt.py` |
 | 配置、训练、自动选续训 | `scripts/configure.py`、`scripts/train.py`、`scripts/train_or_resume.py` |
 | 导入/GPU/NCCL/动作检查 | `scripts/import_preflight.py`、`scripts/doctor.py`、`scripts/nccl_probe.py`、`scripts/point_inference_probe.py` |
-| 固定场景、高效分片评测 | `scripts/scene_suite.py`、`scripts/evaluate_frozen.py` |
-| 单task调试 | `scripts/evaluate_task.py` |
+| 固定episode种子、分片评测 | `scripts/evaluate_seeded.py` |
+| 单task评测/开发诊断 | `scripts/evaluate_seeded.py --task ...` |
 
 ## 2. 默认路径：复用旧集群资源，隔离本次实验
 
@@ -58,15 +58,13 @@ export E=/absolute/experiments/exp004_trajectory_v3_abc
 export PY="$H/envs/policy/bin/python"       # 改为已存在的policy Python
 export SIM_PY="$H/envs/sim/bin/python"      # 改为已存在的sim Python
 export ROBOT_EXPERIMENTS_HOME="$H"
-# 默认新场景也放本实验；若已有兼容固定场景，改成那个已有目录。
-export PLANS="$E/evaluation-scenes/fixed2500-v2"
 # 仅当尚无本实验代码checkout时执行；已有专用checkout直接cd即可。
 git clone https://github.com/blacknwhit/robot-experiments.git "$REPO"
 cd "$REPO"
 mkdir -p "$E/resolved" "$E/logs" "$E/receipts"
 test -x "$PY" && test -x "$SIM_PY"
 sha256sum -c provenance/source_files.sha256
-printf 'export %s=%q\n' REPO "$REPO" H "$H" E "$E" PY "$PY" SIM_PY "$SIM_PY" PLANS "$PLANS" > "$E/experiment.env"
+printf 'export %s=%q\n' REPO "$REPO" H "$H" E "$E" PY "$PY" SIM_PY "$SIM_PY" > "$E/experiment.env"
 cat >> "$E/experiment.env" <<'ENV'
 export ROBOT_EXPERIMENTS_HOME="$H"
 export OPENPI_DATA_HOME="$H/cache/openpi"
@@ -295,94 +293,98 @@ V=query3d_temporal_c
 "$PY" scripts/train_or_resume.py --config "$E/resolved/${V}-short.yaml"
 ```
 
-## 6. 三组使用同一套固定场景和高效评测
+## 6. 三组使用统一task/episode种子直接评测
 
-采用共享的`evaluate_frozen.py → evaluate_task.py → cuda-graph-pipeline`，每卡一个task、一份模型，多个独立模拟器异步供给；CPU准备与GPU推理重叠，模型仍batch1、原精度、10次去噪、输出50步、每5步重规划，完整渲染。**不是旧evaluate.py改大n_envs，也不减少去噪或渲染来提速。**
+当前统一使用`evaluate_seeded.py`和`fixed_episode_seeds_v1`。每GPU一个task、一份模型服务、一个主线程管理多个独立环境的仿真进程；网络线程异步请求同一服务，模型保持batch1、原精度、10次去噪、预测50步、每5步重规划。实际环境与运行方式见[远端Astra执行说明](../../docs/ASTRA_FIXED_SCENES.zh-CN.md)。
 
-PLANS指向已存在兼容场景时跳过scene_suite生成，只做check-only；缺失时才生成一次。**A/B/C共享同一套PLANS**，后续基线/FIXED也复用这一套。必须在正式评测实际模拟器/镜像/渲染环境的GPU作业中准备；不加载模型，只初始化场景。已存在一致PLANS直接复用，不为每个模型重建。
+A/B/C都读取仓库内同一任务清单和episode种子定义，不生成或读取PLANS，不比较预保存的图像/state/轨迹。每个task固定episode0–49，构造环境前使用对应seed；策略噪声仍用base7、task、逻辑环境0、全局episode和replan编号确定。不要改成每个worker固定seed7/8/9/10。
 
 ```bash
-"$SIM_PY" scripts/scene_suite.py --home "$H" --output "$PLANS" --egl-device-id 0 --workers 8
-"$PY" scripts/evaluate_frozen.py --plan-dir "$PLANS" --check-only
+"$PY" scripts/evaluate_seeded.py --check-only
 ```
 
-必须显示50tasks/2500scored_episodes。固定seed7、任务清单、horizon、成功条件不改。新固定场景与旧391/559等历史成绩不是逐场景配对，不能直接冒称同一实验。
+应显示50任务、2500计分回合、`reference_plan_required: false`。该命令不创建环境或加载模型。任务清单已有horizon、成功条件不改，horizon不再乘1.5。此新协议与旧391/559等历史成绩不是逐场景配对，历史分数单列。
 
-每组70k完成后分别评测，不必等另外两组结束。每组parts1–12各含4个task、申请4卡；part13含2个task、申请2卡，合计50个task，每个task固定一张GPU、50个回合。
+每组70k完成后分别评测，不必等待另外两组。每组parts1–12各含4个task、申请4卡；part13含2个task、申请2卡，合计50个task，每个task一张GPU、50回合。
 
-| 组 | 每个评测作业的V | 该组共用输出目录 |
+| 组 | 每个评测作业的V | 该组共用输出目录（默认n4） |
 |---|---|---|
-| A | `embedding3d_pos_a` | `$E/eval/embedding3d_pos_a-70k-fixed-v2-n8` |
-| B | `embedding3d_temporal_b` | `$E/eval/embedding3d_temporal_b-70k-fixed-v2-n8` |
-| C | `query3d_temporal_c` | `$E/eval/query3d_temporal_c-70k-fixed-v2-n8` |
+| A | `embedding3d_pos_a` | `$E/eval/embedding3d_pos_a-70k-seed-only-v1-n4` |
+| B | `embedding3d_temporal_b` | `$E/eval/embedding3d_temporal_b-70k-seed-only-v1-n4` |
+| C | `query3d_temporal_c` | `$E/eval/query3d_temporal_c-70k-seed-only-v1-n4` |
 
-下面是**一个评测分片作业**的完整命令。每个作业先source `$E/experiment.env`，从表中选择V，指定自己的PART（1..13）。共需A×13、B×13、C×13；同组所有分片使用相同OUT、N_ENVS和权重，组间OUT必须不同。
+下面是一个分片作业的完整命令。先source `$E/experiment.env`，选择V和PART；同组所有分片使用同一OUT、N_ENVS与权重，组间OUT独立。
 
 ```bash
 V=embedding3d_pos_a   # B: embedding3d_temporal_b；C: query3d_temporal_c
 PART=1               # 每个独立分片分别为1..13
-N_ENVS=8              # baseline的12/24容量不是这三组的实测承诺
+export N_ENVS=4      # 不是其它模型的容量或利用率保证
 CONFIG="$E/resolved/${V}-70k.yaml"
 CHECKPOINT="$E/runs/${V}-70k-s42/checkpoints/steps_70000_model.safetensors"
-OUT="$E/eval/${V}-70k-fixed-v2-n${N_ENVS}"
+OUT="$E/eval/${V}-70k-seed-only-v1-n${N_ENVS}"
+
 test -s "$CHECKPOINT"
 test -s "$E/runs/${V}-70k-s42/checkpoints/checkpoint-70000/PORTABLE_COMPLETE.json"
 if (( PART >= 1 && PART <= 12 )); then
-  GPU_IDS=0,1,2,3; EGL_IDS=0,1,2,3  # 在一个4卡分配中执行
+  GPU_IDS=0,1,2,3; EGL_IDS=0,1,2,3
 elif (( PART == 13 )); then
-  GPU_IDS=0,1; EGL_IDS=0,1          # 在一个2卡分配中执行
+  GPU_IDS=0,1; EGL_IDS=0,1
 else
   echo "PART必须是1..13" >&2; exit 1
 fi
 COMMON=(--variant "$V" --home "$H" --config "$CONFIG" --checkpoint "$CHECKPOINT" \
-  --sim-python "$SIM_PY" --output "$OUT" --plan-dir "$PLANS" --n-envs "$N_ENVS")
-"$PY" scripts/evaluate_frozen.py "${COMMON[@]}" --part "$PART" \
+  --sim-python "$SIM_PY" --output "$OUT" --n-envs "$N_ENVS" --timeout 43200)
+"$PY" scripts/evaluate_seeded.py "${COMMON[@]}" --part "$PART" \
   --gpu-ids "$GPU_IDS" --egl-device-ids "$EGL_IDS"
 ```
 
-上面GPU编号只是默认枚举示例；任务内CUDA与EGL须核实物理UUID相同，重映射时传实际对应编号。分片在不同节点可共用端口基数；同机不同容器须按网络隔离情况设置独立`--port-base`。
+GPU编号须在作业内与EGL物理UUID对应；重映射时传实际编号。平台作业时限应覆盖每张卡分配的任务；`--timeout 43200`只给一个task全部50回合12小时墙钟预算，不缩短horizon，也不改变平台自身回收规则。同机共享网络时使用独立`--port-base`。
 
-普通同接口权重评测**不用每个task、每套权重重新跑完整smoke**。正式入口首个真实请求比较完整50步动作的eager与graph结果，要求逐元素完全一致；之后每请求检查形状/有限值，每回合核对初始化观测/物理状态哈希。任何失败停止并保留日志，不降级或放宽校验。开发者`--smoke`仍可显式选用以比较n1/nN并逐请求对照。
+普通同接口权重评测无需每task/每权重先做完整smoke。正式入口严格加载权重，首个真实请求核对eager/Graph完整预测动作，后续保留有限动作、三路RGB/状态健康和episode覆盖检查；失败保存日志并停止，不把异常计作正常失败分数或跳过回合。开发者有限诊断参数见当前Astra说明，不产生2500回合正式验收。
 
-`n_envs`支持1–50，三组从8起，根据显存、CPU、内存选择；接口范围不是硬件容量保证。4卡分片的8环境/task意味着32个模拟器，需要相应CPU/内存。换权重、配置、代码、依赖或n_envs必须新OUT，场景环境不变则继续复用PLANS。不要叠加tasks-per-gpu/rgb-last-frame。推理不执行3D点头，C仍保留Query；不能用baseline或A/B的显存/速度数字冒充C实测。
+`n_envs`接口支持1–50；默认4不代表所有模型或task的容量已测。4卡n4配置最多4个仿真进程、16个独立环境。更改权重、配置、代码、依赖或n_envs使用新OUT，继续使用同一seed定义。无需叠加tasks-per-gpu或私有RGB补丁。推理不执行3D点头，C保留Query；基线的显存/速度不能冒充C实测。
 
-失败分片保留日志和同一身份的输出，排除原因后重跑同一V/PART；入口验证已经完成task的结果并跳过，不能同时启动同一task的两个writer。没有全部50个task时汇总会报错，不能把部分结果当成全量成绩。
+失败后保留原日志；排除原因后重跑同一V/PART，入口只复用完整且身份匹配的task。不能同时启动同一task的两个writer。没有全部50个task时汇总拒绝生成完整成绩。
 
 ## 7. 汇总并比较三组结果
 
-每组13个分片结束后可单独汇总；以下循环用于三组都结束后，各自严格验收（不加载模型、不需要GPU）：
+每组完成后可独立汇总；下例用于三组都完成后，不加载模型、不需要GPU：
 
 ```bash
-N_ENVS=8
+export N_ENVS=4
 for V in embedding3d_pos_a embedding3d_temporal_b query3d_temporal_c; do
-  "$PY" scripts/evaluate_frozen.py --variant "$V" --home "$H" \
+  "$PY" scripts/evaluate_seeded.py --variant "$V" --home "$H" \
     --config "$E/resolved/${V}-70k.yaml" \
     --checkpoint "$E/runs/${V}-70k-s42/checkpoints/steps_70000_model.safetensors" \
-    --sim-python "$SIM_PY" --output "$E/eval/${V}-70k-fixed-v2-n${N_ENVS}" \
-    --plan-dir "$PLANS" --n-envs "$N_ENVS" --summarize
+    --sim-python "$SIM_PY" --output "$E/eval/${V}-70k-seed-only-v1-n${N_ENVS}" \
+    --n-envs "$N_ENVS" --summarize
 done
 ```
 
-成功凭据是**三个独立的`FINAL_ACCEPTED.json`**：每组50份原始Boolean数组、2500条唯一trace，以及checkpoint/config/source/scene身份一致。平台SUCCEEDED、目录文件数齐全或smoke通过都不能替代该凭据。打印三组总成功率：
+成功凭据是三个独立`FINAL_ACCEPTED.json`：各50份原始Boolean成功数组、2500个唯一task/episode组合，及相符的模型/config/source/seed/模拟器身份。平台SUCCEEDED或目录数量不能替代它，也不需要旧的episode轨迹hash。打印三组结果并核对共同协议：
 
 ```bash
 "$PY" - <<'PY'
 import json, os
 from pathlib import Path
 experiment = Path(os.environ['E'])
-scene_ids = set()
+n_envs = int(os.environ['N_ENVS'])
+cohorts = set()
 for group, variant in [('A', 'embedding3d_pos_a'), ('B', 'embedding3d_temporal_b'), ('C', 'query3d_temporal_c')]:
-    path = experiment / 'eval' / f'{variant}-70k-fixed-v2-n8' / 'FINAL_ACCEPTED.json'
+    path = experiment / 'eval' / f'{variant}-70k-seed-only-v1-n{n_envs}' / 'FINAL_ACCEPTED.json'
     d = json.loads(path.read_text())
+    identity = d['identity']
     assert d['trials'] == 2500 and len(d['tasks']) == 50
-    assert d['identity']['variant'] == variant
-    scene_ids.add(d['episode_plan_set_sha256'])
+    assert identity['variant'] == variant
+    assert d['episode_protocol'] == 'fixed_episode_seeds_v1'
+    cohorts.add((identity['scene_seed_definition_sha256'], identity['task_registry_sha256'],
+                 identity['source_manifest_sha256'], identity['sim_freeze_sha256']))
     print(f"{group}\t{variant}\t{d['successes']}/{d['trials']}\t{100*d['successes']/d['trials']:.2f}%")
-assert len(scene_ids) == 1, '三组不是同一套场景，不能作为同场景对照'
+assert len(cohorts) == 1, '三组任务/种子/代码或模拟器环境不一致，先核对运行身份'
 PY
 ```
 
-若统一改过N_ENVS，上述目录后缀也需对应修改。保留每task的success数组、trace、失败回合和50任务分项，不只保存总分。三组此协议各2500回合，总计7500个计分回合；smoke不计入。与旧391/559等历史分数比较时另列场景协议，若需同场景基线/FIXED对照，应在同一PLANS重新评测对应权重。
+保留每task成功数组、episode编号、seed、错误证据及50项分项。三组各2500回合，共7500个计分回合；开发诊断不计入。旧分数按原协议单列；若以后需要同种子基线/FIXED对照，再独立安排相应权重的评测，不自动重测旧模型。
 
 ## 8. 已验证与未验证
 

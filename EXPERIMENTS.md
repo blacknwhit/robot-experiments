@@ -14,7 +14,7 @@
 ## 管理约定
 
 1. 每次新研究实验新增`experiments/expNNN_name/`，维护自己的README、方法说明、运行状态、配置映射与结果出处，再在本表新增一行。本轮A/B/C是EXP-004的三组，不拆成三个无关联实验，也不改写EXP-001/002的结论。
-2. 数据、**原始OpenPI `pi05_base`预训练权重**、norm、tokenizer、已验证环境、兼容GT和固定场景按身份复用。新实验不意味着重新下载/安装；“从base开始”是预训练模型微调，不是全模型随机初始化，更不是拿历史70k权重续训。
+2. 数据、**原始OpenPI `pi05_base`预训练权重**、norm、tokenizer、已验证环境、兼容GT和统一任务/episode种子定义按身份复用。当前评测无需PLANS。新实验不意味着重新下载/安装；“从base开始”是预训练模型微调，不是全模型随机初始化，更不是拿历史70k权重续训。
 3. 各实验配置、日志、checkpoint、评测输出和发布记录独立。EXP-004使用`--home H --experiment-root E`：H是已有公共资源，E是本次实验产物根；E内部各对照组再使用独立run-id。旧实验产物保留原路径和原release，不通过文档整理搬动。
 4. 公共实现仍放在`runtimes/`、`scripts/`，科学配置模板放在`configs/`，各实验文档显式映射所用版本。逻辑分离不要求复制多套相同脚本，更不能隐式改变旧模型。
 5. 每次实际运行保存code commit、source manifest、解析后的完整配置、环境freeze、数据/GT/场景身份和任务/原生monitor标识。新代码不冒充旧运行release；恢复继续使用原封存组合。
@@ -23,7 +23,7 @@
 ## 公共资料
 
 - [历史PI0.5/FIXED/v2部署参考](HANDOFF.zh-CN.md)：资源来源、旧配方和空白集群准备；不会替代各实验的独立手册。
-- [固定场景高效评测协议](docs/ASTRA_FIXED_SCENES.zh-CN.md)：单卡单task、多环境异步；具体checkpoint与输出目录由各实验指定。
+- [固定episode种子直接评测](docs/ASTRA_FIXED_SCENES.zh-CN.md)：单卡单task、多环境异步；具体checkpoint与输出目录由各实验指定。
 - [第三方许可证](THIRD_PARTY_NOTICES.md)、[来源记录](provenance/PORTABILITY.md)。GitHub不保存大数据、GT数组或模型权重。
 
-本总览更新于2026-10-24，是文档/已有证据快照，不是SCO实时任务看板。
+本总览的评测操作说明更新于2026-10-28；实验历史结果仍保留各自日期。这不是SCO实时任务看板。

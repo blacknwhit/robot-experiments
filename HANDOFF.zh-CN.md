@@ -10,7 +10,7 @@
 
 本页历史部分包含四个入口、三套独立模型源码。`baseline` 的历史源码与审计快照匹配；`query_fixed` 使用可核对的完整历史树重构，原训练主仓 commit 未能从本地归档恢复，但主要源码和正式评测源文件有逐项哈希证据；3D v2 使用实际部署的模型、数据 reader、loss 和 trainer。EXP-004另用trajectory_v3，在自己的目录管理。
 
-本次新增的是路径配置、安装/下载、同卡数恢复选择和验收、启动锁以及可移植评测包装。未改科学目标、模型结构、Adam/LR 或训练样本筛选。完整列表见 `provenance/PORTABILITY.md`。新包已做的本机检查见 `provenance/VALIDATION.json`；**本机 CPU 检查不代表新集群的 GPU、NCCL、EGL、训练恢复或 benchmark 已验收**。必须执行下方 smoke。
+本次新增的是路径配置、安装/下载、同卡数恢复选择和验收、启动锁以及可移植评测包装。未改科学目标、模型结构、Adam/LR 或训练样本筛选。完整列表见 `provenance/PORTABILITY.md`。新包已做的本机检查见 `provenance/VALIDATION.json`；**本机 CPU 检查不代表新集群的 GPU、NCCL、EGL、训练恢复或 benchmark 已验收**。训练与恢复执行对应smoke；当前评测按第9节的新入口说明运行，无需每套权重重新做完整评测smoke。
 
 已有分数来自旧集群：baseline 391、FIXED 559、Query3D-v2 373、Embedding3D-v2 443，分母均为2500。历史 robosuite 精确 Git SHA 未留存；本包选择官方要求的源码分支上的固定 commit，需记录新集群环境，不应宣称跨集群逐位复现这些分数。
 
@@ -174,13 +174,17 @@ $H/runs/<run-id>/checkpoints/steps_70000_model.safetensors
 
 若搬运旧训练结果：用你自己的安全传输工具复制**整个run目录**，再单独重定位配置里的OpenPI、norm及数据路径；不要复制旧token、SCO提交回执或旧host宏。GitHub不提供旧私有训练参数的下载链接。旧FIXED70k权重SHA：`fa5c5078afb8efa807a7af6129ff969ab1c0c4ccebf9e10180bb18c2a1d855a2`。搬来只有safetensors时可做严格推理，但不能声称恢复optimizer/data clock。
 
-如只想确认推理/仿真管线，也可对训练smoke的step3模型做下节smoke；这个验收绑定该checkpoint，正式70k模型需自己的smoke。
+开发阶段可用训练smoke的step3模型检查推理/仿真管线；这不代表70k性能结果。当前正式评测入口在真实请求中检查权重身份、推理和观测有效性，不要求每个70k权重额外跑完整smoke。
 
-## 9. 先一片smoke，再全量：每task独占一张卡
+## 9. 当前直接种子评测与历史协议
+
+### 9.1 当前入口：每GPU一个task，多环境
 
 **后续新评测请直接执行[远端Astra固定episode种子说明](docs/ASTRA_FIXED_SCENES.zh-CN.md)**：使用`evaluate_seeded.py`，按task/episode固定种子直接创建环境，不再预生成或读取`PLANS`，不比较参考像素/state/轨迹。每GPU一个task、默认4环境、原生batch1异步流水线；无需每权重完整smoke。支持8卡一次调度全50任务，也支持原12个四卡分片和1个两卡分片。黑图、无效状态/动作及覆盖检查仍保留。下面的命令仅用于明确选择历史协议的复现，结果与新协议分开。
 
-可选加速：`--inference-backend cuda-graph` 保留单样本、精度和去噪协议；匹配smoke会对每个请求与eager逐位比较。使用方法、实测范围及限制见[CUDA Graph评测说明](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。默认仍为下面的eager流程。
+### 9.2 历史协议：仅用于明确复现旧分数
+
+以下可选加速和命令属于旧入口。`--inference-backend cuda-graph`保留单样本、精度和去噪协议；匹配smoke对每个请求与eager逐位比较。使用方法、历史实测范围及限制见[CUDA Graph评测说明](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)。旧入口默认eager；不应用于上面的当前直接种子流程。
 
 H100可进一步使用 `--tasks-per-gpu 2` 同卡运行两个独立任务，每路仍为原batch1/单环境协议，配合 `--policy-cpu-threads 4 --sim-cpu-threads 4`。先新建output并做匹配的同卡并发smoke；详见[共享GPU评测](docs/EVALUATION_SHARED_GPU.zh-CN.md)。下面默认4/2卡分片命令保持兼容，选择共享模式时按该文档调整GPU数量，所有分片与汇总都要带同样的设置。
 
@@ -237,7 +241,7 @@ PART=1
 - **NCCL慢/卡住**：检查拓扑、实际PCIe速率、驱动、collective计时和当前attempt，不从8卡数推断吞吐；固定global64再比较。
 - **恢复失败**：保留完整checkpoint，检查rank数、Adam、scheduler、RNG、data clocks、teacher/trajectory contract；禁止用最新safetensors替代完整恢复。
 - **EGL失败**：检查任务内NVIDIA图形驱动挂载与设备映射；不要改成别的renderer后仍称同协议。
-- **评测结果异常**：先比较正确checkpoint SHA、任务覆盖、seed/horizon/replan、raw数组和trace；不能只比较总平均。
+- **评测结果异常**：核对checkpoint SHA、任务/episode覆盖、seed/horizon/replan、原始success数组、运行身份及错误日志；历史协议另核对其trace。不能只比较总平均。
 
 在新集群保留：仓库commit、源码manifest、download receipts、两份freeze、GT验收、resolved configs、smoke完整日志/状态、训练日志和resume audits、70k完整state+推理权重、50份raw评测JSON和最终验收。复现成功以这些证据为准。
 
