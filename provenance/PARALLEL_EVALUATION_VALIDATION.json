@@ -1,0 +1,1224 @@
+{
+  "accepted": true,
+  "audit_script_sha256": "e32870b50a8915409f8b9f80a4dc217868b6459d20f4da299a3aa68872132f85",
+  "source_commit": "80efbe4c1487ab32107c45876470ef1fc34ac63e",
+  "source_manifest_sha256": "77b9bf5138b6a105d14d03f15731f3602f4397332351727434cef0530d3926a0",
+  "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+  "config_sha256": "877eea0783e628e1763b31f7432eb44481d5468e49322577a99b80193ff60f48",
+  "scene_seed_definition_sha256": "b1c5243b89f4d6283f01cb950bb93911269e8b9068f334062a869d604dca1c9b",
+  "sim_freeze_sha256": "70ce89bd814a2ec6686b4cf44c593f21510ddc3f1be632b2f7205745b3b55747",
+  "archive_sha256": "dbc5f10df5458b46c0b03e629f822db369fd9fbcd435dee910846601b709bf30",
+  "archive_bytes": 41431040,
+  "cpu_tests": 109,
+  "cpu_skipped": 1,
+  "native_tests": 10,
+  "execution_parameters": {
+    "n_envs": 16,
+    "tasks_per_gpu": 50,
+    "rgb_schedule": "final",
+    "initial_rgb": "deferred",
+    "tasks": 50,
+    "episode_ids": [
+      0,
+      1
+    ],
+    "full_native_horizons": true,
+    "benchmark_score": false,
+    "batch_timeout_seconds": 172800
+  },
+  "tasks": [
+    {
+      "task": "CloseBlenderLid",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2870460699,
+        3404816877
+      ],
+      "requests": 360,
+      "native_horizon": 900,
+      "result_sha256": "1a86b06c3ad0637dfe6ccbf9ca50ac28a8110c86c77e13ed1e4ea8f7e7c79c2f",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "CloseFridge",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3526944459,
+        2034110002
+      ],
+      "requests": 360,
+      "native_horizon": 900,
+      "result_sha256": "7d917849f2308d52a31f68a56432a4171747eabf589fbac1b00effb33f9776a7",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "CloseToasterOvenDoor",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2454200926,
+        891597765
+      ],
+      "requests": 180,
+      "native_horizon": 450,
+      "result_sha256": "2392038b507fc9b68c065f494de44a89641e23a995f569baf1274ad62f82411d",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "CoffeeSetupMug",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        936324518,
+        1545909904
+      ],
+      "requests": 240,
+      "native_horizon": 600,
+      "result_sha256": "6f1a10810addffaec96f62d3a7a0812f3f6420c4fbc2862ef9cd0c847074b42c",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "NavigateKitchen",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3071159609,
+        2852627318
+      ],
+      "requests": 180,
+      "native_horizon": 450,
+      "result_sha256": "6f4c13a4a0ae82aa29f56c9773709033e3d201bd4ba085f72d82442f770c6c76",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "OpenCabinet",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2380336914,
+        293437340
+      ],
+      "requests": 420,
+      "native_horizon": 1050,
+      "result_sha256": "712d28f92c988563de0a3e4580da8f448f3d866b5faeddcbd3aaec42710b13fd",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "OpenDrawer",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2346003176,
+        3061676488
+      ],
+      "requests": 300,
+      "native_horizon": 750,
+      "result_sha256": "188a9e8f7d65e38073bd633eaf1ac4c73460a565a818f2710ef88b0c5e4e3075",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "OpenStandMixerHead",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3205231223,
+        2922867690
+      ],
+      "requests": 180,
+      "native_horizon": 450,
+      "result_sha256": "82f39949d5ee1628a2827eb6de80a3370d31e225a747fbf704d52131caffe735",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PickPlaceCounterToCabinet",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3805761692,
+        2202346479
+      ],
+      "requests": 300,
+      "native_horizon": 750,
+      "result_sha256": "83446632e35f8b558c41103d80a3adc3ddb135734e31f6737de0c535b8b6de14",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PickPlaceCounterToStove",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1196253618,
+        3912855406
+      ],
+      "requests": 240,
+      "native_horizon": 600,
+      "result_sha256": "601ab59e8edb64d50a03bc90e64f1a028787a1a20defee04678d770043df9e7b",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PickPlaceDrawerToCounter",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2592655979,
+        4153778675
+      ],
+      "requests": 300,
+      "native_horizon": 750,
+      "result_sha256": "2ed5a2d8535360b0205216861c3e35d670331a43431821f14ebd06b988fcfa72",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PickPlaceSinkToCounter",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3813847140,
+        3614060928
+      ],
+      "requests": 360,
+      "native_horizon": 900,
+      "result_sha256": "e923a9ff306dd01c959090d4b6a519ca25bbbaef661d853517eeec4f9be7ff57",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PickPlaceToasterToCounter",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3423875998,
+        4262687734
+      ],
+      "requests": 240,
+      "native_horizon": 600,
+      "result_sha256": "5004acfc3a001bdf9b752cec0df684974cad3fe37a95a0c99f31cc7195d4d1cd",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "SlideDishwasherRack",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3362909208,
+        2757563351
+      ],
+      "requests": 180,
+      "native_horizon": 450,
+      "result_sha256": "09adef875e95c9dcc46413beee6efa868baea2501d81474e322fe2ccf16d9f36",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "TurnOffStove",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1435236893,
+        3969068508
+      ],
+      "requests": 300,
+      "native_horizon": 750,
+      "result_sha256": "9ba5ad32157804571ce0e578ceff48a942effd503af6b1220695ff11b83f34a2",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "TurnOnElectricKettle",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2068608965,
+        2665407967
+      ],
+      "requests": 180,
+      "native_horizon": 450,
+      "result_sha256": "8800964f6b787dc7c32302c3a9854faabd61ae167325ac949724809bd4d5dd80",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "TurnOnMicrowave",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3356901265,
+        1917909117
+      ],
+      "requests": 180,
+      "native_horizon": 450,
+      "result_sha256": "31035a4349525993a4efa8a4075a44daabcee7843d6065d351c8faef612871ca",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "TurnOnSinkFaucet",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1253442538,
+        666594805
+      ],
+      "requests": 240,
+      "native_horizon": 600,
+      "result_sha256": "0dbd0abb7137c9db11e8772dc3ddf270c97424ef38734738874274378b8f1666",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "DeliverStraw",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1212099173,
+        829803071
+      ],
+      "requests": 1020,
+      "native_horizon": 2550,
+      "result_sha256": "c20ac8db50c27b9c23c01ffe8297d8b2dbd322cfd6a7c9984148c6967fc7a9c0",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "GetToastedBread",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1976422746,
+        1416480573
+      ],
+      "requests": 1200,
+      "native_horizon": 3000,
+      "result_sha256": "68daa2a26b59af6ff861d08cf92f1e0a90b29150b59df78f83609b20b42c2f5a",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "KettleBoiling",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2840602515,
+        1694011797
+      ],
+      "requests": 600,
+      "native_horizon": 1500,
+      "result_sha256": "3c543decc7da33ddc4cbce4940cb2b12c36bc5b03d29f1d18b505c83313a821b",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "LoadDishwasher",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2004615856,
+        2214954628
+      ],
+      "requests": 720,
+      "native_horizon": 1800,
+      "result_sha256": "b8d7a1a32355a96fec145586e15bd3c8be43e27ede4b536cb7a4142405b564d6",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1967104321,
+        103466057
+      ],
+      "requests": 1560,
+      "native_horizon": 3900,
+      "result_sha256": "196f72cfa17744b545d7eab4460d248d945bbb7e84ce1dcc433761ac6b41e881",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PreSoakPan",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1954621139,
+        1640815347
+      ],
+      "requests": 960,
+      "native_horizon": 2400,
+      "result_sha256": "e548214b9e27b3b6a29110f9e7104a575746139f9827293c35af08222d06fb59",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PrepareCoffee",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        4170975699,
+        2398018560
+      ],
+      "requests": 720,
+      "native_horizon": 1800,
+      "result_sha256": "679dc1fad32eb9f4975becfaf65620adaae4de2ac8761722bab0ef5f0edbaf74",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "RinseSinkBasin",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        4250112080,
+        2696427247
+      ],
+      "requests": 540,
+      "native_horizon": 1350,
+      "result_sha256": "d3e251ff7c9ee8cc21ee680814d1b3c424a43e9365d430b2ec46e0730718aea4",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "ScrubCuttingBoard",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        278163268,
+        2935535704
+      ],
+      "requests": 480,
+      "native_horizon": 1200,
+      "result_sha256": "9fbb1982f5bd3ee57c2a1ec9b1b7822ba57e217a497d20485dc867869b53c5bf",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "SearingMeat",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1265442215,
+        1778904017
+      ],
+      "requests": 1740,
+      "native_horizon": 4350,
+      "result_sha256": "d47712691e7033c70d1004129898c8a013a8a9b63d955a61a61d517d46949752",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "SetUpCuttingStation",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        520574121,
+        3925349259
+      ],
+      "requests": 960,
+      "native_horizon": 2400,
+      "result_sha256": "e1e3cfa649488cb5e5ddf2c7c5974a1b6528fa02e9c76d8cfa72b701ade12bf4",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "StackBowlsCabinet",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        4095908174,
+        1099636004
+      ],
+      "requests": 840,
+      "native_horizon": 2100,
+      "result_sha256": "2220852f38190c96daa63fadbb6ccecb37e3f2394005132cadb167249625e37b",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "SteamInMicrowave",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2573936377,
+        1011804347
+      ],
+      "requests": 840,
+      "native_horizon": 2100,
+      "result_sha256": "b3eb2285f4ee853f0420a71f408e5999ca4bd51fb1014e766ffda80e52c3500e",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "StirVegetables",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3241864330,
+        1589269305
+      ],
+      "requests": 960,
+      "native_horizon": 2400,
+      "result_sha256": "ca1bf59f81648e78ba6120b5b3889110aba5111e33f986f3ee496327f07569d5",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "StoreLeftoversInBowl",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        445832662,
+        344358808
+      ],
+      "requests": 1020,
+      "native_horizon": 2550,
+      "result_sha256": "0d5e56ec1fbd2eb30182549f4aa47e1b5eba43f2f67766dbab1d85af547e2345",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "WashLettuce",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2693207846,
+        1047727028
+      ],
+      "requests": 660,
+      "native_horizon": 1650,
+      "result_sha256": "7e3ceed1ca3cb893f2f1fe164fe91a7f68332bae03cddd7cc853af06f0d0e2b5",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "ArrangeBreadBasket",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3632924875,
+        1489827473
+      ],
+      "requests": 1740,
+      "native_horizon": 4350,
+      "result_sha256": "369364ba6153352d8efa619654f42fe874b4d6f57174ac1473965cb3d5d13753",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "ArrangeTea",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1560635261,
+        3162291082
+      ],
+      "requests": 900,
+      "native_horizon": 2250,
+      "result_sha256": "583865c9a857805b4458fa12219599994ef521ad14819f580fd5b4645c1a0b4c",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "BreadSelection",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1803723915,
+        784500894
+      ],
+      "requests": 780,
+      "native_horizon": 1950,
+      "result_sha256": "65445ae73ef98f72ebc545b0aa6741acd66d8ddbd4874ee6cd5dcc6a914a9aa8",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "CategorizeCondiments",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        241665390,
+        2120575514
+      ],
+      "requests": 660,
+      "native_horizon": 1650,
+      "result_sha256": "597d07700f4168a5e633b4a26fa8a1cd3a4aa7da0cfa71f01cedc4044fb4cc3b",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "CuttingToolSelection",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1420856395,
+        1749633246
+      ],
+      "requests": 480,
+      "native_horizon": 1200,
+      "result_sha256": "2d65f485d3b23f2620eff5b04ef18463a344bbb9417f749f94216a26aa44a40f",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "GarnishPancake",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2773896317,
+        1514143692
+      ],
+      "requests": 1080,
+      "native_horizon": 2700,
+      "result_sha256": "cdb6e9c2f2986beda7e46414bef912c6e0821cf6546b528fbbe346bb79c2beeb",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "GatherTableware",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3521587474,
+        9139620
+      ],
+      "requests": 900,
+      "native_horizon": 2250,
+      "result_sha256": "1d0fd5d588492e17370ff1de1f1a2107c934660267322113b12b2ed41f9ea213",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "HeatKebabSandwich",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        1708062724,
+        4226596821
+      ],
+      "requests": 1080,
+      "native_horizon": 2700,
+      "result_sha256": "f7df0eb076a8f15778cfb89994e49ab3cb75ce4cfb83b2a04810a5b27875860b",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "MakeIceLemonade",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2118027950,
+        13844373
+      ],
+      "requests": 1200,
+      "native_horizon": 3000,
+      "result_sha256": "e9b817abf0c8fb24c442c2d560321c2a1b5ac064cd032ba4666e4faebec4cb5f",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PanTransfer",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3260896166,
+        4284397359
+      ],
+      "requests": 720,
+      "native_horizon": 1800,
+      "result_sha256": "b8572b379a9c47a4095b36fa23069a03830380cd62e27ddb349074f79a6e9c01",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "PortionHotDogs",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3997503534,
+        2064917704
+      ],
+      "requests": 900,
+      "native_horizon": 2250,
+      "result_sha256": "a43f296cc6396b9e4ab21f6e73ee3ee8dae9befd142c91b329fc6956dd691b4d",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "RecycleBottlesByType",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        2572840674,
+        2906115060
+      ],
+      "requests": 1140,
+      "native_horizon": 2850,
+      "result_sha256": "3cbca7837122d4c3e0c0f56b7173b8c10727aa5eb51e8202153c6824f6e35577",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "SeparateFreezerRack",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        4228171708,
+        542462699
+      ],
+      "requests": 960,
+      "native_horizon": 2400,
+      "result_sha256": "4063c72df4384e7db4616c0caddf2c1b7e454154c87cb168c400df0014ce54e9",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "WaffleReheat",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        288272014,
+        3253715608
+      ],
+      "requests": 1620,
+      "native_horizon": 4050,
+      "result_sha256": "706ff71eeb5176aead4347044ee0de544fae3b0343617a175e88a907bcb9438d",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "WashFruitColander",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        314792276,
+        1837903784
+      ],
+      "requests": 1260,
+      "native_horizon": 3150,
+      "result_sha256": "f4493c752b769f7110689010bea83b9f35f6a7e765a495c690a7daf07cfbd86c",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    },
+    {
+      "task": "WeighIngredients",
+      "episode_ids": [
+        0,
+        1
+      ],
+      "scene_seeds": [
+        3995932821,
+        242526815
+      ],
+      "requests": 1200,
+      "native_horizon": 3000,
+      "result_sha256": "97b86ddf48682f685ccba6d43785644723a35b683be2e5d795bb428e0087679a",
+      "renderer_transports": [
+        "mujoco331_complete_mjvscene_pipe_v1"
+      ]
+    }
+  ],
+  "episodes": 100,
+  "requests": 36180,
+  "control_steps": 180900,
+  "policy_services": 1,
+  "whole_public_entry_window": {
+    "started": 1793187884.1564138,
+    "ended": 1793190564.5341442,
+    "seconds": 2680.377730369568,
+    "samples": 1756,
+    "gpu_util_sample_mean": 72.04157175398633,
+    "peak_memory_mib": 23497.0,
+    "max_sample_gap_seconds": 5.186656713485718,
+    "all_sample_intervals_under_5s": false,
+    "sample_gaps_at_least_5s": [
+      {
+        "started": 1793189072.676374,
+        "ended": 1793189077.8630307,
+        "seconds": 5.186656713485718
+      }
+    ],
+    "long_gap_wall_fraction": 0.0019350469356311905,
+    "long_gap_max_time_mean_contribution_percentage_points": 0.19350469356311906,
+    "first_sample_delay_seconds": 0.5157849788665771,
+    "last_sample_gap_seconds": 1.088341236114502
+  },
+  "first_request_to_last_episode_window": {
+    "started": 1793188162.7822382,
+    "ended": 1793190508.7706933,
+    "seconds": 2345.988455057144,
+    "samples": 1538,
+    "gpu_util_sample_mean": 82.16384915474643,
+    "peak_memory_mib": 23497.0,
+    "max_sample_gap_seconds": 5.186656713485718,
+    "all_sample_intervals_under_5s": false,
+    "sample_gaps_at_least_5s": [
+      {
+        "started": 1793189072.676374,
+        "ended": 1793189077.8630307,
+        "seconds": 5.186656713485718
+      }
+    ],
+    "long_gap_wall_fraction": 0.0022108619939305626,
+    "long_gap_max_time_mean_contribution_percentage_points": 0.22108619939305627,
+    "first_sample_delay_seconds": 1.4601411819458008,
+    "last_sample_gap_seconds": 0.6540915966033936
+  },
+  "benchmark_score": false,
+  "full2500_complete": false,
+  "limitations": [
+    "all50 task coverage, two full episodes each; not 2500 episodes",
+    "one physical H100; no eight-card run",
+    "driver 580.95.05; remote 535.129.03 not directly tested",
+    "whole public entry includes model startup and final checks; GPU sample arithmetic mean, not SM occupancy or three-hour guarantee"
+  ],
+  "date": "2026-10-28",
+  "gpu": "NVIDIA H100 80GB HBM3, 580.95.05",
+  "gpu_cohort": "different_physical_h100_from_tuning",
+  "independent_audit_sha256": "b2c1a88ffc4498f8edc86073e35f5461bf7cc90b9d80133f344bf3bcccac0b2f",
+  "cleanup": {
+    "owned_processes": [],
+    "compute_apps": "",
+    "source_files_verified": 980,
+    "free_lock_count": 54
+  },
+  "batches": [
+    {
+      "tasks": [
+        "ArrangeBreadBasket",
+        "SearingMeat",
+        "WaffleReheat",
+        "PackIdenticalLunches",
+        "WashFruitColander",
+        "GetToastedBread",
+        "MakeIceLemonade",
+        "WeighIngredients",
+        "RecycleBottlesByType",
+        "GarnishPancake",
+        "HeatKebabSandwich",
+        "DeliverStraw",
+        "StoreLeftoversInBowl",
+        "PreSoakPan",
+        "SeparateFreezerRack",
+        "SetUpCuttingStation",
+        "StirVegetables",
+        "ArrangeTea",
+        "GatherTableware",
+        "PortionHotDogs",
+        "StackBowlsCabinet",
+        "SteamInMicrowave",
+        "BreadSelection",
+        "LoadDishwasher",
+        "PanTransfer",
+        "PrepareCoffee",
+        "CategorizeCondiments",
+        "WashLettuce",
+        "KettleBoiling",
+        "RinseSinkBasin",
+        "CuttingToolSelection",
+        "ScrubCuttingBoard",
+        "OpenCabinet",
+        "CloseBlenderLid",
+        "CloseFridge",
+        "PickPlaceSinkToCounter",
+        "OpenDrawer",
+        "PickPlaceCounterToCabinet",
+        "PickPlaceDrawerToCounter",
+        "TurnOffStove",
+        "CoffeeSetupMug",
+        "PickPlaceCounterToStove",
+        "PickPlaceToasterToCounter",
+        "TurnOnSinkFaucet",
+        "CloseToasterOvenDoor",
+        "NavigateKitchen",
+        "OpenStandMixerHead",
+        "SlideDishwasherRack",
+        "TurnOnElectricKettle",
+        "TurnOnMicrowave"
+      ],
+      "worker_count": 16,
+      "window": {
+        "started": 1793188083.6338708,
+        "ended": 1793190511.6565843,
+        "seconds": 2428.0227134227753,
+        "samples": 1592,
+        "gpu_util_sample_mean": 79.46293969849246,
+        "peak_memory_mib": 23497.0,
+        "max_sample_gap_seconds": 5.186656713485718,
+        "all_sample_intervals_under_5s": false,
+        "sample_gaps_at_least_5s": [
+          {
+            "started": 1793189072.676374,
+            "ended": 1793189077.8630307,
+            "seconds": 5.186656713485718
+          }
+        ],
+        "long_gap_wall_fraction": 0.0021361648244937977,
+        "long_gap_max_time_mean_contribution_percentage_points": 0.21361648244937978,
+        "first_sample_delay_seconds": 0.8665673732757568,
+        "last_sample_gap_seconds": 0.47854185104370117
+      },
+      "render_stats": {
+        "tasks": [
+          "ArrangeBreadBasket",
+          "SearingMeat",
+          "WaffleReheat",
+          "PackIdenticalLunches",
+          "WashFruitColander",
+          "GetToastedBread",
+          "MakeIceLemonade",
+          "WeighIngredients",
+          "RecycleBottlesByType",
+          "GarnishPancake",
+          "HeatKebabSandwich",
+          "DeliverStraw",
+          "StoreLeftoversInBowl",
+          "PreSoakPan",
+          "SeparateFreezerRack",
+          "SetUpCuttingStation",
+          "StirVegetables",
+          "ArrangeTea",
+          "GatherTableware",
+          "PortionHotDogs",
+          "StackBowlsCabinet",
+          "SteamInMicrowave",
+          "BreadSelection",
+          "LoadDishwasher",
+          "PanTransfer",
+          "PrepareCoffee",
+          "CategorizeCondiments",
+          "WashLettuce",
+          "KettleBoiling",
+          "RinseSinkBasin",
+          "CuttingToolSelection",
+          "ScrubCuttingBoard",
+          "OpenCabinet",
+          "CloseBlenderLid",
+          "CloseFridge",
+          "PickPlaceSinkToCounter",
+          "OpenDrawer",
+          "PickPlaceCounterToCabinet",
+          "PickPlaceDrawerToCounter",
+          "TurnOffStove",
+          "CoffeeSetupMug",
+          "PickPlaceCounterToStove",
+          "PickPlaceToasterToCounter",
+          "TurnOnSinkFaucet",
+          "CloseToasterOvenDoor",
+          "NavigateKitchen",
+          "OpenStandMixerHead",
+          "SlideDishwasherRack",
+          "TurnOnElectricKettle",
+          "TurnOnMicrowave"
+        ],
+        "episodes": 100,
+        "render_frames": 109140,
+        "render_seconds": 681.0681461021304,
+        "render_timing": {
+          "register_seconds": 170.15398263186216,
+          "context_seconds": 66.42660681530833,
+          "scene_copy_seconds": 9.316022329032421,
+          "draw_seconds": 411.43384712561965
+        },
+        "registered_models": 100,
+        "peak_contexts": 16,
+        "wall_seconds": 2426.163277387619
+      }
+    }
+  ],
+  "formal_protocol": {
+    "tasks": 50,
+    "episode_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49
+    ],
+    "total_episodes": 2500,
+    "reference_plan_required": false,
+    "this_acceptance_episodes": 100
+  },
+  "horizon_work_projection_not_gpu_benchmark": [
+    {
+      "gpu_count": 1,
+      "tasks_per_gpu_limit": 50,
+      "initial_batch_size": 50,
+      "initial_horizon_weights": [
+        90450
+      ],
+      "actual_gpu_benchmark": false
+    },
+    {
+      "gpu_count": 2,
+      "tasks_per_gpu_limit": 50,
+      "initial_batch_size": 25,
+      "initial_horizon_weights": [
+        45300,
+        45150
+      ],
+      "actual_gpu_benchmark": false
+    },
+    {
+      "gpu_count": 4,
+      "tasks_per_gpu_limit": 50,
+      "initial_batch_size": 12,
+      "initial_horizon_weights": [
+        22350,
+        22500,
+        22350,
+        22350
+      ],
+      "actual_gpu_benchmark": false
+    },
+    {
+      "gpu_count": 8,
+      "tasks_per_gpu_limit": 50,
+      "initial_batch_size": 6,
+      "initial_horizon_weights": [
+        11250,
+        11250,
+        11250,
+        11250,
+        11250,
+        11100,
+        11100,
+        11100
+      ],
+      "actual_gpu_benchmark": false
+    }
+  ],
+  "same_hardware_profile_comparison": {
+    "same_gpu": "NVIDIA H100 80GB HBM3, 580.95.05",
+    "same_model_and_seeds": true,
+    "config_difference": "only absolute runtime source root",
+    "counts": {
+      "episodes": 100,
+      "initial_observations_exact": 100,
+      "initial_state_arrays_exact": 100,
+      "initial_images_exact": 100,
+      "equal_success_booleans": 100
+    },
+    "initial_observation_differences": [],
+    "old_source_commit": "0bd23f354231ccca3e2f4658ffc426bcf4ddf904",
+    "new_source_commit": "80efbe4c1487ab32107c45876470ef1fc34ac63e",
+    "old_tasks_per_gpu_limit": 8,
+    "new_tasks_per_gpu_limit": 50,
+    "old_whole_entry_seconds": 2962.7330968379974,
+    "new_whole_entry_seconds": 2680.377730369568,
+    "observed_throughput_ratio": 1.105341632736778,
+    "old_whole_entry_gpu_util": 64.69565217391305,
+    "new_whole_entry_gpu_util": 72.04157175398633,
+    "limitations": [
+      "one ordered run per profile",
+      "no full trajectory capture in this all50 gate",
+      "initial array comparison is development evidence, not a future checkpoint runtime requirement",
+      "not a 2500-episode benchmark score"
+    ]
+  }
+}

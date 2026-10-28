@@ -671,11 +671,12 @@
   },
   "recommended_parameters": {
     "n_envs": 16,
-    "tasks_per_gpu": 8,
     "simulator_cpu_threads": 1,
     "rgb_schedule": "final",
-    "initial_rgb": "deferred"
+    "initial_rgb": "deferred",
+    "tasks_per_gpu": 50
   },
+  "task_batch_limit": "Selected and tested in final public all50 entry",
   "three_hour_utilization_guaranteed": false,
   "eight_physical_gpu_run": false
 }

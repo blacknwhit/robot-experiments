@@ -17,7 +17,7 @@
 
 以后采用[固定2500回合的高吞吐评测](docs/ASTRA_FIXED_SCENES.zh-CN.md)：`evaluate_parallel.py`读取统一任务/episode种子定义，每回合直接初始化，不预生成场景计划、不比较参考图像/state/轨迹。每GPU一份常驻模型，多task共享CPU并行仿真及单EGL渲染进程；严格模型加载及输入/动作有效性检查保留。只有明确复现旧协议时才使用[历史兼容入口](docs/EVALUATION_LEGACY_EXACT.zh-CN.md)。历史分数与新协议分开。
 
-2026-10-28新并行入口的H100短测：相同1280请求由936.27秒降至158.52秒；4800请求较长测试的全仿真窗口平均GPU-util为71.07%，不含共用模型加载。最终公开入口的全50任务验收正在进行，不能提前认定通过。测量窗口及限制见[技术说明](docs/PARALLEL_SEEDED_EVALUATION.zh-CN.md)，历史单进程200回合证据仍保留在[旧验收记录](provenance/SEED_ONLY_EVALUATION_VALIDATION.json)。
+2026-10-28最终公开入口已在单H100上完成**全50任务、共100完整回合**实现验收：44.67分钟，含模型加载/初始化/收尾的GPU-util采样均值**72.04%**；首请求至最后回合为82.16%。这不是2500回合正式成绩或8卡实测。相同1280请求的前期对照由936.27秒降至158.52秒。测量窗口、采样质量与边界见[最终验收证据](provenance/PARALLEL_EVALUATION_VALIDATION.json)和[技术说明](docs/PARALLEL_SEEDED_EVALUATION.zh-CN.md)；历史单进程记录仍保留。
 
 历史入口资料：[CUDA Graph使用与实测](docs/EVALUATION_CUDA_GRAPH.zh-CN.md)、[独立任务共用GPU](docs/EVALUATION_SHARED_GPU.zh-CN.md)。其中eager默认、完整smoke和每task独立模型属于旧入口；当前并行种子入口采用`cuda-graph-pipeline`、每卡共享一份模型，无需每权重完整smoke。
 
