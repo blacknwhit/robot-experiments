@@ -86,15 +86,15 @@ class MyAdapter(ModelAdapter):
 
 这是接口示意，不是可以直接运行的空模型。完整类须提供`load_proof`：真实执行严格加载后产生的`strict/all_keys_present/all_loaded_values_exact_at_model_dtype/checkpoint_keys_dropped`证明。PyTorch完整safetensors可复用`strict_state_loader.strict_full_state_load(model, checkpoint)`；LoRA/多组件模型需由适配器完整加载其基座和各组件，所有文件列入`assets`，不能直接填写“已通过”常量。
 
-模型自身处理resize、归一化、tokenizer、反归一化、采样器。环境动作顺序固定为末端位置3＋旋转3＋夹爪1＋底盘4＋控制模式1；禁止把标准化latent或超过12维的动作交给评测端截断。输出只接受有限float32[50,12]，仍执行前5步再重规划。内部网络和去噪次数可以不同，通用接口不依赖PI0.5采样器。
+模型自身处理resize、归一化、tokenizer、反归一化、采样器，构建后调用`eval()`，预测使用自己的`torch.inference_mode()`或等价原生推理路径。环境动作顺序固定为末端位置3＋旋转3＋夹爪1＋底盘4＋控制模式1；禁止把标准化latent或超过12维的动作交给评测端截断。输出只接受有限float32[50,12]，仍执行前5步再重规划。内部网络和去噪次数可以不同，通用接口不依赖PI0.5采样器。
 
 当前SDK采用PyTorch严格数值设置：关闭torch.compile和TF32，保持模型原生混合精度，不全局转BF16。可用原生推理或模型自己实现的CUDA Graph后端；仅声明一个新backend名字不会自动启用加速。非PyTorch运行时或必须启用torch.compile的后端需单独扩展/验证数值执行契约，不能冒充本接口已验证。
 
 ### 3. 带历史记忆的模型
 
-设置`state_mode="per_episode"`，实现`begin_episode(context)`返回**独立状态对象**，`predict(request, state)`只读写这个回合的状态，`end_episode(context, state, reason)`释放它。服务端实际传输begin/infer/end/abort事件，断连也清理该连接的回合；不使用全局`model.reset()`清空其他环境记忆。请求顺序、重复回合、跨连接状态复用均会检查。
+设置`state_mode="per_episode"`，实现`begin_episode(context)`返回**独立状态对象**，`predict(request, state)`只读写这个回合的状态，`end_episode(context, state, reason)`释放它。服务端实际传输begin/infer/end/abort事件，断连也清理该连接的回合；不使用全局`model.reset()`清空其他环境记忆。入口检查请求顺序、重复回合和同一个顶层状态对象被跨连接复用。不同容器内部共享的Tensor/KV缓存、模型全局memory仍由适配器负责隔离，需用交错请求验证，不能仅靠对象ID检查证明。
 
-默认`rng_mode="managed_global"`串行执行模型调用，在每次调用前后保存/恢复Python、NumPy及PyTorch RNG；初始化记忆也有确定seed。自己管理局部Generator的模型可声明`explicit_per_request`，但必须真正使用`request.seed`。只有模型已实现线程安全、独占GPU缓冲区管理时，才提高`max_concurrency`（1–16）；基于现有PI0.5流水线的内置适配器为16。不要为了利用率给普通模型随意填16。
+默认`rng_mode="managed_global"`串行执行模型调用，在`begin_episode`和`predict`前后保存/恢复Python、NumPy及PyTorch RNG；初始化记忆也有确定seed。清理函数不应改变模型的推理行为。自己管理局部Generator的模型可声明`explicit_per_request`，但必须真正使用`request.seed`。只有模型已实现线程安全、独占GPU缓冲区管理时，才提高`max_concurrency`（1–16）；基于现有PI0.5流水线的内置适配器为16。不要为了利用率给普通模型随意填16。
 
 ### 4. 描述文件和正式命令
 

@@ -18,7 +18,8 @@ ENV_KEYS = ('LD_PRELOAD','LD_LIBRARY_PATH','OMP_NUM_THREADS','MKL_NUM_THREADS','
 FIXED_ENV = {'PYTHONHASHSEED':'7','CUBLAS_WORKSPACE_CONFIG':':4096:8',
              'NVIDIA_TF32_OVERRIDE':'0','TORCH_COMPILE_DISABLE':'1',
              'PYTHONUNBUFFERED':'1','OMP_NUM_THREADS':'4','MKL_NUM_THREADS':'4',
-             'OPENBLAS_NUM_THREADS':'1','TOKENIZERS_PARALLELISM':'false'}
+             'OPENBLAS_NUM_THREADS':'1','TOKENIZERS_PARALLELISM':'false',
+             'JAX_PLATFORMS':'cpu','NO_ALBUMENTATIONS_UPDATE':'1'}
 
 
 def digest(value):
@@ -91,6 +92,7 @@ class ResolvedSpec:
         env=dict(os.environ)
         env.pop('PYTHONPATH',None)
         env.update(FIXED_ENV)
+        env['WANDB_MODE']=os.environ.get('WANDB_MODE','offline')
         if home is not None:env['OPENPI_DATA_HOME']=str(Path(home)/'cache/openpi')
         env.update(self.data.get('environment',{}))
         env.update(PYTHONPATH=os.pathsep.join(map(str,(ROOT/'scripts',*self.python_paths))),
@@ -178,7 +180,8 @@ def environment_snapshot():
     """No GPU initialization or imports of the model's numerical libraries."""
     import importlib.metadata
     packages=sorted([str(d.metadata.get('Name','')).lower(),d.version] for d in importlib.metadata.distributions())
-    keys=(*ENV_KEYS,'PYTHONPATH','PYTHONHASHSEED','CUBLAS_WORKSPACE_CONFIG','NVIDIA_TF32_OVERRIDE','TORCH_COMPILE_DISABLE')
+    keys=(*ENV_KEYS,'PYTHONPATH','PYTHONHASHSEED','CUBLAS_WORKSPACE_CONFIG','NVIDIA_TF32_OVERRIDE',
+          'TORCH_COMPILE_DISABLE','JAX_PLATFORMS','NO_ALBUMENTATIONS_UPDATE','WANDB_MODE')
     return {'python':sys.version,'executable':str(Path(sys.executable).resolve()),'packages':packages,
             'environment':{key:os.environ.get(key) for key in keys}}
 

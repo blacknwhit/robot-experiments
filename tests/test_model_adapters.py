@@ -157,6 +157,8 @@ class SpecTests(unittest.TestCase):
             self.assertNotEqual(second['model_assets_sha256'],third['model_assets_sha256'])
             self.assertNotEqual(second['model_spec_fingerprint'],third['model_spec_fingerprint'])
             self.assertEqual(spec.policy_environment(gpu='3')['CUDA_VISIBLE_DEVICES'],'3')
+            self.assertEqual(spec.policy_environment(gpu='3')['JAX_PLATFORMS'],'cpu')
+            self.assertEqual(spec.policy_environment(gpu='3')['NO_ALBUMENTATIONS_UPDATE'],'1')
             data['environment']={'CUDA_VISIBLE_DEVICES':'0'};path.write_text(json.dumps(data))
             with self.assertRaises(ValueError):load_spec(path)
 
