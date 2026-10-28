@@ -6,6 +6,23 @@
 
 远端Astra负责更新仓库、填写本机路径并运行现成入口，无需自行修改代码、生成场景计划或再次完成一套smoke。当前入口是 **`scripts/evaluate_parallel.py`**：每卡一份常驻模型，多task共用一组CPU仿真worker，每卡一个EGL渲染进程。不要混入旧r12/r13私有补丁，也不要继续使用旧单进程入口来期待同样的吞吐。
 
+**本页正式配置按单机8×H100 SXM 80GB编写。** 沿用此前的188vCPU、约1600GiB内存申请即可作为起点；这是用户现有资源配置，不是实测的最低资源要求。
+
+| 8卡任务的实际配置 | 设置 |
+|---|---|
+| 启动方式 | 整机只启动下方一个调度入口；它自动创建8路GPU服务 |
+| 模型副本 | 每卡1份，共8份；同一卡多个task共享这一份 |
+| 物理仿真 | 每卡16个CPU worker，共最多128个 |
+| 渲染进程 | 每卡1个EGL拥有者，共8个；每个活跃环境仍有自己的原生渲染资源 |
+| 初始任务分配 | 每卡6个task，按horizon估计均衡；剩余2个由先完成者领取 |
+| 模型与仿真 | 各卡独立运行，不做8卡DDP/NCCL同步推理 |
+| 容器创建环境变量 | `NVIDIA_DRIVER_CAPABILITIES=all` |
+| 渲染环境变量 | 入口自动设置`MUJOCO_GL=egl`、`PYOPENGL_PLATFORM=egl`和各卡的`MUJOCO_EGL_DEVICE_ID` |
+| 线程 | 策略每进程OMP/MKL=4、OpenBLAS=1；CPU仿真每进程OMP/MKL/OpenBLAS=1，由入口设置 |
+| 同时评测的模型 | 先完成一版，再换VARIANT/config/checkpoint及新OUT测下一版，复用同一2500种子表 |
+
+不要再套8份外层runner或与旧r13进程同时占用这8张卡；一个入口已经会使用全部8卡。GPU/EGL使用平台已核对的物理映射，不能把8个渲染进程都指定为EGL0。
+
 ```bash
 git pull --ff-only origin main
 
@@ -69,6 +86,10 @@ GPU和EGL编号必须实际指向同一物理GPU；示例0–7仅适用于两者
 `--all-tasks`结束会自动汇总。正式成功标记为 `OUT/FINAL_ACCEPTED.json`，必须覆盖 **50个task、2500个唯一task/episode组合**，包含匹配身份、seed、原始Boolean成功数组和结果SHA。只有100回合的开发验收不等于正式成绩。
 
 每个task结果在`OUT/formal/`，模型日志在`OUT/services/<id>/`，批次及worker证据在`OUT/parallel-runs/<id>/`。保留模型严格加载、首个真实请求eager/Graph对照、RGB/状态/动作有效性及覆盖检查；它们不是已经取消的封存场景哈希门槛。
+
+**已取消的严格比较**：预生成2500场景计划，以及初始图片、MuJoCo状态、完整轨迹与封存参考的逐位/哈希一致性检查。正式运行不会因为与旧参考相差几个像素而退出。
+
+**仍保留的必要检查**：模型权重完整加载；每个策略服务的首个真实请求核对eager/Graph动作，防止加速实现改变模型计算；非黑且有效的RGB、有限状态/动作；固定种子及2500回合覆盖。首请求检查不是额外smoke，也不重跑一套场景。硬件/驱动、依赖、资源或真实程序错误仍可能报错；不能承诺任何远端机器零错误，更不能把错误回合当作有效成绩。当前已验证的是本页记录的H100环境和全部50种任务流程。
 
 发生错误时入口退出并清理自己创建的进程。优先查看批次`simulation.log`、`EXIT.json`以及`simulation/ERROR.json`、`CLEANUP_ERROR.json`、`worker_exit.json`和worker日志。原生崩溃可能只有信号/faulthandler栈，SIGKILL可能没有Python错误JSON；外层“task failed”不足以判断原因。不要把异常当成失败分数或跳过该seed。
 
