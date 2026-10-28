@@ -157,4 +157,21 @@ def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_rep
         raise ValueError('Strict full-state load missing')
     if metadata.get('policy_rng_mode') != 'stateless_request_v1' or metadata.get('policy_seed_version') != 'sha256_u32_v1':
         raise ValueError('Policy seed contract changed')
+    if identity.get('model_adapter_api_version'):
+        from robot_eval import API_VERSION
+        from robot_eval.api import ACTION_LAYOUT
+        for key in ('model_adapter_api_version','model_spec_fingerprint','model_spec_sha256','model_sources_sha256',
+                    'model_assets_sha256','policy_environment_sha256','state_mode','rng_mode','max_concurrency','test_only'):
+            if metadata.get(key)!=identity[key]:raise ValueError('Model adapter identity mismatch: '+key)
+        if metadata.get('action_layout')!=ACTION_LAYOUT or metadata.get('action_chunk_size')!=50 or metadata.get('action_dim')!=12:
+            raise ValueError('Model action contract mismatch')
+        if identity.get('test_only') and not diagnostic:raise ValueError('Test adapter cannot produce benchmark results')
+        for row in rows:
+            proof=row.get('model_session',{})
+            context=proof.get('context',{})
+            if (proof.get('api_version')!=API_VERSION or context.get('task')!='robocasa/'+spec['task']
+                    or context.get('episode')!=row['episode'] or not context.get('run_id') or not proof.get('session_id')
+                    or proof.get('requests')!=row['requests'] or proof.get('state_released') is not True
+                    or proof.get('reason')!=('completed' if row['episode_complete'] else 'diagnostic_limit')):
+                raise ValueError('Missing model episode lifecycle evidence')
     return data

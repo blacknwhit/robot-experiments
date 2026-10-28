@@ -94,6 +94,8 @@ def run(args):
         keep_live()
         slot['health'] = check_observation(slot['observation'])
         set_policy_episode(slot['model'], slot['episode'])
+        if hasattr(slot['model'], 'begin_model_episode'):
+            slot['model'].begin_model_episode(slot['episode'])
         slot.update(requests=0, success=False, started=None)
         if getattr(args, 'diagnostic_trace', False):
             slot['trace'] = [diagnostic_fingerprint(slot['env'], slot['observation'])]
@@ -114,7 +116,7 @@ def run(args):
     try:
         simulator_renderer.install()
         from fresh_scene import create_scene, batch_observation, unbatch_action
-        from examples.pi05_robocasa365.eval_files.model2pi05_robocasa365_interface import PolicyWrapper
+        from robot_eval.client import create_policy
         import robocasa
         import robosuite
         if rgb_schedule == 'final':
@@ -127,8 +129,8 @@ def run(args):
             slot = {'slot': index, 'ids': list(group), 'env': None, 'model': None, 'phase': 'connect', 'episode': None}
             slots.append(slot)
             active = slot
-            slot['model'] = PolicyWrapper(host=args.host, port=args.port, task_name='robocasa/' + spec['task'],
-                                          base_seed=7, strict_determinism=True, trace_determinism=False)
+            slot['model'] = create_policy(host=args.host, port=args.port, task_name='robocasa/' + spec['task'],
+                                          run_id=hashlib.sha256(str(args.output.resolve()).encode()).hexdigest())
             if metadata is None:
                 metadata = slot['model'].server_metadata
             elif metadata != slot['model'].server_metadata:
@@ -177,6 +179,8 @@ def run(args):
                        'episode_complete': done, 'requests': slot['requests'], 'health_checks': slot['requests'] + 1,
                        'initial_health': slot['health'], 'renderer': slot['renderer'],
                        'started_at': slot['started'], 'finished_at': time.time()}
+                if hasattr(slot['model'], 'end_model_episode'):
+                    row['model_session'] = slot['model'].end_model_episode(done)
                 rows.append(row)
                 if getattr(args, 'diagnostic_trace', False):
                     atomic_json(args.output / f'episode{episode}.trace.json', slot['trace'])
@@ -218,12 +222,12 @@ def run(args):
         cleanup = []
         for future in pending:
             future.cancel()
+        if executor is not None:
+            executor.shutdown(wait=True, cancel_futures=True)
         for slot in slots:
             if slot.get('model') is not None:
                 try: slot['model'].close()
                 except BaseException: cleanup.append(traceback.format_exc())
-        if executor is not None:
-            executor.shutdown(wait=True, cancel_futures=True)
         try: simulator_renderer.release_all()
         except BaseException: cleanup.append(traceback.format_exc())
         for slot in slots:

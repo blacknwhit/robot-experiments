@@ -12,11 +12,11 @@
 | policy / simulator环境 | 依赖及导入路径检查通过就复用；仅为当前代码生成独立v3 overlay |
 | 机械臂＋物体1024点GT | 已有且匹配则核验后复用；PI0.5/FIXED跑过本身不代表已有GT |
 | 配置、日志、完整checkpoint、评测输出、执行记录 | 全部写入本实验独立根`E`；三组run-id仍分别独立 |
-| 固定评测场景 | 同仿真版本、协议和计划身份一致可复用；否则为本实验生成一次，三组共用 |
+| 固定评测种子 | 三组共用仓库内2500个episode种子定义；不生成场景计划、不比对参考图片 |
 
 已有环境请直接按第2节操作。**只有缺少资源或空白集群才查[按需准备/从零部署附录](FRESH_SETUP.zh-CN.md)**，不要把完整安装/下载命令当作每次新实验的必做步骤。
 
-三个评测结果各2500计分回合，39个逻辑分片可分批排队、复用GPU。本文是操作手册；当前实际验收范围见第8节，本文更新没有提交新任务。
+三个评测结果各2500计分回合，各版由一个parallel入口自动分配50个task，分批复用GPU。本文是操作手册；当前实际验收范围见第8节，本文更新没有提交新任务。
 
 ## 1. 三组分别是什么
 
@@ -38,8 +38,8 @@ B/C时间块为width256、8heads、FFN512、pre-LN残差、dropout0。C保留旧
 | GT准备/分片生成/全集校验 | `scripts/prepare_gt.py` |
 | 配置、训练、自动选续训 | `scripts/configure.py`、`scripts/train.py`、`scripts/train_or_resume.py` |
 | 导入/GPU/NCCL/动作检查 | `scripts/import_preflight.py`、`scripts/doctor.py`、`scripts/nccl_probe.py`、`scripts/point_inference_probe.py` |
-| 固定episode种子、分片评测 | `scripts/evaluate_seeded.py` |
-| 单task评测/开发诊断 | `scripts/evaluate_seeded.py --task ...` |
+| 固定episode种子、并行评测 | `scripts/evaluate_parallel.py --all-tasks` |
+| 部分task评测/开发诊断 | `scripts/evaluate_parallel.py --tasks ...` |
 
 ## 2. 默认路径：复用旧集群资源，隔离本次实验
 
@@ -293,90 +293,54 @@ V=query3d_temporal_c
 "$PY" scripts/train_or_resume.py --config "$E/resolved/${V}-short.yaml"
 ```
 
-## 6. 三组使用统一task/episode种子直接评测
+## 6. 三组使用统一8卡高吞吐评测
 
-当前统一使用`evaluate_seeded.py`和`fixed_episode_seeds_v1`。每GPU一个task、一份模型服务、一个主线程管理多个独立环境的仿真进程；网络线程异步请求同一服务，模型保持batch1、原精度、10次去噪、预测50步、每5步重规划。实际环境与运行方式见[远端Astra执行说明](../../docs/ASTRA_FIXED_SCENES.zh-CN.md)。
+当前执行入口统一为 [Astra固定2500种子高吞吐说明](../../docs/ASTRA_FIXED_SCENES.zh-CN.md) 的`evaluate_parallel.py`。每卡一份常驻模型、16个CPU仿真worker、一个EGL拥有者；多个task共享worker池。三组用同一任务/episode种子定义，不生成PLANS，不与封存图片/state/轨迹哈希比较。模型接线与验证边界见 [多版本模型说明](../../docs/EVALUATION_MODELS.zh-CN.md)；A/B历史Graph证据不能替代C尚未完成的模型侧验证。
 
-A/B/C都读取仓库内同一任务清单和episode种子定义，不生成或读取PLANS，不比较预保存的图像/state/轨迹。每个task固定episode0–49，构造环境前使用对应seed；策略噪声仍用base7、task、逻辑环境0、全局episode和replan编号确定。不要改成每个worker固定seed7/8/9/10。
-
-```bash
-"$PY" scripts/evaluate_seeded.py --check-only
-```
-
-应显示50任务、2500计分回合、`reference_plan_required: false`。该命令不创建环境或加载模型。任务清单已有horizon、成功条件不改，horizon不再乘1.5。此新协议与旧391/559等历史成绩不是逐场景配对，历史分数单列。
-
-每组70k完成后分别评测，不必等待另外两组。每组parts1–12各含4个task、申请4卡；part13含2个task、申请2卡，合计50个task，每个task一张GPU、50回合。
-
-| 组 | 每个评测作业的V | 该组共用输出目录（默认n4） |
-|---|---|---|
-| A | `embedding3d_pos_a` | `$E/eval/embedding3d_pos_a-70k-seed-only-v1-n4` |
-| B | `embedding3d_temporal_b` | `$E/eval/embedding3d_temporal_b-70k-seed-only-v1-n4` |
-| C | `query3d_temporal_c` | `$E/eval/query3d_temporal_c-70k-seed-only-v1-n4` |
-
-下面是一个分片作业的完整命令。先source `$E/experiment.env`，选择V和PART；同组所有分片使用同一OUT、N_ENVS与权重，组间OUT独立。
+以下假设第5节对应权重已经完整生成；不要为评测重新configure或启动训练。每次在同一8×H100资源上评测一组，完成后再换下一组，每组OUT独立。`PY`为policy Python，`SIM_PY`为模拟器Python，H/E沿用本实验的资源/产物根。
 
 ```bash
-V=embedding3d_pos_a   # B: embedding3d_temporal_b；C: query3d_temporal_c
-PART=1               # 每个独立分片分别为1..13
-export N_ENVS=4      # 不是其它模型的容量或利用率保证
+V=embedding3d_pos_a  # 另两组：embedding3d_temporal_b / query3d_temporal_c
 CONFIG="$E/resolved/${V}-70k.yaml"
 CHECKPOINT="$E/runs/${V}-70k-s42/checkpoints/steps_70000_model.safetensors"
-OUT="$E/eval/${V}-70k-seed-only-v1-n${N_ENVS}"
-
+OUT="$E/eval/${V}-70k-parallel-seeds-v1"
+test -s "$CONFIG"
 test -s "$CHECKPOINT"
 test -s "$E/runs/${V}-70k-s42/checkpoints/checkpoint-70000/PORTABLE_COMPLETE.json"
-if (( PART >= 1 && PART <= 12 )); then
-  GPU_IDS=0,1,2,3; EGL_IDS=0,1,2,3
-elif (( PART == 13 )); then
-  GPU_IDS=0,1; EGL_IDS=0,1
-else
-  echo "PART必须是1..13" >&2; exit 1
-fi
-COMMON=(--variant "$V" --home "$H" --config "$CONFIG" --checkpoint "$CHECKPOINT" \
-  --sim-python "$SIM_PY" --output "$OUT" --n-envs "$N_ENVS" --timeout 43200)
-"$PY" scripts/evaluate_seeded.py "${COMMON[@]}" --part "$PART" \
-  --gpu-ids "$GPU_IDS" --egl-device-ids "$EGL_IDS"
+
+"$PY" scripts/evaluate_parallel.py --variant "$V" --home "$H" \
+  --config "$CONFIG" --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY" --output "$OUT" \
+  --all-tasks --gpu-ids 0,1,2,3,4,5,6,7 --egl-device-ids 0,1,2,3,4,5,6,7 \
+  --port-base 24090 --n-envs 16 --tasks-per-gpu 50 --simulator-cpu-threads 1 \
+  --rgb-schedule final --initial-rgb deferred --timeout 172800
 ```
 
-GPU编号须在作业内与EGL物理UUID对应；重映射时传实际编号。平台作业时限应覆盖每张卡分配的任务；`--timeout 43200`只给一个task全部50回合12小时墙钟预算，不缩短horizon，也不改变平台自身回收规则。同机共享网络时使用独立`--port-base`。
+整机只启动一个上述入口，不再拆成13个并发命令共同写这个OUT。GPU/EGL编号使用实际物理映射；容器创建时设置`NVIDIA_DRIVER_CAPABILITIES=all`。8卡最多128个CPU仿真worker，线程设置、188vCPU资源起点和低利用率边界见Astra说明。`n_envs`是每GPU总worker数，不是每task数量。更改权重/配置/代码/依赖/并发参数使用新OUT。
 
-普通同接口权重评测无需每task/每权重先做完整smoke。正式入口严格加载权重，首个真实请求核对eager/Graph完整预测动作，后续保留有限动作、三路RGB/状态健康和episode覆盖检查；失败保存日志并停止，不把异常计作正常失败分数或跳过回合。开发者有限诊断参数见当前Astra说明，不产生2500回合正式验收。
+每组仍为50task×50固定回合=2500；50步动作预测、每5步重规划、10次去噪、原horizon和成功判定不变。无需每task或每个兼容checkpoint再跑完整smoke；保留严格权重、首个真实请求eager/Graph对照、有效RGB/状态/动作和覆盖检查。3D点头不执行，C的动作Query路径保留；baseline的显存/速度不能冒充C实测。
 
-`n_envs`接口支持1–50；默认4不代表所有模型或task的容量已测。4卡n4配置最多4个仿真进程、16个独立环境。更改权重、配置、代码、依赖或n_envs使用新OUT，继续使用同一seed定义。无需叠加tasks-per-gpu或私有RGB补丁。推理不执行3D点头，C保留Query；基线的显存/速度不能冒充C实测。
-
-失败后保留原日志；排除原因后重跑同一V/PART，入口只复用完整且身份匹配的task。不能同时启动同一task的两个writer。没有全部50个task时汇总拒绝生成完整成绩。
+批次完成并核验后才写提交标记；故障保留原始日志，排除原因后用完全相同命令恢复。未提交大批次可能需要重跑，较细恢复粒度可在新OUT中选择较小tasks-per-gpu。48小时只是每批墙钟上限，不是耗时预测，不能通过截短回合提速。
 
 ## 7. 汇总并比较三组结果
 
-每组完成后可独立汇总；下例用于三组都完成后，不加载模型、不需要GPU：
+`--all-tasks`完整结束会自动生成各组`FINAL_ACCEPTED.json`。需重做汇总时，将同一命令的`--all-tasks`换成`--summarize`并保留所有身份参数，不加载模型。
 
-```bash
-export N_ENVS=4
-for V in embedding3d_pos_a embedding3d_temporal_b query3d_temporal_c; do
-  "$PY" scripts/evaluate_seeded.py --variant "$V" --home "$H" \
-    --config "$E/resolved/${V}-70k.yaml" \
-    --checkpoint "$E/runs/${V}-70k-s42/checkpoints/steps_70000_model.safetensors" \
-    --sim-python "$SIM_PY" --output "$E/eval/${V}-70k-seed-only-v1-n${N_ENVS}" \
-    --n-envs "$N_ENVS" --summarize
-done
-```
-
-成功凭据是三个独立`FINAL_ACCEPTED.json`：各50份原始Boolean成功数组、2500个唯一task/episode组合，及相符的模型/config/source/seed/模拟器身份。平台SUCCEEDED或目录数量不能替代它，也不需要旧的episode轨迹hash。打印三组结果并核对共同协议：
+以下仅在三组各自完整结束后读取结果，不会替尚未训练/评测的组生成成绩：
 
 ```bash
 "$PY" - <<'PY'
 import json, os
 from pathlib import Path
 experiment = Path(os.environ['E'])
-n_envs = int(os.environ['N_ENVS'])
 cohorts = set()
 for group, variant in [('A', 'embedding3d_pos_a'), ('B', 'embedding3d_temporal_b'), ('C', 'query3d_temporal_c')]:
-    path = experiment / 'eval' / f'{variant}-70k-seed-only-v1-n{n_envs}' / 'FINAL_ACCEPTED.json'
+    path = experiment / 'eval' / f'{variant}-70k-parallel-seeds-v1' / 'FINAL_ACCEPTED.json'
     d = json.loads(path.read_text())
     identity = d['identity']
     assert d['trials'] == 2500 and len(d['tasks']) == 50
     assert identity['variant'] == variant
     assert d['episode_protocol'] == 'fixed_episode_seeds_v1'
+    assert identity['simulator_execution'] == 'parallel_physics_single_render_v1'
     cohorts.add((identity['scene_seed_definition_sha256'], identity['task_registry_sha256'],
                  identity['source_manifest_sha256'], identity['sim_freeze_sha256']))
     print(f"{group}\t{variant}\t{d['successes']}/{d['trials']}\t{100*d['successes']/d['trials']:.2f}%")
@@ -384,7 +348,7 @@ assert len(cohorts) == 1, '三组任务/种子/代码或模拟器环境不一致
 PY
 ```
 
-保留每task成功数组、episode编号、seed、错误证据及50项分项。三组各2500回合，共7500个计分回合；开发诊断不计入。旧分数按原协议单列；若以后需要同种子基线/FIXED对照，再独立安排相应权重的评测，不自动重测旧模型。
+保留每task原始成功数组、固定episode编号和seed、错误证据与分项结果。三组各2500回合，共7500计分回合；工程/诊断回合不混入。旧协议成绩继续单列，不自动重测其它模型。
 
 ## 8. 已验证与未验证
 
@@ -402,7 +366,7 @@ PY
 
 本次发布的精确源码和实际A/B加速验证见[发布验收记录](../../provenance/POSITION_V3_HANDOFF_VALIDATION.json)。此前A1500、Bsmoke3的训练/完整恢复/动作推理、fslgpu eager闭环已经通过；这些历史证据不能自动替代本次新图后端的验收。
 
-原SCO ACP曾发生NVIDIA EGL内部SIGABRT；容器capabilities=all也不能证明此问题已消失。fslgpu通过只对实测组合有效。新集群若出现原生崩溃、初始化SHA不一致或动作对照失败，保存任务身份/环境/栈并回交主对话，不自行修模型、改成功条件或删坏场景。
+原SCO ACP曾发生NVIDIA EGL内部SIGABRT；容器capabilities=all也不能证明此问题已消失。fslgpu通过只对实测组合有效。当前新入口已经取消参考初始化SHA检查；若发生原生崩溃或动作对照失败，保存任务身份/环境/栈并回交主对话，不自行修模型、改成功条件或删坏场景。
 
 GitHub不含数据、GT大数组、权重和原训练完整状态。代码整理与有界GPU验收不等于在新集群从下载开始重跑全部数据和70k实验，也不等于方法性能提升。
 

@@ -74,7 +74,7 @@ class AsyncEnvironmentsTests(unittest.TestCase):
         args=NS(task='CloseBlenderLid',output=Path(directory)/('n'+str(n_envs)),host='localhost',port=1,n_envs=n_envs,
                 diagnostic_episodes='0,1,2,3',diagnostic_max_replans=None,timeout=60)
         before_gc=gc.isenabled()
-        with patch.dict(sys.modules,modules),patch.object(adapter,'install'),patch.object(adapter,'assert_healthy'),patch.object(adapter,'retain_environments',side_effect=retain),patch.object(adapter,'release_all'),patch.object(fresh_scene,'create_scene',side_effect=create),patch.object(fresh_scene,'verify_scene',side_effect=AssertionError('No reference plans')):
+        with patch('robot_eval.client.create_policy',side_effect=lambda **kw:Policy(trace_determinism=False,**kw)),patch.dict(sys.modules,modules),patch.object(adapter,'install'),patch.object(adapter,'assert_healthy'),patch.object(adapter,'retain_environments',side_effect=retain),patch.object(adapter,'release_all'),patch.object(fresh_scene,'create_scene',side_effect=create),patch.object(fresh_scene,'verify_scene',side_effect=AssertionError('No reference plans')):
             if fail:
                 with self.assertRaisesRegex(ValueError,'All-zero RGB'):
                     seeded_async_sim.run(args)
