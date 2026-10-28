@@ -8,8 +8,8 @@
 
 | 版本 | `--variant` | 模型源码目录 | GPU证据边界 |
 |---|---|---|---|
-| PI0.5基线 | `baseline` | `runtimes/baseline` | 最新parallel入口：H100全50task、100完整回合通过 |
-| 最佳Query-FIXED | `query_fixed` | `runtimes/query_fixed` | 旧fixed-scene入口有H100真实8回合/2880请求对照；不是新版parallel全50验收 |
+| PI0.5基线 | `baseline` | `runtimes/baseline` | 先前parallel全50task、100完整回合；本次adapter完整/短回合验证见文末 |
+| 最佳Query-FIXED | `query_fixed` | `runtimes/query_fixed` | 旧fixed-scene有H1008回合/2880请求对照；本次外部adapter完整/短回合通过，范围见文末 |
 | Query3D-v2 | `query3d_v2` | `runtimes/trajectory_v2` | 有历史70k评测；尚无新版parallel专属GPU验收记录 |
 | Embedding3D-v2 | `embedding3d_v2` | `runtimes/trajectory_v2` | 有历史70k评测；尚无新版parallel专属GPU验收记录 |
 | v3 A：完整相对位置＋MLP点头 | `embedding3d_pos_a` | `runtimes/trajectory_v3` | 旧handoff用A1500权重完成H100 n1/n2闭环与eager/Graph对照 |
@@ -140,3 +140,23 @@ class MyAdapter(ModelAdapter):
 由主对话使用真实权重和少量真实观测，验证完整加载、输出动作形状/范围/有限性，以及同一输入和请求seed下原生推理与加速推理是否一致。再检查不同task/episode请求交错时没有状态或随机数串扰；必要时完成少量闭环确认接口。这里检查的是新模型与后端的连接，不是再生成/核对2500张参考图片，也不要求每个checkpoint重复全50任务验收。
 
 没有真实权重、GPU加载或原生/加速结果时，只能标记“接线/CPU检查完成”。不能用baseline的流程验收替代C或未登记历史版本的模型侧证据；失败应保留日志交回主对话，远端不自行改结构、删参数或跳过出错回合。
+
+## 2026-10-29：模型接口和单H100短测验收
+
+真实PI0.5 baseline70k与最佳Query-FIXED70k均通过新适配器：实现阶段各完成2task×2完整回合、各720请求；最终发布代码又各检查4task×4seed的短闭环，并完成下表并发对照。FIXED由模型目录的外部factory接入，没有新增评测版本枚举。旧`--variant`实际20请求兼容性测试通过。Linux120项中119通过、1跳过；分阶段源码身份与原始证据SHA见[验收记录](../provenance/MODEL_ADAPTER_VALIDATION.json)。这些是接口/工程验证，不是新的模型benchmark分数。
+
+跨模型**16/16对**初始三路RGB、机器人状态数组、MuJoCo状态hash及RNG状态hash全部一致。范围为CloseBlenderLid、CloseFridge、CloseToasterOvenDoor、CoffeeSetupMug各episode0–3；baseline在n_envs4/8/16的相同16个初始观测也逐值一致。未逐一重跑比较2500场景，不外推跨驱动逐像素保证。正式评测仍只读取固定种子定义，没有恢复参考图片/轨迹hash门槛；不同模型的后续动作及轨迹允许不同。
+
+单H10080GB、22vCPU、240GiB，模型常驻且共用一次预热；每档4task×4episode×40请求=640次策略请求。每次请求仍输出50步动作、执行5步，本诊断截短回合，不能计入正式成功率。
+
+| n_envs | 整段仿真耗时 | 请求/秒（含初始化） | 整段GPU-util | 首请求→末步GPU-util |
+|---:|---:|---:|---:|---:|
+| 4 | 171.25秒 | 3.74 | 19.45% | 26.17% |
+| 8 | 126.59秒 | 5.06 | 27.28% | 49.19% |
+| 16 | 115.53秒 | 5.54 | 30.49% | 89.75% |
+
+**所测档位建议n_envs16。** 比n4整段用时减少约32.54%，吞吐约1.48倍；比n8用时减少约8.74%。策略OMP/MKL=4、OpenBLAS=1，模拟器CPU线程=1，tasks-per-gpu50、final RGB和deferred初始化。单卡命令沿用上文，仅把两组GPU编号均改为`0`。这不证明16是所有CPU/模型上的全局最优；换结构后无需改评测，但速度及显存仍以实际测量为准。
+
+三档实测峰值显存分别12536/16194/23743MiB（n16约23.2GiB）。按约1秒采样，三档最大采样间隔分别1.23/1.22/1.44秒，未丢弃低利用率样本，采集无错误；均值是nvidia-smi GPU-util采样算术均值，不是SM occupancy。
+
+表中整段包括仿真进程启动、16个场景初始化、短rollout和收尾；**不包括共享模型加载、权重哈希与公共预热**。短测初始化占比高，所以n16实际rollout达到89.75%，整段仍只有30.49%；不能把89.75%当全程或连续3小时保证。此前旧入口全50task/100完整回合的72.04%整段、82.16%活跃窗口是另一场已归档测试，也不能当本次新适配器完整2500回合的结果。

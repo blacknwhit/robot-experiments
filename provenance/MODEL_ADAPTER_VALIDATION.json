@@ -1,0 +1,437 @@
+{
+  "format": "robot_eval_model_adapter_validation_v1",
+  "date": "2026-10-29",
+  "status": "accepted",
+  "release_code_commit": "aac7840a106e3efa654f42e6e8e5346d3cc08fa6",
+  "source_manifest_sha256": "314afa30aa3016ab2ddf4a8801d2df676364952d96239b93ae158c619f22a105",
+  "source_files": 998,
+  "api_version": "robot_eval_policy_v1",
+  "seed_definition_sha256": "b1c5243b89f4d6283f01cb950bb93911269e8b9068f334062a869d604dca1c9b",
+  "cpu": {
+    "total": 120,
+    "passed": 119,
+    "skipped": 1,
+    "ci_run": 40722953666
+  },
+  "hardware": {
+    "gpu": "NVIDIA H100 80GB HBM3",
+    "driver": "580.95.05",
+    "physical_gpus": 1,
+    "vcpu": 22,
+    "host_memory_gib": 240
+  },
+  "initial_scene_validation": {
+    "models": [
+      "PI0.5 baseline70k",
+      "Query-FIXED70k"
+    ],
+    "pairs": [
+      {
+        "task": "CloseBlenderLid",
+        "episode": 0,
+        "exact": true,
+        "observation_sha256": "0afc50a326f68d3380ae628e9776f684b158c697f8ba98fea137a2e726c2c112",
+        "state_sha256": "4337f98c8c0addb3f8d0ff71ad35114c3e22dcd9af80924496945ef4fa871b4f",
+        "rng_sha256": "d1760c942d1a5159504ff562551fe6b1b380755adbcf80b4fe44d23f4b96b860"
+      },
+      {
+        "task": "CloseBlenderLid",
+        "episode": 1,
+        "exact": true,
+        "observation_sha256": "abfbfaf39fcf07fa4d3a3a206e5422216bb1da195c160ad9e8a7bc6ec1635a47",
+        "state_sha256": "37f50225569d4cccd174f1bc7fa9475e1c02c331f4ce4e562726f6a28bb04db6",
+        "rng_sha256": "4cae98a24654d361f10703d2c10ca5beba1f3a509c53e721fbc97da9a601458d"
+      },
+      {
+        "task": "CloseBlenderLid",
+        "episode": 2,
+        "exact": true,
+        "observation_sha256": "41f513c5cb45d668949c324b6a6e89044899b552ef9cb4b55e960e44f1fa795b",
+        "state_sha256": "37bec23b208b00338260449eb56d55c41ce886ac4150a15ebc992bdfb840f19d",
+        "rng_sha256": "7dbd9553cf6d7509a1e5bc98858639bc164861ea3d48d9115ab53f564b1b3a32"
+      },
+      {
+        "task": "CloseBlenderLid",
+        "episode": 3,
+        "exact": true,
+        "observation_sha256": "3c69c26c946cbe61c8c4c659319dea7f11e53331ae7a80b35ab051a6faf5aa9a",
+        "state_sha256": "74674ee546f3e1e17f50443fbf090ad06bc8b9fb9abfb6d745c93ab4f5f75254",
+        "rng_sha256": "dcb1501a29dc9abaebdc46746c1df8c77dc0b721acd1532fee7c4a877ed124e5"
+      },
+      {
+        "task": "CloseFridge",
+        "episode": 0,
+        "exact": true,
+        "observation_sha256": "0ecc9ce9238d7f8f402ab95cd7a3a4c3fadcf1c7b5f0839c1814fc13c173cc4a",
+        "state_sha256": "f1505dad85fec08bb9669c87dcaee1786e778271fd1d76b834feb2d1a554ef84",
+        "rng_sha256": "09f5c79fd9ba2499404df95d31f6c21607b4fa9b1f924b211ec62cfdb589d919"
+      },
+      {
+        "task": "CloseFridge",
+        "episode": 1,
+        "exact": true,
+        "observation_sha256": "a356ec0f05ecf75ddeef2160d13ae2ca49a6cf6551be266a61c47c23e85ce60f",
+        "state_sha256": "0813f347304da23bfd66ff778191fb46014a30221b7c06a2af1189837f2f710e",
+        "rng_sha256": "ebbf20a5d9f39154c8b281d0a76d9e422c24af1491de76d69184ac1413722508"
+      },
+      {
+        "task": "CloseFridge",
+        "episode": 2,
+        "exact": true,
+        "observation_sha256": "cbe2e409224072aad2d2656882edce4b9c442db239fed2ce4b00b4c9133c7ee2",
+        "state_sha256": "c3df9f2a456e3bce35e4ea4cd90ab0077733894d2f613d858b4a1822af042705",
+        "rng_sha256": "587442077de757802ef32b68db7279c48e05b8647a0926591ac4b84a42d92b2a"
+      },
+      {
+        "task": "CloseFridge",
+        "episode": 3,
+        "exact": true,
+        "observation_sha256": "c1262ce4257e1e472b64c8a57d386b70125f550f9e864e59030da7c4a59c861d",
+        "state_sha256": "3b5185622f79578ceb87628189fdcf2972482c4ddf23c61f2391dcc0c23ced36",
+        "rng_sha256": "056484f2862172c053560621b1f46dafedd29e5046e319ed5d41ddd5801f52e2"
+      },
+      {
+        "task": "CloseToasterOvenDoor",
+        "episode": 0,
+        "exact": true,
+        "observation_sha256": "de96a143f59d82d2ef422f9f7d77f13fa79a0b33531fcc5de962196bc5d2bd55",
+        "state_sha256": "b18e46bea8b8a3e1aef807903f1c5b7b855859b3d11cf3faa3748fa656fdec2c",
+        "rng_sha256": "5527b5bf46960b7bb3dca7d36f9dfebf4d2cc934ec51006603064934382b2480"
+      },
+      {
+        "task": "CloseToasterOvenDoor",
+        "episode": 1,
+        "exact": true,
+        "observation_sha256": "165bc3fba51362e63a4f68d7e257bd763e6a2a44d5405c63afabdd53fb4bad2b",
+        "state_sha256": "f9fb1f510b2a90a8c1f56392f3bc7d23c25f2080966664f844089a7469ce50e2",
+        "rng_sha256": "9a2a50f1b974043232049a12121f32f5c4eed2c4a698f7e6108da05b037574e0"
+      },
+      {
+        "task": "CloseToasterOvenDoor",
+        "episode": 2,
+        "exact": true,
+        "observation_sha256": "adfa027cd23f9fc854003b80faa66bc2b6abe23aef7ea61bd30b70cf911df79a",
+        "state_sha256": "0f211c4a37608d64b2eafcfd054a60711a7dc0ca010471db6fd181220a2424b8",
+        "rng_sha256": "b34c87c3e05a0d715fbe39af38d24c040eac00989e6999c4a90611332dc70a4f"
+      },
+      {
+        "task": "CloseToasterOvenDoor",
+        "episode": 3,
+        "exact": true,
+        "observation_sha256": "f6d3e52752ab96604815d1327f484b29ded5f8eb8a940b70a9431fd68657a24f",
+        "state_sha256": "c7f149eeeea61a8a2a59da4225573a84e922b609104603153486774be96151b9",
+        "rng_sha256": "c82bb8b1fc179f12abd046df34efe6d39776b36cd6399aeafd4cb5817143c966"
+      },
+      {
+        "task": "CoffeeSetupMug",
+        "episode": 0,
+        "exact": true,
+        "observation_sha256": "c9d03e88b2424efe9d687465bdd194f42240cc5d94c11ae3c307fca800bb6dbe",
+        "state_sha256": "a0e7191e8f2be557d209b743efbde3cc8f174c21b6f01a502d9cad2e2bacd768",
+        "rng_sha256": "9096a7d8318c9394ab9bfd67bacae196c6368685d0da53d74acdb71c32e9f53c"
+      },
+      {
+        "task": "CoffeeSetupMug",
+        "episode": 1,
+        "exact": true,
+        "observation_sha256": "7998ce9af9f4139a4224bb85aa0b69a01ea9c8312fa66364149599ddfd134422",
+        "state_sha256": "ff9b040a6fb1331beaa6185e976ca28eaf0aacff336ea1e027cc17f2d27394b7",
+        "rng_sha256": "29efebedf0ac47c6651b03d28f96ffea75bc966eca66b5d8cc3dfb3163bcb078"
+      },
+      {
+        "task": "CoffeeSetupMug",
+        "episode": 2,
+        "exact": true,
+        "observation_sha256": "80b4acb8f95a7145a690e87b1ef71394cfe4bb7dee7301cf092620bda38c824f",
+        "state_sha256": "a5ea401a41615e659a0c9a7212732d1cabe8443c41428d812161a44567e6a31e",
+        "rng_sha256": "66f0b9ab812bf84e958aa905e1a92fa3c9bce2b185528414aed2fa95e72c2637"
+      },
+      {
+        "task": "CoffeeSetupMug",
+        "episode": 3,
+        "exact": true,
+        "observation_sha256": "94e10d98a2ee80721a3517868e3a195c73cd6f6b1616c89a760b6188ff0dfe71",
+        "state_sha256": "d7cecfce49186b960761b99f549985a93f8abc884a11fb390096f005eb9ca042",
+        "rng_sha256": "6ec3b9fe3f35bb568c9b2ac0951e66e9fea56bdb64547ecac17bfd83bdaf5d70"
+      }
+    ],
+    "coverage": 16,
+    "initial_rgb_and_robot_state_exact": true,
+    "initial_mujoco_and_rng_state_exact": true,
+    "n_envs4_8_16_initial_arrays_exact": true,
+    "all2500_compared": false,
+    "formal_evaluation_requires_reference_hashes": false
+  },
+  "final_model_requests": 1984,
+  "full_episode_phase": {
+    "code_commit": "26c4f12239b80efba930acd39828ef6ea151a4b2",
+    "source_manifest_sha256": "756356c764200190f504da74315e6d21e7b1aa113c2f6ae52ca940633ac9b7c9",
+    "full_episodes": 8,
+    "full_requests": 1440,
+    "cases": {
+      "baseline_gate": {
+        "records": [
+          {
+            "task": "CloseBlenderLid",
+            "episodes": 2,
+            "requests": 10,
+            "complete": false,
+            "result_sha256": "9f489bdfc5c8dfe8f28564de4ec9f06d359462cbc9fffd3628d45610599a3499",
+            "identity_sha256": "268585d72a4e18db73464538d431378ef1df5e1fa152549c4415dcc44908ad60"
+          },
+          {
+            "task": "CloseFridge",
+            "episodes": 2,
+            "requests": 10,
+            "complete": false,
+            "result_sha256": "6caadcb126d78fda8af26595fa2e03547e7873f9a4cad3714cb1f7f41f77247e",
+            "identity_sha256": "192ceb9273b13140d2684f044c50c8db6cf6d1b20a06cbe62bb946155764c186"
+          }
+        ],
+        "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+        "strict_full_state": {
+          "strict": true,
+          "keys": 813,
+          "all_keys_present": true,
+          "all_loaded_values_exact_at_model_dtype": true,
+          "serialized_tied_aliases_exact": [
+            [
+              "policy_model.paligemma_with_expert.paligemma.lm_head.weight",
+              "policy_model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+            ]
+          ],
+          "checkpoint_keys_dropped": 0
+        },
+        "model_adapter_api_version": "robot_eval_policy_v1",
+        "model_spec_fingerprint": "44297801bdad18f19f32a478187fbbab4d4742327be62a309f2342d830688aae",
+        "backend": "cuda-graph-pipeline",
+        "gpu_name": "NVIDIA H100 80GB HBM3",
+        "model_id": "pi05-external-baseline-70k"
+      },
+      "baseline_full_gate": {
+        "records": [
+          {
+            "task": "CloseBlenderLid",
+            "episodes": 2,
+            "requests": 360,
+            "complete": true,
+            "result_sha256": "4e7fa4b5334b0b53374f2bcd170417bc8fdf4dc3ed25a8ce3753e4a3cd90a0fe",
+            "identity_sha256": "0e20237b0aab66daf58d7c6affa42053af3c1fb138b81e100f7279066441f930"
+          },
+          {
+            "task": "CloseFridge",
+            "episodes": 2,
+            "requests": 360,
+            "complete": true,
+            "result_sha256": "ad21ff4f6237ab25abd1cfe82120417d2e566579406996b3995510c913145ca6",
+            "identity_sha256": "066f20beec84a42d37ff4683f5186f5386c5ac5408fb71cc8f8ee7339d1b6eae"
+          }
+        ],
+        "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+        "strict_full_state": {
+          "strict": true,
+          "keys": 813,
+          "all_keys_present": true,
+          "all_loaded_values_exact_at_model_dtype": true,
+          "serialized_tied_aliases_exact": [
+            [
+              "policy_model.paligemma_with_expert.paligemma.lm_head.weight",
+              "policy_model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+            ]
+          ],
+          "checkpoint_keys_dropped": 0
+        },
+        "model_adapter_api_version": "robot_eval_policy_v1",
+        "model_spec_fingerprint": "44297801bdad18f19f32a478187fbbab4d4742327be62a309f2342d830688aae",
+        "backend": "cuda-graph-pipeline",
+        "gpu_name": "NVIDIA H100 80GB HBM3",
+        "model_id": "pi05-external-baseline-70k"
+      },
+      "fixed_full_gate": {
+        "records": [
+          {
+            "task": "CloseBlenderLid",
+            "episodes": 2,
+            "requests": 360,
+            "complete": true,
+            "result_sha256": "6db4c4c1eef561d9ab7114b978462b74445772051efe886a0bd5376a31c28f66",
+            "identity_sha256": "81378e24b9573acd6a277cb9a50c781ec46553b254f9b8ec2ae950735c49135e"
+          },
+          {
+            "task": "CloseFridge",
+            "episodes": 2,
+            "requests": 360,
+            "complete": true,
+            "result_sha256": "74f48d257f0fe8181dfc97e2c05ca2a5254009a315381f7639508418bc439633",
+            "identity_sha256": "53c5ee8e7d93919a5600b5c147dff95142fd3e9ca80e2b9611fab605c416e997"
+          }
+        ],
+        "checkpoint_sha256": "fa5c5078afb8efa807a7af6129ff969ab1c0c4ccebf9e10180bb18c2a1d855a2",
+        "strict_full_state": {
+          "strict": true,
+          "keys": 831,
+          "all_keys_present": true,
+          "all_loaded_values_exact_at_model_dtype": true,
+          "serialized_tied_aliases_exact": [
+            [
+              "policy_model.paligemma_with_expert.paligemma.lm_head.weight",
+              "policy_model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+            ]
+          ],
+          "checkpoint_keys_dropped": 0
+        },
+        "model_adapter_api_version": "robot_eval_policy_v1",
+        "model_spec_fingerprint": "30d96f313c9f985a57104b7cb7f39514f6c2fb79a1f7ebba3d48fa768d612dce",
+        "backend": "cuda-graph-pipeline",
+        "gpu_name": "NVIDIA H100 80GB HBM3",
+        "model_id": "external-query-fixed-70k"
+      },
+      "legacy_gate": {
+        "records": [
+          {
+            "task": "CloseBlenderLid",
+            "episodes": 2,
+            "requests": 10,
+            "complete": false,
+            "result_sha256": "d390671e237ef24352ec295378021c2a5161f8abb466942358dc4d226a5fd89c",
+            "identity_sha256": "6000edf98c49a135b476c4fb4b56481b0f195722d7b2522575293c9834e0b2f7"
+          },
+          {
+            "task": "CloseFridge",
+            "episodes": 2,
+            "requests": 10,
+            "complete": false,
+            "result_sha256": "bc943a005b30d32b289cbb4c9ccaf35430657c67eb4d27f8b7ada1d83e586e0a",
+            "identity_sha256": "53315a10b459319b8ba0372c4e7da9bf067e7322ab48b743b5649d4b9c1443ce"
+          }
+        ],
+        "checkpoint_sha256": "60c688dcebb5f172ef93e46350a48eecc86308f56f2fc0a87a20463303cd0ca8",
+        "strict_full_state": {
+          "strict": true,
+          "keys": 813,
+          "all_keys_present": true,
+          "all_loaded_values_exact_at_model_dtype": true,
+          "serialized_tied_aliases_exact": [
+            [
+              "policy_model.paligemma_with_expert.paligemma.lm_head.weight",
+              "policy_model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+            ]
+          ],
+          "checkpoint_keys_dropped": 0
+        },
+        "model_adapter_api_version": null,
+        "model_spec_fingerprint": null,
+        "backend": "cuda-graph-pipeline",
+        "gpu_name": "NVIDIA H100 80GB HBM3",
+        "model_id": "baseline"
+      }
+    },
+    "independent_audit_passed": true,
+    "archive_sha256": "feaf716bb6e763045eb5fdfc347e217e4152a77fb24b23254b77364ca3aae36f",
+    "note": "Release subsequently fixed inherited JAX/telemetry defaults; final source was retested with both real models above."
+  },
+  "single_gpu_short_comparison": {
+    "model": "PI0.5 baseline70k",
+    "model_is_resident": true,
+    "common_warmup_excluded_from_performance_cases": true,
+    "cases": [
+      {
+        "case": "perf_n4",
+        "n_envs": 4,
+        "tasks": [
+          "CloseBlenderLid",
+          "CloseFridge",
+          "CloseToasterOvenDoor",
+          "CoffeeSetupMug"
+        ],
+        "episodes": 16,
+        "requests": 640,
+        "trace_enabled": false,
+        "whole_simulator": {
+          "seconds": 171.2537384033203,
+          "samples": 171,
+          "gpu_util_sample_mean": 19.450292397660817,
+          "peak_mib": 12536.0,
+          "max_sample_gap_seconds": 1.232316017150879
+        },
+        "first_request_to_last_step": {
+          "seconds": 125.59938788414001,
+          "samples": 126,
+          "gpu_util_sample_mean": 26.174603174603174,
+          "peak_mib": 12536.0,
+          "max_sample_gap_seconds": 1.232316017150879
+        },
+        "requests_per_second_simulator": 3.737144695158325
+      },
+      {
+        "case": "perf_n8",
+        "n_envs": 8,
+        "tasks": [
+          "CloseBlenderLid",
+          "CloseFridge",
+          "CloseToasterOvenDoor",
+          "CoffeeSetupMug"
+        ],
+        "episodes": 16,
+        "requests": 640,
+        "trace_enabled": false,
+        "whole_simulator": {
+          "seconds": 126.5898871421814,
+          "samples": 127,
+          "gpu_util_sample_mean": 27.275590551181104,
+          "peak_mib": 16194.0,
+          "max_sample_gap_seconds": 1.2205619812011719
+        },
+        "first_request_to_last_step": {
+          "seconds": 67.77161192893982,
+          "samples": 68,
+          "gpu_util_sample_mean": 49.19117647058823,
+          "peak_mib": 16194.0,
+          "max_sample_gap_seconds": 1.2205619812011719
+        },
+        "requests_per_second_simulator": 5.055696110078478
+      },
+      {
+        "case": "perf_n16",
+        "n_envs": 16,
+        "tasks": [
+          "CloseBlenderLid",
+          "CloseFridge",
+          "CloseToasterOvenDoor",
+          "CoffeeSetupMug"
+        ],
+        "episodes": 16,
+        "requests": 640,
+        "trace_enabled": false,
+        "whole_simulator": {
+          "seconds": 115.52840852737427,
+          "samples": 115,
+          "gpu_util_sample_mean": 30.48695652173913,
+          "peak_mib": 23743.0,
+          "max_sample_gap_seconds": 1.4427490234375
+        },
+        "first_request_to_last_step": {
+          "seconds": 36.35712170600891,
+          "samples": 36,
+          "gpu_util_sample_mean": 89.75,
+          "peak_mib": 23743.0,
+          "max_sample_gap_seconds": 1.1469495296478271
+        },
+        "requests_per_second_simulator": 5.539762973955908
+      }
+    ],
+    "whole_simulator_includes": "simulator processes, fresh scene initialization, all short rollouts, cleanup",
+    "whole_simulator_excludes": "shared model loading, checkpoint hashing and common warmup",
+    "best_tested_n_envs": 16,
+    "sample_errors": []
+  },
+  "final_archive": {
+    "sha256": "445035da79461903e1da97a0d35bc320adaf92a70faa8f2cc569d3ce240198e9",
+    "bytes": 21053440,
+    "audit_sha256": "6ccff60750ed3c017ceec9d39949422992303e7998dc30e4040b5b6460f19aa6"
+  },
+  "benchmark_score": false,
+  "three_hour_utilization_test": false,
+  "eight_physical_gpu_test": false,
+  "arbitrary_stateful_model_gpu_acceptance": false
+}
