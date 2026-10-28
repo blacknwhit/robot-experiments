@@ -9,6 +9,7 @@ from scene_suite import DEFINITION, definition
 
 PROTOCOL = 'fixed_episode_seeds_v1'
 EXECUTION_VERSION = 'single_process_envs_async_policy_v1'
+PARALLEL_EXECUTION_VERSION = 'parallel_physics_single_render_v1'
 HEALTH_VERSION = 'rgb_shape_range_nonblack_and_finite_state_v1'
 VIDEO_KEYS = ('video.robot0_agentview_left', 'video.robot0_eye_in_hand', 'video.robot0_agentview_right')
 
@@ -89,8 +90,10 @@ def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_rep
     if data.get('simulator_versions', {}).get('rgb_adapter') != RGB_ADAPTER_VERSION:
         raise ValueError('Missing native RGB adapter identity')
     spec, seeds = task_seeds(task)
+    if identity.get('simulator_execution', EXECUTION_VERSION) not in (EXECUTION_VERSION, PARALLEL_EXECUTION_VERSION):
+        raise ValueError('Unknown simulator execution version')
     expected = {'env': 'robocasa/' + spec['task'], 'episode_protocol': PROTOCOL,
-                'simulator_execution': EXECUTION_VERSION,
+                'simulator_execution': identity.get('simulator_execution', EXECUTION_VERSION),
                 'scene_seed_definition_sha256': identity['scene_seed_definition_sha256'],
                 'episode_ids': ids, 'scene_seeds': [seeds[i] for i in ids], 'n_envs': n_envs,
                 'num_trials': len(ids), 'logical_environment_index': 0, 'seed': 7,
@@ -98,6 +101,10 @@ def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_rep
                 'evaluation_kind': 'diagnostic' if diagnostic else 'formal',
                 'diagnostic_max_replans': max_replans, 'reference_plan_required': False,
                 'reference_observation_comparison': False, 'observation_health_version': HEALTH_VERSION}
+    if 'rgb_schedule' in identity:
+        expected['rgb_schedule'] = identity['rgb_schedule']
+    if 'initial_rgb' in identity:
+        expected['initial_rgb'] = identity['initial_rgb']
     for key, value in expected.items():
         if data.get(key) != value:
             raise ValueError('Seeded result contract mismatch: ' + key)
@@ -111,6 +118,9 @@ def validate_result(data, task, ids, n_envs, identity, diagnostic=False, max_rep
                 or renderer.get('max_geom') != 10000
                 or renderer.get('gl_context_type') != 'mujoco.egl.GLContext'):
             raise ValueError('Unexpected RGB rendering configuration')
+        if (expected['simulator_execution'] == PARALLEL_EXECUTION_VERSION
+                and renderer.get('transport') != 'mujoco331_complete_mjvscene_pipe_v1'):
+            raise ValueError('Parallel result did not use the single render owner')
         if row['scene_seed'] != seeds[episode] or type(row['success']) is not bool:
             raise ValueError('Wrong episode seed or raw success')
         requests = row['requests']

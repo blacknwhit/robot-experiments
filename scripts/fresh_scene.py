@@ -3,6 +3,8 @@ import random
 import hashlib
 import inspect
 import textwrap
+import sys
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 import numpy as np
@@ -45,8 +47,13 @@ def create_scene(task, horizon, scene_seed):
     np.random.seed(scene_seed)
     args = SimpleNamespace(env_name=task, env_split='pretrain', seed=scene_seed,
                            video_out_path=None, n_action_steps=5, max_episode_steps=horizon)
-    env = create_single_env(args, 0)
+    transport = sys.modules.get('render_rpc')
+    scope = transport.construction_scope() if transport is not None else nullcontext()
+    with scope:
+        env = create_single_env(args, 0)
     try:
+        if transport is not None:
+            transport.validate_final_reset(env)
         observation, info = env.reset()
         return env, observation, info
     except BaseException:
