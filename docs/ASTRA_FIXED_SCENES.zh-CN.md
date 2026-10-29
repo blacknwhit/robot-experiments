@@ -99,7 +99,7 @@ GPU和EGL编号必须实际指向同一物理GPU；示例0–7仅适用于两者
 
 **仍保留的必要检查**：模型权重完整加载；每个策略服务的首个真实请求核对eager/Graph动作，防止加速实现改变模型计算；非黑且有效的RGB、有限状态/动作；固定种子及2500回合覆盖。首请求检查不是额外smoke，也不重跑一套场景。硬件/驱动、依赖、资源或真实程序错误仍可能报错；不能承诺任何远端机器零错误，更不能把错误回合当作有效成绩。当前已验证的是本页记录的H100环境和全部50种任务流程。
 
-发生错误时入口退出并清理自己创建的进程。优先查看批次`simulation.log`、`EXIT.json`以及`simulation/ERROR.json`、`CLEANUP_ERROR.json`、`worker_exit.json`和worker日志。原生崩溃可能只有信号/faulthandler栈，SIGKILL可能没有Python错误JSON；外层“task failed”不足以判断原因。不要把异常当成失败分数或跳过该seed。
+发生错误时入口退出并清理自己创建的进程。优先查看批次`simulation.log`、`EXIT.json`以及`simulation/ERROR.json`、`CLEANUP_ERROR.json`、`worker_exit.json`和worker日志。原生崩溃可能只有信号/faulthandler栈，SIGKILL可能没有Python错误JSON；外层“task failed”不足以判断原因。不要把异常当成失败分数或跳过该seed。若出现全黑观测，或单卡正常但多卡失败，先按[全黑观测取证说明](BLACK_FRAME_DIAGNOSIS.zh-CN.md)读取已有产物；不需要重跑全量或自行修改评测代码。
 
 修复外部问题后可重跑**完全相同命令和OUT**。入口只复用有完整提交标记、raw SHA、正常退出且身份匹配的task；未提交的一批会保留证据后按原seed重跑。大任务池的代价是提交粒度更粗：只有整批核验通过才提交，批内晚期错误可能需要重跑该批全部task。若集群频繁抢占，可在新OUT中将tasks-per-gpu降到8换取更细恢复粒度，但不保证同样的速度。一个输出目录只允许运行一个调度入口，不能拆成多个并发命令共同写入。若要单独测任务，用新OUT及 `--tasks WeighIngredients,PackIdenticalLunches` 替换`--all-tasks`，每项仍跑固定50回合。
 
