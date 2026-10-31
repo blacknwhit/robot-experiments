@@ -35,8 +35,12 @@ def main():
             if (framework.action_horizon,framework.environment_action_dim,framework.environment_state_dim,framework.num_inference_steps)!=(50,12,16,10):raise ValueError('Policy dimensions differ')
             model=framework.policy_model
             if is_point_variant(a.variant):
-                expected = 'relative_position_and_difference_v3' if a.variant in POSITION_VARIANTS else 'adjacent_and_cumulative_v2'
-                if model.point_track.objective_version!=expected:raise ValueError('Wrong trajectory objective')
+                if a.variant=='pri4r_paper':
+                    if model.point_track.version!='pri4r_embedding_v1' or model.foresight.enabled:
+                        raise ValueError('Wrong Pri4R paper architecture')
+                else:
+                    expected = 'relative_position_and_difference_v3' if a.variant in POSITION_VARIANTS else 'adjacent_and_cumulative_v2'
+                    if model.point_track.objective_version!=expected:raise ValueError('Wrong trajectory objective')
                 def forbidden(*args):raise RuntimeError('Point head executed at inference')
                 model.point_track_head.register_forward_pre_hook(forbidden)
                 if a.variant=='query3d_v2' and tuple(model.future_queries.shape)!=(1,50,2048):raise ValueError('Wrong Query50 shape')

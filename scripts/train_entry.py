@@ -16,6 +16,10 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');a=p.parse_args()
     c=yaml.safe_load(a.config.read_text());verify_release(c)
     v=c['portable']['variant'];activate(v)
+    if v == 'pri4r_paper':
+        from pri4r_contract import validate_recipe
+        validate_recipe(c)
+        os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
     if v in POSITION_VARIANTS:
         os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
         modes = [bool(c['portable'].get(k)) for k in ('smoke','engineering','formal')]
@@ -28,7 +32,8 @@ def main():
     import torch
     import torch.distributed as dist
     world=int(os.environ['WORLD_SIZE']);rank=int(os.environ['RANK'])
-    if world!=c['portable']['world_size'] or c['datasets']['vla_data']['per_device_batch_size']*world!=64:raise ValueError('World/batch mismatch')
+    batch=128 if v=='pri4r_paper' else 64
+    if world!=c['portable']['world_size'] or c['datasets']['vla_data']['per_device_batch_size']*world*c['trainer']['gradient_accumulation_steps']!=batch:raise ValueError('World/batch mismatch')
     torch.cuda.set_device(int(os.environ['LOCAL_RANK']))
     dist.init_process_group('nccl')
     run=Path(c['run_root_dir'])/c['run_id'];receipt=run/'portable_recipe.json'
@@ -53,7 +58,10 @@ def main():
         accepted=Path(c['portable'].get('gt_acceptance_receipt', str(gt/'PORTABLE_GT_ACCEPTED.json')))
         if not accepted.is_file():raise RuntimeError('Run scripts/prepare_gt.py --stage verify first')
         proof=json.loads(accepted.read_text())
-        if proof['episodes']!=30000 or proof['frames']!=27815381 or proof['config_sha256']!=c['datasets']['vla_data']['point_track_gt_config_sha256']:raise ValueError('GT scope/config differs')
+        if v=='pri4r_paper':
+            from pri4r_contract import validate_gt_receipt
+            validate_gt_receipt(c,proof,gt)
+        elif proof['episodes']!=30000 or proof['frames']!=27815381 or proof['config_sha256']!=c['datasets']['vla_data']['point_track_gt_config_sha256']:raise ValueError('GT scope/config differs')
     if rank==0:
         run.mkdir(parents=True,exist_ok=True)
         if not a.resume:receipt.write_text(json.dumps(c,indent=2))
@@ -82,7 +90,7 @@ def main():
         log(self,metrics)
         if self.completed_steps in (1,self.config.trainer.stop_after_steps) and self.completed_steps%self.config.trainer.save_interval!=0:self._save_checkpoint()
     klass._save_checkpoint=checked_save;klass._log_metrics=first_save
-    if v in POSITION_VARIANTS and c['portable'].get('smoke'):
+    if (v in POSITION_VARIANTS or v=='pri4r_paper') and c['portable'].get('smoke'):
         from engineering_audit import install
         install(klass)
     if v=='baseline':

@@ -1,0 +1,33 @@
+{
+  "status": "GPU_ACCEPTANCE_PENDING",
+  "method": "independent_Pri4R_pi05_implementation",
+  "paper": "https://arxiv.org/html/2603.01549v2",
+  "author_training_code_available_at_audit": false,
+  "benchmark": "RoboCasa365 transfer, not original Human-50 24-task score reproduction",
+  "date": "2026-10-31",
+  "source_manifest_sha256": "1d7decd430e05b42a22c40fb1275418d6f72b97d5fbb3432c464a35d2e08a5a2",
+  "cpu_contract_tests_passed": 5,
+  "cpu_math_tests_passed": 3,
+  "legacy_portability_regressions_passed": 4,
+  "additional_corrupt_ema_rejection_check_passed": true,
+  "real_gt": {
+    "episodes": 4,
+    "frames": 1126,
+    "points_per_episode": 1024,
+    "sampling": "first-frame uniform clipped mesh surface; no contact quotas",
+    "source_and_all_array_sha_verified": true,
+    "sampling_config_sha256": "704b4564b4cdcd7b5f32d3bffca85974489415b6497d0cb799d64d02d34b085c"
+  },
+  "lazy_training_import_preflight_passed": true,
+  "gpu_training_passed": false,
+  "full_state_resume_passed": false,
+  "ema_gpu_resume_passed": false,
+  "point_free_action_inference_passed": false,
+  "formal_training_started": false,
+  "full_gt_generation_started": false,
+  "limitations": [
+    "CPU checks and GT preparation do not prove GPU training or 4-card capacity.",
+    "Paper omits architecture widths, crop size, coordinate conventions and some reduction/recipe details; these are explicitly documented local choices.",
+    "No new benchmark score or claimed performance improvement."
+  ]
+}

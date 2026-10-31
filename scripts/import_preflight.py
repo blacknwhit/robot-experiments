@@ -15,12 +15,12 @@ def main():
     args = parser.parse_args()
     cfg = yaml.safe_load(args.config.read_text())
     variant = cfg['portable']['variant']
-    if variant not in POSITION_VARIANTS:
-        raise ValueError('This bounded preflight is for the V3 engineering variants')
+    if variant not in POSITION_VARIANTS and variant != 'pri4r_paper':
+        raise ValueError('This bounded preflight is for V3/Pri4R engineering variants')
     runtime = activate(variant)
     # Match the order that previously failed inside OpenPIPi05.__init__.
     importlib.import_module('starVLA.training.train_starvla')
-    importlib.import_module('starVLA.training.position_point_trainer')
+    importlib.import_module('starVLA.training.query_point_trainer' if variant=='pri4r_paper' else 'starVLA.training.position_point_trainer')
     loaded = {}
     for name in ('openpi.training.config', 'openpi.models_pytorch.pi0_pytorch',
                  'openpi.shared.normalize', 'openpi.transforms', 'openpi.models.model'):

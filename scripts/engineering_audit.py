@@ -6,8 +6,13 @@ import torch
 
 def audited_parameter_names(policy):
     """Include the actual Z_t source as well as the shared B/C point decoder."""
-    from openpi.models_pytorch.position_point import validate_position_policy
-    direct_query = validate_position_policy(policy)
+    paper = not hasattr(policy.point_track, 'objective_version') and policy.point_track.version == 'pri4r_embedding_v1'
+    if paper:
+        if policy.foresight.enabled:raise ValueError('Pri4R must preserve original prefix')
+        direct_query = False
+    else:
+        from openpi.models_pytorch.position_point import validate_position_policy
+        direct_query = validate_position_policy(policy)
     names = [
         "paligemma_with_expert.paligemma.model.language_model.layers.17.self_attn.k_proj.weight",
         "point_track_head.point_mlp.0.weight", "point_track_head.point_mlp.2.weight",
@@ -19,7 +24,7 @@ def audited_parameter_names(policy):
         for i in range(policy.point_track.embedding_layers):
             names += [f"point_track_head.embedding.layers.{i}.{tail}" for tail in
                       ("self_attention.in_proj_weight", "cross_attention.in_proj_weight", "ff.0.weight")]
-    for i in range(policy.point_track.temporal_layers):
+    for i in range(getattr(policy.point_track,'temporal_layers',0)):
         names += [f"point_track_head.temporal.{i}.{tail}" for tail in
                   ("attention.in_proj_weight", "ff.0.weight")]
     return names
@@ -30,8 +35,8 @@ def install(trainer):
 
     def audited_step(self, batch_vla, batch_vlm=None):
         from deepspeed.utils import safe_get_full_fp32_param
-        if self.accelerator.gradient_accumulation_steps != 1 or self.total_batch_size != 64:
-            raise ValueError("Engineering audit requires native global64/acc1")
+        if self.accelerator.gradient_accumulation_steps != 1 or self.total_batch_size not in (64,128):
+            raise ValueError("Engineering audit requires native global64/128 acc1")
         policy = self.accelerator.unwrap_model(self.model).policy_model
         params = dict(policy.named_parameters())
         names = audited_parameter_names(policy)
@@ -53,7 +58,7 @@ def install(trainer):
             for handle in handles:
                 handle.remove()
         proof = dict(step=self.completed_steps + 1, rank=self.accelerator.process_index,
-                     world_size=self.accelerator.num_processes, global_batch=64, accumulation=1,
+                     world_size=self.accelerator.num_processes, global_batch=self.total_batch_size, accumulation=1,
                      masters={})
         for name in names:
             master = safe_get_full_fp32_param(params[name]).detach().cpu()

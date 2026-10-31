@@ -1,0 +1,13 @@
+{
+  "cube_half_extent_m": 2.0,
+  "base_body_name": "mobilebase0_base",
+  "num_points": 1024,
+  "seed": 42,
+  "geom_groups": [
+    1
+  ],
+  "primitive_segments": 32,
+  "primitive_rings": 16,
+  "asset_root": "${ROBOT_EXPERIMENTS_HOME}",
+  "time_tolerance": 1e-05
+}

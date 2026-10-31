@@ -17,8 +17,8 @@ def main():
     import yaml
     c = yaml.safe_load(args.config.read_text())
     variant = c["portable"]["variant"]
-    if variant not in POSITION_VARIANTS:
-        raise ValueError("V3 engineering probe only")
+    if variant not in POSITION_VARIANTS and variant!='pri4r_paper':
+        raise ValueError("V3/Pri4R engineering probe only")
     activate(variant)
     import numpy as np
     import torch
@@ -37,10 +37,15 @@ def main():
     # Only our own locally generated engineering sample is loaded.
     sample = torch.load(args.sample, weights_only=False, map_location="cpu")
     policy = model.policy_model
-    from openpi.models_pytorch.position_point import validate_position_policy
-    direct_query = validate_position_policy(policy)
-    if direct_query != (variant in POSITION_QUERY_VARIANTS):
-        raise ValueError("Wrong V3 prefix architecture for requested variant")
+    if variant=='pri4r_paper':
+        direct_query = False
+        if policy.foresight.enabled or policy.point_track.version!='pri4r_embedding_v1':
+            raise ValueError('Wrong Pri4R architecture')
+    else:
+        from openpi.models_pytorch.position_point import validate_position_policy
+        direct_query = validate_position_policy(policy)
+        if direct_query != (variant in POSITION_QUERY_VARIANTS):
+            raise ValueError("Wrong V3 prefix architecture for requested variant")
     if not policy.paligemma_with_expert.separate_prefix_attention:
         raise AssertionError("Required cache-aligned prefix path disabled")
     preprocess = policy._preprocess_observation

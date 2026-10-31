@@ -18,4 +18,4 @@ def build(variant):
     print('OVERLAY_OK',variant,target)
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--variant',choices=VARIANTS);a=p.parse_args()
-    for v in ([a.variant] if a.variant else ['baseline','query_fixed','query3d_v2','embedding3d_pos_a']):build(v)
+    for v in ([a.variant] if a.variant else ['baseline','query_fixed','query3d_v2','embedding3d_pos_a','pri4r_paper']):build(v)

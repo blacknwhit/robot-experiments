@@ -5,11 +5,11 @@ import hashlib, os, sys
 ROOT = Path(__file__).resolve().parents[1]
 POSITION_QUERY_VARIANTS = ('query3d_temporal_c',)
 POSITION_VARIANTS = ('embedding3d_pos_a', 'embedding3d_temporal_b', *POSITION_QUERY_VARIANTS)
-VARIANTS = ('baseline', 'query_fixed', 'query3d_v2', 'embedding3d_v2', *POSITION_VARIANTS)
+VARIANTS = ('baseline', 'query_fixed', 'query3d_v2', 'embedding3d_v2', 'pri4r_paper', *POSITION_VARIANTS)
 
 
 def is_point_variant(variant):
-    return variant.endswith('3d_v2') or variant in POSITION_VARIANTS
+    return variant.endswith('3d_v2') or variant in POSITION_VARIANTS or variant == 'pri4r_paper'
 
 def runtime(variant):
     if variant not in VARIANTS:
