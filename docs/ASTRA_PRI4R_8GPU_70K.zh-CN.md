@@ -1,13 +1,13 @@
 # 远端直接执行：Pri4R × PI0.5，8卡训练70k与评测
 
-本页是2026-11-01用户指定的正式训练交接。使用公开仓库版本标签 **`pri4r-h8-70k-20261101`**，配置profile **`pri4r_8gpu70k_v1`**。远端按以下命令准备资源、启动训练、恢复和评测，不需再自行修改模型或评测代码。本地没有替远端生成全量GT或启动正式训练。
+本页是2026-11-01用户指定的正式训练交接。使用公开仓库版本标签 **`pri4r-h8-b8-70k-20261101`**，配置profile **`pri4r_8gpu70k_b8_v2`**。远端按以下命令准备资源、启动训练、恢复和评测，不需再自行修改模型或评测代码。本地没有替远端生成全量GT或启动正式训练。
 
 ## 1. 最终配置与适用范围
 
 | 项目 | 本次正式配置 | 依据 |
 |---|---|---|
 | 训练硬件 | 单机8×H100 80GB；原生DDP，8个rank | 本次8卡交接；尚未实体8卡联跑验收 |
-| batch | **每卡16 × 8卡 × 梯度累积1 = global128** | Pri4R全局batch；用户要求关闭梯度累积 |
+| batch | **每卡8 × 8卡 × 梯度累积1 = global64** | 用户最新覆盖Pri4R batch，与π0.5基线/FIXED对齐 |
 | 优化步数 | **max=70000、stop=70000、cosine总区间=70000** | 用户覆盖论文30k预算；不是只改停训步数 |
 | 学习率 | peak `5e-5`，warmup `10000`，cosine末值 `2.5e-6` | Pri4R峰值/预热；末值沿用官方π0.5默认 |
 | 优化器 | AdamW，betas `.9/.95`、eps `1e-8`、WD `1e-10`、clip `1` | 原π0.5训练配置；不改参数组策略 |
@@ -20,11 +20,13 @@
 | 保存/日志 | update1额外完整保存，其后每5000步；日志每100步 | 保存间隔与已训π0.5基线对齐 |
 | loader | 每rank 8 workers、prefetch4、pin memory；OpenCV视频读取 | 与已训π0.5基线对齐，共64个loader worker |
 
-**“关梯度累积”是 `gradient_accumulation_steps=1`；不关闭 `gradient_checkpointing`。** 后者用重计算降低显存，不改变global batch。
+**梯度累积关闭，activation checkpointing保留**：`gradient_accumulation_steps=1`、`gradient_checkpointing=true`、`point_track.checkpoint_fusion=true`。用户明确选择先发布B8并保留checkpointing，等H100空闲后再检查能否关闭。
 
-**2026-11-01实测补充：该B16配方不能直接完全关闭activation checkpointing。** 同一空闲H10080GB、原始base、真实样本、官方精度、DDP及CUDA FP32 EMA，主GC和fusion同时关闭后，第一次前向在Gemma MLP就OOM：进程占用约79.09GiB，尚需484MiB；此时还未反向或首次分配Adam动量。所有相关module flag均false，实际checkpoint调用0。开启两项时连续3次前向/反向/Adam/EMA更新通过，峰值allocated 48.15GiB、reserved 53.91GiB；预热后两个更新计算均值1.184秒，不含数据I/O、保存和八卡通信。8卡DDP并不合并成每rank可用640GB，模型/优化器/激活仍占本卡显存，因此保留当前设置。详见[显存对照证据](../provenance/PRI4R_CHECKPOINT_CAPACITY.json)。这是每rank容量探针，不是完整八卡吞吐验收。
+本次batch与π0.5基线/FIXED对齐：8×8×1=global64，70k对应448万训练样本抽取。LR仍保持Pri4R的peak5e-5、warmup10k、EMA.999；cosine按用户要求使用70k。旧基线peak2.5e-5/warmup1k/100k cosine且停70k等差异仍存在，所以不是仅增加辅助loss的严格单变量消融。作者未公开的辅助尺寸、world米制、3m立方体及mean L1等约定不变；不因batch减半自行缩放LR或EMA。
 
-Pri4R优先的配置与旧基线并非完全相同：旧基线global64、peak2.5e-5、warmup1k、100k cosine且停70k；本次global128、peak5e-5、warmup10k、70k cosine及EMA。70k对应本次896万、旧基线448万训练样本抽取，不能称为只增加辅助loss的等预算消融。作者未公开的2层Embedding/米制world/3m采样立方体/mean L1等细节采用用户已确认的约定；这也不是论文原数据集分数的复现。
+B8关闭重计算尚未实测：本轮尝试在分配模型前发现H100被另一训练占用约61GB，按空闲保护退出，未动该训练。此前B16关闭重计算OOM、开启后通过的结果仅作为[历史B16证据](../provenance/PRI4R_CHECKPOINT_CAPACITY.json)，不推断B8一定能关或不能关。[本次B8配置与状态验证凭证](../provenance/PRI4R_8GPU70K_B8_VALIDATION.json)。
+
+新profile、run-id和输出目录均与旧B16/global128版本分开。旧B16状态不能直接续接这个global64配方；模型、GT、loss、LR和EMA不变。
 
 ## 2. 获取固定代码与复用环境
 
@@ -32,8 +34,8 @@ Pri4R优先的配置与旧基线并非完全相同：旧基线global64、peak2.5
 
 ```bash
 set -euo pipefail
-export CODE_DIR=/absolute/path/to/robot-experiments-pri4r-h8-70k
-git clone --branch pri4r-h8-70k-20261101 --single-branch \
+export CODE_DIR=/absolute/path/to/robot-experiments-pri4r-h8-b8-70k
+git clone --branch pri4r-h8-b8-70k-20261101 --single-branch \
   https://github.com/blacknwhit/robot-experiments.git "$CODE_DIR"
 cd "$CODE_DIR"
 git rev-parse HEAD
@@ -43,9 +45,9 @@ git rev-parse HEAD
 
 ```bash
 export SHARED=/absolute/path/to/existing-pi05-resources
-export ROBOT_EXPERIMENTS_HOME="$SHARED/pri4r-h8-70k-resources"
+export ROBOT_EXPERIMENTS_HOME="$SHARED/pri4r-h8-b8-70k-resources"
 export PRI4R_ASSET_ROOT="$SHARED"
-export EXPERIMENT_ROOT="$SHARED/experiments/pri4r-h8-70k"
+export EXPERIMENT_ROOT="$SHARED/experiments/pri4r-h8-b8-70k"
 export POLICY_PY="$SHARED/envs/policy/bin/python"
 export SIM_PY="$SHARED/envs/sim/bin/python"
 export OPENPI_DATA_HOME="$ROBOT_EXPERIMENTS_HOME/cache/openpi"
@@ -87,7 +89,7 @@ SHARED/
   receipts/{policy,sim}.freeze.txt
 ```
 
-`PRI4R_ASSET_ROOT`需要同时包含解析链接后的源数据、GT输出和上述mesh路径；GT工具严格限制文件边界。若现有资源分散在其它位置，先整理到这个布局再继续，不能只改变量骗过校验。已有环境不要无条件重跑安装脚本：已验证组合为Python3.11、Torch2.7.1+cu128、Transformers4.53.2、Accelerate1.5.2、NCCL2.26.5；sim为MuJoCo3.3.1及固定robosuite/RoboCasa版本。训练不需要登录宿主GPU。
+`PRI4R_ASSET_ROOT`需要同时包含解析链接后的源数据、GT输出和上述mesh路径；GT工具严格限制文件边界。 **B16→B8不改变GT：若已生成同物理时钟策略的完整Pri4R GT，可直接复用其resource home和asset root，无需重新生成；只创建新的experiment/run/config。**若现有资源分散在其它位置，先整理到这个布局再继续，不能只改变量骗过校验。已有环境不要无条件重跑安装脚本：已验证组合为Python3.11、Torch2.7.1+cu128、Transformers4.53.2、Accelerate1.5.2、NCCL2.26.5；sim为MuJoCo3.3.1及固定robosuite/RoboCasa版本。训练不需要登录宿主GPU。
 
 **如果是全新集群、没有可复用资源**，改走下面独立分支，跳过上面的链接命令：
 
@@ -133,11 +135,11 @@ bash scripts/setup_sim.sh
 
 ```bash
 cd "$CODE_DIR"
-export RUN_ID=pri4r_h8_70k_s42
-export CONFIG="$CODE_DIR/resolved/pri4r-h8-70k-s42.yaml"
+export RUN_ID=pri4r_h8_b8_70k_s42
+export CONFIG="$CODE_DIR/resolved/pri4r-h8-b8-70k-s42.yaml"
 mkdir -p "$CODE_DIR/resolved" "$EXPERIMENT_ROOT"
 "$POLICY_PY" scripts/configure.py --variant pri4r_paper \
-  --training-profile pri4r_8gpu70k_v1 \
+  --training-profile pri4r_8gpu70k_b8_v2 \
   --home "$ROBOT_EXPERIMENTS_HOME" --experiment-root "$EXPERIMENT_ROOT" \
   --run-id "$RUN_ID" --gpus 8 --formal --stop 70000 --out "$CONFIG"
 "$POLICY_PY" scripts/pri4r_preflight.py --config "$CONFIG"
@@ -145,7 +147,7 @@ mkdir -p "$CODE_DIR/resolved" "$EXPERIMENT_ROOT"
 "$POLICY_PY" scripts/train_or_resume.py --config "$CONFIG" --dry-run
 ```
 
-configure只运行一次，拒绝覆盖已有resolved YAML。preflight检查源码、完整GT、scope、base/norm，不分配模型；它不代替实体8卡测试。dry-run必须打印 `world=8, micro_batch=16, accumulation=1, global_batch=128, max_train_steps=70000, stop_after_steps=70000, cosine_decay_steps=70000, save_interval=5000, ema_device=cuda`。
+configure只运行一次，拒绝覆盖已有resolved YAML。preflight检查源码、完整GT、scope、base/norm，不分配模型；它不代替实体8卡测试。dry-run必须打印 `world=8, micro_batch=8, accumulation=1, global_batch=64, max_train_steps=70000, stop_after_steps=70000, cosine_decay_steps=70000, save_interval=5000, ema_device=cuda, gradient_checkpointing=true, checkpoint_fusion=true`。
 
 不要省略 `--training-profile`：旧论文30k模板保留作为历史配置，不能只手工把stop改70k。不要预先创建 `$EXPERIMENT_ROOT/runs/$RUN_ID`，否则入口会按已有实验执行恢复；创建其父目录即可。
 
@@ -159,9 +161,9 @@ export OPENPI_DATA_HOME="$ROBOT_EXPERIMENTS_HOME/cache/openpi"
 "$POLICY_PY" scripts/train_or_resume.py --config "$CONFIG"
 ```
 
-只启动**一个**上述命令；内部自动torchrun启动8rank。不能再外套8进程torchrun，也不能每卡分别启动8份训练入口。保存任务的stdout/stderr和完整run目录。机器需提供64个loader worker与8个训练rank所需的CPU/I/O资源；首段实际训练应核实8rank、B16/acc1/global128、有限action/point loss与参数更新、update1完整保存。原生DDP通信性能、正式全量数据吞吐仍以目标机器日志为准，不保证8卡线性加速。
+只启动**一个**上述命令；内部自动torchrun启动8rank。不能再外套8进程torchrun，也不能每卡分别启动8份训练入口。保存任务的stdout/stderr和完整run目录。机器需提供64个loader worker与8个训练rank所需的CPU/I/O资源；首段实际训练应核实8rank、B8/acc1/global64、有限action/point loss与参数更新、update1完整保存。原生DDP通信性能、正式全量数据吞吐仍以目标机器日志为准，不保证8卡线性加速。
 
-重启时使用**同一份代码、resolved YAML、run-id和完全相同的命令**。入口自动选最新完整兼容checkpoint，恢复模型、Adam、scheduler、8rank RNG、数据进度及EMA；跳过不完整保存。如果run已存在但没有完整state，直接报错，不静默重新从base开始。不要接续旧30k配方、四卡或短测权重，也不要在中途更换卡数/精度/源码。writer锁防止同一个run双写。
+重启时使用**同一份代码、resolved YAML、run-id和完全相同的命令**。入口自动选最新完整兼容checkpoint，恢复模型、Adam、scheduler、8rank RNG、数据进度及EMA；跳过不完整保存。如果run已存在但没有完整state，直接报错，不静默重新从base开始。不要接续旧B16/global128、30k配方、四卡或短测权重，也不要在中途更换卡数/精度/源码。writer锁防止同一个run双写。
 
 若在SCO提交，启用并核验原生 `autoRetrain=true, autoRetrainIntervalMinutes=10`；以monitor的currentJob为准，不另写竞争重试循环。其它集群使用其已有单一恢复机制，避免两个调度者同时启动本run。第一次启动失败也先看真实异常，不盲目改batch或丢弃run。
 
@@ -182,7 +184,7 @@ export CHECKPOINT="$EXPERIMENT_ROOT/runs/$RUN_ID/checkpoints/steps_70000_model.s
 
 ```bash
 cd "$CODE_DIR"
-export EVAL_OUT="$EXPERIMENT_ROOT/eval/pri4r-h8-70k-fixed-seeds-v1"
+export EVAL_OUT="$EXPERIMENT_ROOT/eval/pri4r-h8-b8-70k-fixed-seeds-v1"
 EVAL_ARGS=(
   --variant pri4r_paper --home "$ROBOT_EXPERIMENTS_HOME"
   --config "$CONFIG" --checkpoint "$CHECKPOINT" --sim-python "$SIM_PY"
@@ -198,7 +200,7 @@ EVAL_ARGS=(
 - `n-envs=16`是**每张GPU合计16个CPU仿真worker**，8卡最多128个；`tasks-per-gpu=50`表示任务池上限，不是50份模型或每任务16环境。动态均衡分配实际剩余任务，减少某个慢任务让卡空等。
 - H50、每5步重新规划、10步去噪、task清单原horizon（不乘1.5）；原混合精度、TF32关闭。完整EMA加载后去除辅助模块，模型不接收点轨迹GT。
 - `final/deferred`省掉控制中间步和暂不读取时的RGB，不改变物理step或实际供模型读取的观测时刻。CUDA Graph/pipeline使用现有验证路径，保留自动动作数值检查及黑图/异常检查；不要求生成场景计划，不作旧参考初始图像逐像素hash比较。
-- 默认直接正式评测，不先重复50任务smoke。这个配置以既有单H100高吞吐证据为起点；当前Pri4R8卡/全量GT尚未实跑，不能承诺整机或3小时窗口固定84%–85%利用率。CPU不足/内存紧张时先用每卡8环境，充分供给CPU后再上16；不同配置使用新的输出目录。
+- 默认直接正式评测，不先重复50任务smoke。这个配置以既有单H100高吞吐证据为起点；当前Pri4R实体8卡/全量GT尚未实跑，不能承诺整机或3小时窗口固定84%–85%利用率。CPU不足/内存紧张时先用每卡8环境，充分供给CPU后再上16；不同配置使用新的输出目录。
 
 整个评测完成会自动生成 `$EVAL_OUT/FINAL_ACCEPTED.json`，要求50任务、2500个唯一回合、原始成功布尔值及证据完整。可重新汇总而不再推理：
 
@@ -210,6 +212,6 @@ EVAL_ARGS=(
 
 ## 7. 本次交付的验收边界
 
-本次测试对象是**8卡70k配置生成、真实launcher dry-run、恢复选择规则、正式GT拒绝规则、50×50/8卡评测命令**；验收凭证见 [PRI4R_8GPU70K_HANDOFF_VALIDATION.json](../provenance/PRI4R_8GPU70K_HANDOFF_VALIDATION.json)。方法计算、GT物理时钟及保存恢复另有此前单H100真实短训/推理证据：[物理时钟修复](PRI4R_PHYSICAL_CLOCK_FIX.zh-CN.md)。没有把CPU配置测试称为8张实体GPU训练通过，也没有70k训练或本版benchmark成绩。
+本次已通过**41项CPU测试、8卡B8/70k配置生成、真实launcher dry-run、global64小模型native状态保存/恢复、旧global128拒绝、正式GT拒绝规则、50×50/8卡评测命令**；验收凭证见 [PRI4R_8GPU70K_B8_VALIDATION.json](../provenance/PRI4R_8GPU70K_B8_VALIDATION.json)。方法计算、GT物理时钟及保存恢复另有此前单H100真实短训/推理证据：[物理时钟修复](PRI4R_PHYSICAL_CLOCK_FIX.zh-CN.md)。没有把CPU配置测试称为8张实体GPU训练通过，也没有70k训练或本版benchmark成绩。
 
 远端保留：固定commit/manifest、两份环境freeze、全GT凭证、resolved YAML、完整训练run、最新全state及70k EMA导出、评测原始结果和FINAL_ACCEPTED。首次8卡真实运行暴露的环境/NCCL/资源问题按原始栈处理；不通过修改GT凭证、删rank状态或降低验收标准继续。

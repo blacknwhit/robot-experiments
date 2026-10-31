@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 from common import ROOT, environment, runtime, POSITION_VARIANTS
 from release_contract import verify_release
+from pri4r_profiles import expected_global_batch
 
 def training_environment(config):
     variant=config['portable']['variant'];env=environment(variant)
@@ -19,7 +20,7 @@ def launch_configuration(c, config_path, control):
     """Keep official mixed parameter dtypes out of DeepSpeed's blanket cast."""
     n=c['portable']['world_size'];v=c['portable']['variant']
     micro=c['datasets']['vla_data']['per_device_batch_size']
-    acc=c['trainer']['gradient_accumulation_steps'];batch=128 if v=='pri4r_paper' else 64
+    acc=c['trainer']['gradient_accumulation_steps'];batch=expected_global_batch(c)
     if micro*n*acc!=batch:raise ValueError('Global batch mismatch')
     if c['framework']['pi05'].get('official_precision_mode'):
         if c['trainer'].get('optimizer_offload_cpu'):
@@ -52,7 +53,7 @@ def main():
         from pri4r_contract import validate_recipe
         validate_recipe(c)
     run=Path(c['run_root_dir'])/c['run_id'];env=training_environment(c)
-    batch = 128 if v == 'pri4r_paper' else 64
+    batch = expected_global_batch(c)
     acc = c['trainer']['gradient_accumulation_steps']
     micro = c['datasets']['vla_data']['per_device_batch_size']
     if micro*n*acc != batch:raise ValueError('Global batch mismatch')
@@ -62,7 +63,9 @@ def main():
     print(json.dumps({'command':cmd,'run':str(run),'world':n,'micro_batch':micro,'global_batch':batch,'accumulation':acc,'resume':a.resume,
         'training_profile':c['portable'].get('training_profile'),'max_train_steps':c['trainer']['max_train_steps'],
         'stop_after_steps':c['trainer']['stop_after_steps'],'cosine_decay_steps':c['trainer']['max_train_steps'],
-        'save_interval':c['trainer']['save_interval'],'ema_device':c['trainer'].get('ema_device')},indent=2))
+        'save_interval':c['trainer']['save_interval'],'ema_device':c['trainer'].get('ema_device'),
+        'gradient_checkpointing':c['framework']['pi05'].get('gradient_checkpointing'),
+        'checkpoint_fusion':c['framework']['pi05'].get('point_track',{}).get('checkpoint_fusion')},indent=2))
     if a.dry_run:return
     control.mkdir(parents=True,exist_ok=True)
     if ds is not None:ds_path.write_text(json.dumps(ds,indent=2))

@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 from common import activate, is_point_variant, POSITION_VARIANTS
 from release_contract import verify_release
+from pri4r_profiles import expected_global_batch
 
 def canonical(c):
     from checkpoint import canonical_recipe
@@ -30,7 +31,7 @@ def main():
     import torch
     import torch.distributed as dist
     world=int(os.environ['WORLD_SIZE']);rank=int(os.environ['RANK'])
-    batch=128 if v=='pri4r_paper' else 64
+    batch=expected_global_batch(c)
     if world!=c['portable']['world_size'] or c['datasets']['vla_data']['per_device_batch_size']*world*c['trainer']['gradient_accumulation_steps']!=batch:raise ValueError('World/batch mismatch')
     torch.cuda.set_device(int(os.environ['LOCAL_RANK']))
     dist.init_process_group('nccl')

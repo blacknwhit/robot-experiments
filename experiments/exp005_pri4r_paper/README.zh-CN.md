@@ -2,7 +2,7 @@
 
 本实验按Pri4R论文公开方法独立实现，并迁移到RoboCasa365。它与EXP-003/004的Query、arm/object配额、累计或位置监督对照独立；不把那些版本的成绩算作本实验结果。
 
-- 当前远端入口：[8卡、acc1、70k训练/续训/完整评测](../../docs/ASTRA_PRI4R_8GPU_70K.zh-CN.md)。profile为`pri4r_8gpu70k_v1`，batch16×8/global128；预算覆盖论文30k，保留Pri4R LR/EMA；保存与loader对齐基线。
+- 当前远端入口：[8卡、acc1、70k训练/续训/完整评测](../../docs/ASTRA_PRI4R_8GPU_70K.zh-CN.md)。profile为`pri4r_8gpu70k_b8_v2`，batch8×8/acc1/global64；预算覆盖论文30k、batch覆盖论文128，保留Pri4R LR/EMA与checkpointing；保存与loader对齐基线。
 - 方法与历史工程验收：[资源、少量GT、单卡验收、原四卡30k配方](../../docs/PRI4R_PAPER_TRAINING.zh-CN.md)。
 - 模型代码：`runtimes/pri4r_paper/`；模型配置：`configs/pri4r_paper.yaml`。
 - GT配置：`configs/pri4r_paper_gt.json`；生成入口：`scripts/prepare_pri4r_gt.py`。

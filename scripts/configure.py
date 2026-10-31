@@ -10,7 +10,7 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
     profile=load_profile(training_profile) if training_profile is not None else None
     if profile and (variant!='pri4r_paper' or not formal or smoke or engineering
                     or world!=profile['world_size'] or stop!=profile['stop_after_steps']):
-        raise ValueError('pri4r_8gpu70k_v1 requires --variant pri4r_paper --gpus 8 --formal --stop 70000')
+        raise ValueError('8GPU70k profiles require --variant pri4r_paper --gpus 8 --formal --stop 70000')
     single_smoke = variant == 'pri4r_paper' and world == 1 and smoke
     if (world not in (2,4,8) and not single_smoke) or not 1 <= stop <= 70000:
         raise ValueError('Supported world sizes: 2/4/8; Pri4R bounded smoke also permits 1 GPU')
@@ -74,6 +74,8 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
             c['trainer'][key]=profile[key]
         for key in ('per_device_batch_size','num_workers','prefetch_factor'):
             c['datasets']['vla_data'][key]=profile[key]
+        c['framework']['pi05']['gradient_checkpointing']=profile.get('gradient_checkpointing',True)
+        c['framework']['pi05']['point_track']['checkpoint_fusion']=profile.get('checkpoint_fusion',True)
         c['portable']['training_profile']=profile['name']
         c['experiment'].update(training_profile=profile['name'],training_budget_source=profile['budget_source'])
     # Same immutable code identity used by v2 checkpoint contracts on fresh/resumed runs.
@@ -87,7 +89,7 @@ def main():
     p.add_argument('--engineering',action='store_true');p.add_argument('--out',type=Path,required=True)
     p.add_argument('--formal',action='store_true',help='Explicitly prepare a fresh formal candidate recipe; never starts a job')
     p.add_argument('--training-profile',choices=PROFILES,
-                   help='Explicit user recipe: 8 GPUs, B16, no accumulation, max/stop/cosine70k')
+                   help='Versioned 8-GPU/acc1/70k recipe: current B8/global64 or historical B16/global128')
     p.add_argument('--experiment-root', type=Path,
                    help='V3/Pri4R outputs only; --home still supplies existing data, base, GT and caches')
     a=p.parse_args();c=render(a.variant,a.home,a.run_id,a.gpus,a.stop,a.smoke,a.engineering,a.formal,

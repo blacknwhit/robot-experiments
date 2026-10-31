@@ -5,7 +5,7 @@ import yaml
 from common import sha256
 from checkpoint import choose_latest
 from pri4r_contract import validate_recipe,validate_gt_receipt
-from pri4r_profiles import PROFILE_8GPU70K
+from pri4r_profiles import PROFILES,expected_global_batch
 from release_contract import verify_release
 
 BASE_SHA='9fd36e337832960bbfc122bd686dfc64b89551522d891c0d21ae586385de297e'
@@ -14,7 +14,7 @@ NORM_SHA='4aed1af411bd0e0f49d2b0e6d6832b11b8682917231a07173fbc30fd493bbdee'
 
 def check_profile(config):
     validate_recipe(config)
-    if config['portable'].get('training_profile')!=PROFILE_8GPU70K:
+    if config['portable'].get('training_profile') not in PROFILES:
         raise ValueError('This entry requires the explicit 8GPU70k training profile')
 
 
@@ -46,8 +46,9 @@ def check_resources(config):
         if sha256(path)!=expected:raise ValueError('Wrong original base/norm asset: '+str(path))
     for path in (home/'cache/openpi/big_vision/paligemma_tokenizer.model',home/'cache/arrow'):
         if not path.exists():raise FileNotFoundError(path)
-    return {'passed':True,'training_profile':PROFILE_8GPU70K,'world':8,'micro_batch':16,
-        'accumulation':1,'global_batch':128,'max_train_steps':70000,'stop_after_steps':70000,
+    return {'passed':True,'training_profile':config['portable']['training_profile'],'world':8,
+        'micro_batch':d['per_device_batch_size'],'accumulation':1,'global_batch':expected_global_batch(config),
+        'max_train_steps':70000,'stop_after_steps':70000,
         'warmup_steps':10000,'cosine_decay_steps':70000,'save_interval':5000,
         'gt_episodes':proof['episodes'],'gt_frames':proof['frames'],'model_allocated':False,'gpu_test':False}
 

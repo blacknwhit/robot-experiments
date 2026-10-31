@@ -2,15 +2,16 @@
 import json
 from pathlib import Path
 from common import sha256
-from pri4r_profiles import load_profile
+from pri4r_profiles import load_profile,expected_global_batch
 
 
 def validate_recipe(c):
     t=c['trainer'];p=c['framework']['pi05'];d=c['datasets']['vla_data'];v=c['portable']
     profile=load_profile(v['training_profile']) if v.get('training_profile') else None
     budget=profile['max_train_steps'] if profile else 30000
+    batch=expected_global_batch(c)
     expected={'max_train_steps':budget,'num_warmup_steps':10000,'ema_decay':0.999,
-              'expected_global_batch_size':128,'ema_missing_resume_policy':'error'}
+              'expected_global_batch_size':batch,'ema_missing_resume_policy':'error'}
     if any(t.get(k)!=value for k,value in expected.items()):
         raise ValueError('Pri4R paper training recipe changed')
     if t['learning_rate']['base']!=5e-5 or t['lr_scheduler_type']!='openpi_cosine':
@@ -32,7 +33,7 @@ def validate_recipe(c):
     if bool(d.get('pri4r_smoke_manifest'))!=smoke:
         raise ValueError('Partial data allowed only in explicit bounded smoke')
     world=v['world_size'];acc=t['gradient_accumulation_steps'];micro=d['per_device_batch_size']
-    if world*acc*micro!=128:raise ValueError('Pri4R requires global batch128, including single-GPU smoke')
+    if world*acc*micro!=batch:raise ValueError('Pri4R global batch differs from its versioned recipe')
     if profile:
         if not formal or smoke or world!=profile['world_size']:
             raise ValueError('8GPU70k requires eight formal training ranks')
@@ -40,15 +41,16 @@ def validate_recipe(c):
             if t.get(key)!=profile[key]:raise ValueError('8GPU70k trainer contract differs: '+key)
         for key in ('per_device_batch_size','num_workers','prefetch_factor'):
             if d.get(key)!=profile[key]:raise ValueError('8GPU70k data contract differs: '+key)
-        if c.get('seed')!=42 or not p.get('gradient_checkpointing'):
-            raise ValueError('8GPU70k retains seed42 and validated activation checkpointing')
+        if (c.get('seed')!=42 or p.get('gradient_checkpointing')!=profile.get('gradient_checkpointing',True)
+                or pt.get('checkpoint_fusion')!=profile.get('checkpoint_fusion',True)):
+            raise ValueError('8GPU70k seed/checkpointing differs from its versioned recipe')
     if world==1:
         if not smoke or (micro,acc)!=(4,32) or t.get('ema_device')!='cpu':
             raise ValueError('Single GPU requires bounded native AdamW with CPU EMA')
     elif t.get('optimizer_offload_cpu') or t.get('ema_device','cuda')!='cuda':
         raise ValueError('Formal multi-GPU recipe changed its state placement')
-    elif world not in (2,4,8) or acc!=1 or micro!=128//world:
-        raise ValueError('Multi-GPU Pri4R requires accumulation=1 and micro=128/world')
+    elif world not in (2,4,8) or acc!=1 or micro!=batch//world:
+        raise ValueError('Multi-GPU Pri4R requires accumulation=1 and micro=expected_batch/world')
 
 
 def validate_gt_receipt(c,proof,gt):

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from pri4r_profiles import expected_global_batch
 
 
 def native_mode(cfg):
@@ -73,7 +74,7 @@ def validate_native(path,cfg,step,deep=True):
     if (path/'pytorch_model').exists():raise ValueError('Mixed native/ZeRO checkpoint')
     meta=json.loads((path/'native_state.json').read_text())
     if (meta['backend'],meta['world'],meta['step'],meta['global_batch'],meta['accumulation']) != (
-            'native_ddp',world,step,128,cfg['trainer']['gradient_accumulation_steps']):
+            'native_ddp',world,step,expected_global_batch(cfg),cfg['trainer']['gradient_accumulation_steps']):
         raise ValueError('Native checkpoint topology/clocks differ')
     if len(list(path.glob('random_states_*.pkl')))!=world:raise ValueError('Native RNG world differs')
     if not deep:return

@@ -2,6 +2,7 @@
 from pathlib import Path
 import copy,json,re
 from common import is_point_variant, POSITION_VARIANTS
+from pri4r_profiles import expected_global_batch
 
 def canonical_recipe(config):
     config=copy.deepcopy(config)
@@ -21,7 +22,7 @@ def validate(path,cfg,deep=True):
     path=Path(path);step=int(re.fullmatch(r'checkpoint-([1-9][0-9]*)',path.name)[1])
     world=cfg['portable']['world_size'];fixed=cfg['portable']['variant']=='query_fixed'
     paper=cfg['portable']['variant']=='pri4r_paper'
-    batch=128 if paper else 64
+    batch=expected_global_batch(cfg)
     acc=cfg.get('trainer',{}).get('gradient_accumulation_steps',1)
     if paper and cfg['framework']['pi05'].get('official_precision_mode'):
         from pri4r_native_state import validate_native
