@@ -22,6 +22,13 @@ def validate_recipe(c):
         raise ValueError('Choose explicit bounded smoke or formal training')
     if bool(d.get('pri4r_smoke_manifest'))!=smoke:
         raise ValueError('Partial data allowed only in explicit bounded smoke')
+    world=v['world_size'];acc=t['gradient_accumulation_steps'];micro=d['per_device_batch_size']
+    if world*acc*micro!=128:raise ValueError('Pri4R requires global batch128, including single-GPU smoke')
+    if world==1:
+        if not smoke or (micro,acc)!=(4,32) or not t.get('optimizer_offload_cpu') or t.get('ema_device')!='cpu':
+            raise ValueError('Single GPU is a bounded CPU-offloaded engineering configuration')
+    elif t.get('optimizer_offload_cpu') or t.get('ema_device','cuda')!='cuda':
+        raise ValueError('Formal multi-GPU recipe changed its state placement')
 
 
 def validate_gt_receipt(c,proof,gt):

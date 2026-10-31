@@ -53,5 +53,20 @@ class ContractTests(unittest.TestCase):
         self.assertNotIn('sampling_rules',cfg)
         self.assertEqual(cfg['num_points'],1024)
 
+    def test_single_gpu_smoke_preserves_batch_and_formal_four_gpu(self):
+        c=render('pri4r_paper','/tmp/pri4r-test','single',1,2,smoke=True)
+        validate_recipe(c)
+        self.assertEqual(c['datasets']['vla_data']['per_device_batch_size'],4)
+        self.assertEqual(c['trainer']['gradient_accumulation_steps'],32)
+        self.assertTrue(c['trainer']['optimizer_offload_cpu'])
+        self.assertEqual(c['trainer']['ema_device'],'cpu')
+        f=render('pri4r_paper','/tmp/pri4r-formal','formal',4,30000,formal=True)
+        validate_recipe(f)
+        self.assertEqual(f['datasets']['vla_data']['per_device_batch_size'],32)
+        self.assertEqual(f['trainer']['gradient_accumulation_steps'],1)
+        self.assertFalse(f['trainer']['optimizer_offload_cpu'])
+        self.assertEqual(f['trainer']['ema_device'],'cuda')
+        with self.assertRaises(ValueError):render('pri4r_paper','/tmp/p','formal',1,30000,formal=True)
+
 
 if __name__=='__main__':unittest.main()

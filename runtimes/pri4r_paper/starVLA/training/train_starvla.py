@@ -329,7 +329,7 @@ class VLATrainer(TrainerUtils):
         if getattr(self.config.trainer, "save_format", "pt") != "safetensors":
             raise ValueError("trainer.ema_decay requires trainer.save_format=safetensors")
 
-        self.ema = ExponentialMovingAverage(decay=decay)
+        self.ema = ExponentialMovingAverage(decay=decay, device=self.config.trainer.get('ema_device',None))
         unwrapped_model = self.accelerator.unwrap_model(self.model)
         self.ema.initialize(unwrapped_model)
 

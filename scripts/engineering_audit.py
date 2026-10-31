@@ -35,21 +35,26 @@ def install(trainer):
 
     def audited_step(self, batch_vla, batch_vlm=None):
         from deepspeed.utils import safe_get_full_fp32_param
-        if self.accelerator.gradient_accumulation_steps != 1 or self.total_batch_size not in (64,128):
-            raise ValueError("Engineering audit requires native global64/128 acc1")
+        accumulation = self.accelerator.gradient_accumulation_steps
+        if self.total_batch_size not in (64,128):
+            raise ValueError("Engineering audit requires native global64/128")
         policy = self.accelerator.unwrap_model(self.model).policy_model
         params = dict(policy.named_parameters())
         names = audited_parameter_names(policy)
-        before, gradients = {}, {}
-        for name in names:
-            master = safe_get_full_fp32_param(params[name])
-            if master is None:
-                raise RuntimeError("Missing native master: " + name)
-            before[name] = master.detach().cpu().clone()
+        if not hasattr(self,'_native_audit_window'):
+            before={}
+            for name in names:
+                master = safe_get_full_fp32_param(params[name])
+                if master is None:
+                    raise RuntimeError("Missing native master: " + name)
+                before[name] = master.detach().cpu().clone()
+            self._native_audit_window={'before':before,'gradients':{},'microbatches':0}
+        window=self._native_audit_window
+        before,gradients=window['before'],window['gradients']
         handles = []
         for name in names:
             def capture(g, key=name):
-                gradients[key] = float(g.detach().float().square().sum().cpu())
+                gradients[key] = gradients.get(key,0.) + float(g.detach().float().square().sum().cpu())
                 return g
             handles.append(params[name].register_hook(capture))
         try:
@@ -57,22 +62,37 @@ def install(trainer):
         finally:
             for handle in handles:
                 handle.remove()
+        window['microbatches']+=1
+        if not self.accelerator.sync_gradients:
+            return metrics
+        if window['microbatches']!=accumulation:
+            raise RuntimeError('Audit accumulation window differs from optimizer boundary')
         proof = dict(step=self.completed_steps + 1, rank=self.accelerator.process_index,
-                     world_size=self.accelerator.num_processes, global_batch=self.total_batch_size, accumulation=1,
+                     world_size=self.accelerator.num_processes, global_batch=self.total_batch_size, accumulation=accumulation,
                      masters={})
+        zero=getattr(self.model,'optimizer',None)
+        proof['optimizer_class']=type(getattr(zero,'optimizer',None)).__name__
+        proof['cpu_offload']=bool(getattr(zero,'cpu_offload',False))
+        proof['ema_device']=str(next(iter(self.ema.shadow_parameters.values())).device) if self.ema else None
+        if self.config.trainer.get('optimizer_offload_cpu',False):
+            if not proof['cpu_offload'] or proof['optimizer_class']!='AdamW' or proof['ema_device']!='cpu':
+                raise RuntimeError('Actual optimizer/EMA placement differs from single-GPU contract')
         for name in names:
-            master = safe_get_full_fp32_param(params[name]).detach().cpu()
+            actual_master=safe_get_full_fp32_param(params[name])
+            if actual_master.dtype != torch.float32:raise RuntimeError('Master is not FP32: '+name)
+            master = actual_master.detach().cpu()
             change = float((master - before[name]).abs().max())
             grad = gradients.get(name, 0.)
             if not torch.isfinite(master).all() or not (0 < grad < float("inf") and 0 < change < float("inf")):
                 raise RuntimeError(f"Missing finite gradient/FP32 update: {name}: {grad}, {change}")
-            proof["masters"][name] = dict(gradient_squared_norm=grad, update_max=change)
+            proof["masters"][name] = dict(gradient_squared_norm=grad, update_max=change, actual_device=str(actual_master.device))
         output = Path(self.config.output_dir)
         with (output / f"position_native_audit_rank{proof['rank']}.jsonl").open("a") as stream:
             stream.write(json.dumps(proof) + "\n")
         if self.accelerator.is_main_process and not (output / "engineering_sample.pt").exists():
             torch.save(batch_vla[0], output / "engineering_sample.pt")
         print("POSITION_NATIVE_STEP_AUDIT " + json.dumps(proof), flush=True)
+        del self._native_audit_window
         return metrics
 
     trainer._train_step = audited_step

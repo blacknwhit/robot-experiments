@@ -24,6 +24,13 @@ def main():
     ds={'fp16':{'enabled':False},'bf16':{'enabled':True},'train_micro_batch_size_per_gpu':micro,'train_batch_size':batch,
         'gradient_accumulation_steps':acc,'zero_optimization':{'stage':2,'allgather_partitions':True,'allgather_bucket_size':500000000,
         'reduce_scatter':True,'reduce_bucket_size':500000000,'overlap_comm':True,'contiguous_gradients':True,'cpu_offload':False},'gradient_clipping':1.0,'steps_per_print':10}
+    if c['trainer'].get('optimizer_offload_cpu',False):
+        if v!='pri4r_paper' or n!=1 or not c['portable'].get('smoke'):
+            raise ValueError('CPU optimizer offload is scoped to bounded one-GPU Pri4R validation')
+        ds['zero_optimization'].pop('cpu_offload')
+        ds['zero_optimization']['offload_optimizer']={'device':'cpu','pin_memory':True}
+        # Preserve the configured torch AdamW algorithm and hyperparameters.
+        ds['zero_force_ds_cpu_optimizer']=False
     control=run.parent/'.launch'/c['run_id'];ds_path=control/'deepspeed.json';acc_path=control/'accelerate.yaml'
     accelerator_config={'compute_environment':'LOCAL_MACHINE','distributed_type':'DEEPSPEED','num_machines':1,'num_processes':n,
          'deepspeed_config':{'deepspeed_config_file':str(ds_path),'deepspeed_multinode_launcher':'standard','zero3_init_flag':False}}

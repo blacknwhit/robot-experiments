@@ -45,11 +45,12 @@ class ExponentialMovingAverage:
     an identical device-local shadow while only rank zero serializes it.
     """
 
-    def __init__(self, decay: float = 0.99):
+    def __init__(self, decay: float = 0.99, device=None):
         decay = float(decay)
         if not 0.0 <= decay < 1.0:
             raise ValueError(f"EMA decay must be in [0, 1), got {decay}")
         self.decay = decay
+        self.device = device
         self.num_updates = 0
         self.alias_to_primary: dict[str, str] = {}
         self.shadow_parameters: dict[str, torch.Tensor] = {}
@@ -79,7 +80,7 @@ class ExponentialMovingAverage:
                     primary = name
                     object_id_to_primary[object_id] = primary
                     self.shadow_parameters[primary] = (
-                        parameter.detach().to(dtype=torch.float32).clone()
+                        parameter.detach().to(dtype=torch.float32, device=self.device or parameter.device).clone()
                     )
                 self.alias_to_primary[name] = primary
 

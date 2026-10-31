@@ -49,13 +49,13 @@ bash scripts/setup_policy.sh
 "$PY" scripts/prepare_pri4r_gt.py --home "$ROBOT_EXPERIMENTS_HOME" --stage verify
 
 "$PY" scripts/configure.py --variant pri4r_paper --home "$ROBOT_EXPERIMENTS_HOME" \
-  --experiment-root "$EXPERIMENT_ROOT" --run-id pri4r_smoke --gpus 4 --smoke --stop 2 \
+  --experiment-root "$EXPERIMENT_ROOT" --run-id pri4r_smoke --gpus 1 --smoke --stop 2 \
   --out resolved/pri4r_smoke2.yaml
 "$PY" scripts/import_preflight.py --config resolved/pri4r_smoke2.yaml
 "$PY" scripts/train.py --config resolved/pri4r_smoke2.yaml
 
 "$PY" scripts/configure.py --variant pri4r_paper --home "$ROBOT_EXPERIMENTS_HOME" \
-  --experiment-root "$EXPERIMENT_ROOT" --run-id pri4r_smoke --gpus 4 --smoke --stop 3 \
+  --experiment-root "$EXPERIMENT_ROOT" --run-id pri4r_smoke --gpus 1 --smoke --stop 3 \
   --out resolved/pri4r_smoke3.yaml
 "$PY" scripts/train.py --config resolved/pri4r_smoke3.yaml --resume
 "$PY" scripts/point_inference_probe.py --config resolved/pri4r_smoke3.yaml \
@@ -66,7 +66,15 @@ bash scripts/setup_policy.sh
 
 短训使用真实RGB/action/GT，限制到清单里的示范，不会从未准备GT的其他episode随机补样。损坏/缺失GT直接报错；正式模式拒绝绑定短测清单。验收检查每层Embedding、点头、共享VLM有限非零梯度和FP32更新，以及各rank恢复和EMA clock。推理检查完整EMA加载、训练/缓存路径一致及不读取3D点的有限动作。
 
-**资源不足不要自行减global batch或改变loss/EMA。** 目前支持的GPU容量与实际短测证据以后附在此页；4卡B32的命令本身不是容量已通过证明。
+单卡短训自动使用B4、梯度累积32、global128；torch AdamW状态与FP32 EMA放在CPU，模型和前向反向仍在GPU。该设置只用于有界验收，要求足够CPU内存；不能将单卡CPU offload短测速度作为正式四卡训练速度。`--gpus 1 --formal`会直接拒绝。
+
+四卡正式配置仍是每卡B32、acc1、global128，Adam与EMA均在CUDA。四进程CPU/Gloo检查可单独执行：
+
+```bash
+"$PY" -m unittest discover -s tests -p test_pri4r_reduction.py -v
+```
+
+它检查不等有效点数及累积下的分布式梯度与全batch串行参考等价，使用本机TCP rendezvous以避免共享盘文件锁问题。它不代表四张GPU的NCCL、显存容量或完整ZeRO2实机验收。**资源不足不要自行减global batch或改变loss/EMA。**
 
 ## 3. 以后在远端全量准备GT
 

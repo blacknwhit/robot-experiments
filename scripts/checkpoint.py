@@ -34,6 +34,13 @@ def validate(path,cfg,deep=True):
     if (m['dp_world_size'],m['mp_world_size'],m['global_steps'],m['global_samples'])!=(world,1,step,step*batch):
         raise ValueError('DeepSpeed clocks/world differ')
     if (ds['train_micro_batch_size_per_gpu'],ds['train_batch_size'],ds['gradient_accumulation_steps'])!=(batch//(world*acc),batch,acc):raise ValueError('Batch recipe differs')
+    if paper:
+        zero=ds['zero_optimization']
+        offload=zero.get('offload_optimizer') or {}
+        offload_device=offload.get('device','none')
+        expected='cpu' if cfg['trainer'].get('optimizer_offload_cpu') else 'none'
+        if zero['stage']!=2 or offload_device!=expected:
+            raise ValueError('Saved optimizer stage/offload differs from recipe')
     del m
     for rank in range(world):
         o=load(path/f'pytorch_model/bf16_zero_pp_rank_{rank}_mp_rank_00_optim_states.pt')['optimizer_state_dict']

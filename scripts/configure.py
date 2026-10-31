@@ -6,8 +6,9 @@ from common import ROOT, VARIANTS, POSITION_VARIANTS, runtime, sha256
 
 def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=False, formal=False,
            experiment_root=None):
-    if world not in (2,4,8) or not 1 <= stop <= 70000:
-        raise ValueError('Supported world sizes: 2/4/8; stop must be 1..70000')
+    single_smoke = variant == 'pri4r_paper' and world == 1 and smoke
+    if (world not in (2,4,8) and not single_smoke) or not 1 <= stop <= 70000:
+        raise ValueError('Supported world sizes: 2/4/8; Pri4R bounded smoke also permits 1 GPU')
     if not re.fullmatch(r'[A-Za-z0-9_.-]+',run_id): raise ValueError('run-id must be a simple directory name')
     if sum((smoke, engineering, formal)) > 1:
         raise ValueError('Choose exactly one training mode')
@@ -44,6 +45,12 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
     c['portable']={'variant':variant,'world_size':world,'smoke':smoke}
     if variant == 'pri4r_paper':
         c['portable']['resource_home'] = str(home)
+        c['trainer']['optimizer_offload_cpu'] = single_smoke
+        c['trainer']['ema_device'] = 'cpu' if single_smoke else 'cuda'
+        if single_smoke:
+            c['datasets']['vla_data']['per_device_batch_size'] = 4
+            c['trainer']['gradient_accumulation_steps'] = 32
+            c['portable']['engineering_topology'] = 'single_gpu_cpu_optimizer_ema_global128'
         if smoke:
             c['datasets']['vla_data']['pri4r_smoke_manifest'] = str(gt/'input_manifest.json')
             c['datasets']['vla_data']['num_workers'] = 0
@@ -62,7 +69,7 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--variant',choices=VARIANTS,required=True);p.add_argument('--home',required=True)
-    p.add_argument('--run-id',required=True);p.add_argument('--gpus',type=int,choices=(2,4,8),required=True)
+    p.add_argument('--run-id',required=True);p.add_argument('--gpus',type=int,choices=(1,2,4,8),required=True)
     p.add_argument('--stop',type=int,default=70000);p.add_argument('--smoke',action='store_true')
     p.add_argument('--engineering',action='store_true');p.add_argument('--out',type=Path,required=True)
     p.add_argument('--formal',action='store_true',help='Explicitly prepare a fresh formal candidate recipe; never starts a job')
