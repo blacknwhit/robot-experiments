@@ -22,6 +22,8 @@
 
 **“关梯度累积”是 `gradient_accumulation_steps=1`；不关闭 `gradient_checkpointing`。** 后者用重计算降低显存，不改变global batch。
 
+**2026-11-01实测补充：该B16配方不能直接完全关闭activation checkpointing。** 同一空闲H10080GB、原始base、真实样本、官方精度、DDP及CUDA FP32 EMA，主GC和fusion同时关闭后，第一次前向在Gemma MLP就OOM：进程占用约79.09GiB，尚需484MiB；此时还未反向或首次分配Adam动量。所有相关module flag均false，实际checkpoint调用0。开启两项时连续3次前向/反向/Adam/EMA更新通过，峰值allocated 48.15GiB、reserved 53.91GiB；预热后两个更新计算均值1.184秒，不含数据I/O、保存和八卡通信。8卡DDP并不合并成每rank可用640GB，模型/优化器/激活仍占本卡显存，因此保留当前设置。详见[显存对照证据](../provenance/PRI4R_CHECKPOINT_CAPACITY.json)。这是每rank容量探针，不是完整八卡吞吐验收。
+
 Pri4R优先的配置与旧基线并非完全相同：旧基线global64、peak2.5e-5、warmup1k、100k cosine且停70k；本次global128、peak5e-5、warmup10k、70k cosine及EMA。70k对应本次896万、旧基线448万训练样本抽取，不能称为只增加辅助loss的等预算消融。作者未公开的2层Embedding/米制world/3m采样立方体/mean L1等细节采用用户已确认的约定；这也不是论文原数据集分数的复现。
 
 ## 2. 获取固定代码与复用环境
