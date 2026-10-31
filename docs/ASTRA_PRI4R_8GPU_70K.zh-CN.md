@@ -16,15 +16,16 @@
 | 数据采样 | IID frame、filter `100_demos`/seed0、任务权重alpha `.4`；训练seed42 | 本次母结构及基线数据路径；不引入G8 |
 | 辅助任务 | 1024点、50段相邻位移、世界坐标米制、有效XYZ平均L1×1 | 当前Pri4R复现约定；不加累计/位置loss |
 | 辅助结构 | 独立2层Embedding，2048维/8头；Point/Fusion MLP；不插入动作prefix | 已核对并短测的Pri4R实现约定 |
-| 精度/显存 | 官方selective BF16/FP32，原生Adam；activation checkpointing和fusion checkpointing保持开启 | 保留已验证的实现；不是全模型BF16或ZeRO |
+| 精度/显存 | 官方selective BF16/FP32，原生Adam；主GC及fusion checkpointing保持开启 | B8三次更新容量检查通过；全关两次均在第二步OOM |
+| 8卡训练执行设置 | static_graph、TF32、cuDNN benchmark开启 | 当前训练入口的world≥8分支；评测仍使用其独立的TF32关闭协议 |
 | 保存/日志 | update1额外完整保存，其后每5000步；日志每100步 | 保存间隔与已训π0.5基线对齐 |
 | loader | 每rank 8 workers、prefetch4、pin memory；OpenCV视频读取 | 与已训π0.5基线对齐，共64个loader worker |
 
-**梯度累积关闭，activation checkpointing保留**：`gradient_accumulation_steps=1`、`gradient_checkpointing=true`、`point_track.checkpoint_fusion=true`。用户明确选择先发布B8并保留checkpointing，等H100空闲后再检查能否关闭。
+**梯度累积关闭，activation checkpointing保留**：`gradient_accumulation_steps=1`、`gradient_checkpointing=true`、`point_track.checkpoint_fusion=true`。用户明确选择先发布B8并保留checkpointing；空闲后关闭检查现已完成，结果支持继续保留。
 
 本次batch与π0.5基线/FIXED对齐：8×8×1=global64，70k对应448万训练样本抽取。LR仍保持Pri4R的peak5e-5、warmup10k、EMA.999；cosine按用户要求使用70k。旧基线peak2.5e-5/warmup1k/100k cosine且停70k等差异仍存在，所以不是仅增加辅助loss的严格单变量消融。作者未公开的辅助尺寸、world米制、3m立方体及mean L1等约定不变；不因batch减半自行缩放LR或EMA。
 
-B8关闭重计算尚未实测：本轮尝试在分配模型前发现H100被另一训练占用约61GB，按空闲保护退出，未动该训练。此前B16关闭重计算OOM、开启后通过的结果仅作为[历史B16证据](../provenance/PRI4R_CHECKPOINT_CAPACITY.json)，不推断B8一定能关或不能关。[本次B8配置与状态验证凭证](../provenance/PRI4R_8GPU70K_B8_VALIDATION.json)。
+B8空闲H100检查已完成，默认继续保留checkpointing。同一H10080GB、原始base/seed42、真实样本、DDP、原生Adam与GPU FP32 EMA，全部关闭时第一步完整更新通过，但**第二步前向OOM**，进程约79.15GiB；仅检查第一步会漏掉Adam状态建立后的内存压力。补充启用正式8卡入口的static graph、TF32、cuDNN benchmark及辅助参数审计副本后，仍在第二步前向OOM（进程约79.07GiB）。两次关闭的checkpoint调用均为0。开启两项时连续3次完整更新通过，峰值allocated 45.23GiB/reserved 50.21GiB，预热后两次纯计算均值0.816秒。所有测试实际都是world1/B8/global8；补充测试匹配了8卡的本地执行设置，但没有测试8卡通信、全数据I/O、完整保存恢复或长期训练。没有获得关闭模式的稳定速度窗口，不比较其首次冷启动时间与开启模式的预热时间。[B8显存对照证据](../provenance/PRI4R_B8_CHECKPOINT_CAPACITY.json)；[B8配置与状态校验证据](../provenance/PRI4R_8GPU70K_B8_VALIDATION.json)。
 
 新profile、run-id和输出目录均与旧B16/global128版本分开。旧B16状态不能直接续接这个global64配方；模型、GT、loss、LR和EMA不变。
 

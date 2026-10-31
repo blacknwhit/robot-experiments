@@ -35,11 +35,13 @@
     "checkpoint_fusion": true
   },
   "gpu_no_checkpoint_capacity": {
-    "status": "pending_gpu_idle",
-    "model_allocated": false,
-    "first_attempt": "Stopped at free-memory guard before model allocation",
-    "occupied_by": "independent point_action_transfer action_only training, about61GB; left untouched",
-    "user_decision": "Publish B8 with checkpointing first; test disabling it after GPU becomes idle"
+    "status": "completed_oom_second_update",
+    "report": "PRI4R_B8_CHECKPOINT_CAPACITY.json",
+    "on_completed_updates": 3,
+    "off_completed_updates": 1,
+    "formal8_flags_off_completed_updates": 1,
+    "scope": "one H100 B8 capacity, not actual8GPU training",
+    "default_checkpointing_retained": true
   },
   "formal_training_started": false,
   "full_gt_generated": false,
