@@ -17,6 +17,8 @@ def validate_recipe(c):
         raise ValueError('Pri4R alignment requires native OpenPI precision/AdamW')
     if pt['coordinate_frame']!='world' or d.get('point_track_coordinate_frame')!='world':
         raise ValueError('User selected world-coordinate point inputs and targets')
+    if pt.get('clock_policy') != 'physical_window_alignment_v1' or d.get('point_track_clock_policy') != pt['clock_policy']:
+        raise ValueError('Pri4R requires recorded physical-clock auxiliary supervision')
     if (pt['version'],pt['num_points'],pt['loss_weight'],pt['output_kind'])!=('pri4r_embedding_v1',1024,1.0,'adjacent_displacement'):
         raise ValueError('Pri4R auxiliary method differs')
     if p['foresight']['enabled'] or p['foresight']['auxiliary_enabled'] or d['group_sampling']:
@@ -39,6 +41,8 @@ def validate_gt_receipt(c,proof,gt):
     gt=Path(gt);d=c['datasets']['vla_data']
     if proof.get('method')!='pri4r_paper' or not proof.get('verified_all_array_hashes'):
         raise ValueError('GT receipt is not an audited paper-sampling dataset')
+    if proof.get('clock_policy') != 'physical_window_alignment_v1':
+        raise ValueError('Old GT receipt lacks physical-clock verification; regenerate and verify new GT')
     if proof['config_sha256']!=d['point_track_gt_config_sha256']:
         raise ValueError('GT sampling configuration mismatch')
     if proof['manifest_sha256']!=sha256(gt/'input_manifest.json'):

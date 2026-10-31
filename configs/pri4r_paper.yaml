@@ -46,6 +46,7 @@ framework:
       point_chunk_size: 128
       checkpoint_fusion: true
       coordinate_frame: world
+      clock_policy: physical_window_alignment_v1
       units: meters
       output_kind: adjacent_displacement
   action_model:
@@ -91,6 +92,7 @@ datasets:
     point_track_num_points: 1024
     point_track_horizon: 50
     point_track_coordinate_frame: world
+    point_track_clock_policy: physical_window_alignment_v1
     point_track_cache_size: 4
 trainer:
   max_train_steps: 30000
@@ -142,6 +144,7 @@ experiment:
   - H50; world coordinates in meters; explicitly selected by user
   - uniform clipped mesh surface area; cube half extent 1.5m (side3m); no class quotas
   - valid XYZ mean L1; EOF excluded; seed42; IID frame sampling
+  - physical simulator-clock window alignment; mask gapped auxiliary horizons without shifting original samples
   - official PyTorch selective BF16/FP32; native AdamW without ZeRO master weights
   - official generic cosine end LR2.5e-6; paper overrides peak5e-5 and warmup10k
   - AdamW betas0.9/0.95 eps1e-8 wd1e-10 applied to all parameters

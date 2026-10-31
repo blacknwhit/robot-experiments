@@ -43,6 +43,7 @@ class ContractTests(unittest.TestCase):
             c['datasets']['vla_data']['pri4r_smoke_manifest']=str(manifest)
             c['datasets']['vla_data']['point_track_gt_config_sha256']='f'*64
             proof={'method':'pri4r_paper','bounded':True,'episodes':4,'frames':1126,
+                   'clock_policy':'physical_window_alignment_v1',
                    'verified_all_array_hashes':True,'config_sha256':'f'*64,'manifest_sha256':sha256(manifest)}
             validate_gt_receipt(c,proof,root)
             proof['bounded']=False

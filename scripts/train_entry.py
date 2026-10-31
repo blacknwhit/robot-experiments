@@ -7,10 +7,8 @@ from common import activate, is_point_variant, POSITION_VARIANTS
 from release_contract import verify_release
 
 def canonical(c):
-    c=copy.deepcopy(c)
-    for k in ('config_yaml','output_dir'):c.pop(k,None)
-    for k in ('is_resume','resume_from_checkpoint','stop_after_steps'):c['trainer'].pop(k,None)
-    return c
+    from checkpoint import canonical_recipe
+    return canonical_recipe(c)
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');a=p.parse_args()

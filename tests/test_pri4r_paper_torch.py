@@ -3,6 +3,9 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+import json
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 import torch
 
@@ -17,6 +20,51 @@ spec=importlib.util.spec_from_file_location('ema_under_test',path);m=importlib.u
 
 
 class MathTests(unittest.TestCase):
+    def test_all_invalid_aux_keeps_action_step_ema_and_audit(self):
+        from engineering_audit import native_audited_step
+        torch.manual_seed(53)
+        policy=torch.nn.Module()
+        policy.shared=torch.nn.Linear(3,3,bias=False)
+        policy.point_track_head=torch.nn.Linear(3,1,bias=False)
+        opt=torch.optim.AdamW(policy.parameters(),lr=.01,weight_decay=1e-10)
+        schedule=torch.optim.lr_scheduler.LambdaLR(opt,lambda _:1.)
+        ema=m.ExponentialMovingAverage(.999);ema.initialize(policy)
+        with tempfile.TemporaryDirectory() as tmp:
+            acc=SimpleNamespace(unwrap_model=lambda model:model,sync_gradients=True,
+                gradient_accumulation_steps=1,process_index=0,num_processes=1,is_main_process=True)
+            trainer=SimpleNamespace(model=SimpleNamespace(policy_model=policy),accelerator=acc,
+                total_batch_size=128,completed_steps=0,config=SimpleNamespace(output_dir=tmp))
+            def original(t,batch,_):
+                x=torch.ones(2,3)
+                shared=policy.shared(x)
+                action=shared.square().mean()
+                pred=policy.point_track_head(shared).view(2,1,1,1).expand(-1,-1,-1,3)
+                valid=torch.full((2,1,1),bool(batch[0]['point_valid'].any()),dtype=torch.bool)
+                total,count,_=point_track_loss_terms(pred,torch.zeros_like(pred),valid)
+                aux=total/count.clamp_min(1)
+                t._point_global_count=count
+                expected=torch.autograd.grad(action,policy.shared.weight,retain_graph=True)[0]
+                (action+aux).backward()
+                if valid.any():
+                    self.assertFalse(torch.equal(policy.shared.weight.grad,expected))
+                else:
+                    torch.testing.assert_close(policy.shared.weight.grad,expected,rtol=0,atol=0)
+                opt.step();ema.update(policy);schedule.step();opt.zero_grad()
+                return {'point_track_loss':aux.item()}
+            names=['shared.weight','point_track_head.weight']
+            with patch('engineering_audit.audited_parameter_names',return_value=names):
+                for step,valid in enumerate((True,False)):
+                    trainer.completed_steps=step
+                    result=native_audited_step(original,trainer,[{'point_valid':torch.tensor([[valid]])}])
+                    if not valid:self.assertEqual(result['point_track_loss'],0.)
+            rows=[json.loads(x) for x in (Path(tmp)/'native_update_rank0.jsonl').read_text().splitlines()]
+            last=rows[-1]['parameters']['point_track_head.weight']
+            self.assertEqual(last['gradient_squared_norm'],0.)
+            self.assertFalse(last['global_update_required'])
+            self.assertGreater(last['update_max'],0.)  # Existing Adam momentum may still move the head.
+            self.assertEqual(schedule.last_epoch,2)
+            self.assertEqual(ema.num_updates,2)
+
     def test_auxiliary_reaches_prefix_hidden_and_head_layers(self):
         cfg=PointTrackConfig(enabled=True,version='pri4r_embedding_v1',horizon=3,num_points=8,
             hidden_dim=16,num_heads=4,embedding_layers=2,embedding_ff_multiplier=2,

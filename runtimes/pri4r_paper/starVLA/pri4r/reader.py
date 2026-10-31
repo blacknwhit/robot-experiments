@@ -1,7 +1,7 @@
 """Read immutable episode tracks, without importing a simulator or loading futures as inputs.
 
-Positions are stored once in world coordinates. A training window uses the inverse
-of its *first* base pose for all 51 positions, never the future robot poses. Only
+Positions are stored in world coordinates. World mode keeps them unchanged;
+base mode uses only the window's first base pose, never future robot poses. Only
 ``point_current`` is an auxiliary-head input; delta/valid are loss-only fields.
 """
 
@@ -14,6 +14,8 @@ import os
 import numpy as np
 
 SCHEMA = "pri4r_world_tracks_v1"
+PHYSICAL_CLOCK_POLICY = "physical_window_alignment_v1"
+LEGACY_CLOCK_POLICY = "dataset_frame_index_v1"
 
 
 def episode_key(source_prefix, source_episode_index):
@@ -60,7 +62,8 @@ def timestamp_tolerance(timestamps, frame_period, minimum=1e-5, source_dtype=Non
 
 def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
                  frame_period=0.05, time_tolerance=1e-5, frame_valid=None,
-                 expected_timestamp=None, coordinate_frame="window_start_robot_base"):
+                 expected_timestamp=None, coordinate_frame="window_start_robot_base",
+                 simulator_timestamps=None, clock_policy=LEGACY_CLOCK_POLICY):
     """Return finite arrays with exactly N,H,3 deltas and no EOF clamping.
 
     Invalid targets are zero-filled and masked. A missing future state does not
@@ -77,6 +80,11 @@ def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
         raise ValueError("track/pose/time length mismatch")
     if coordinate_frame not in ("world", "window_start_robot_base"):
         raise ValueError("Unsupported point coordinate frame")
+    if clock_policy not in (LEGACY_CLOCK_POLICY, PHYSICAL_CLOCK_POLICY):
+        raise ValueError("Unsupported point timing policy")
+    if clock_policy == PHYSICAL_CLOCK_POLICY and (
+            simulator_timestamps is None or np.shape(simulator_timestamps) != np.shape(timestamps)):
+        raise ValueError("Physical point supervision requires recorded simulator timestamps")
     anchor = validate_pose(base_poses[start])
     stop = min(len(world_tracks), start + horizon + 1)
     # Only the current small slice is inspected; a dtype conversion must not
@@ -103,11 +111,26 @@ def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
     delta = np.zeros((n, horizon, 3), dtype=np.float32)
     valid = np.zeros((n, horizon), dtype=bool)
     steps = len(xyz) - 1
+    clock_masked_steps = 0
     if steps:
         aligned = np.isclose(ts, ts[0] + np.arange(len(ts)) * frame_period,
                              atol=time_tolerance, rtol=0)
         contiguous = np.isclose(np.diff(ts), frame_period, atol=time_tolerance, rtol=0)
         times_ok = contiguous & aligned[1:] & aligned[:-1]
+        if clock_policy == PHYSICAL_CLOCK_POLICY:
+            physical = np.asarray(simulator_timestamps[start:stop], dtype=np.float64)
+            if not np.isfinite(physical).all() or np.any(np.diff(physical) <= 0):
+                raise ValueError("Invalid recorded simulator clock")
+            tol = timestamp_tolerance(physical, frame_period, minimum=1e-8)
+            physical_aligned = np.isclose(physical - physical[0],
+                np.arange(len(physical)) * frame_period, atol=tol, rtol=0)
+            physical_contiguous = np.isclose(np.diff(physical), frame_period, atol=tol, rtol=0)
+            physical_ok = physical_contiguous & physical_aligned[1:] & physical_aligned[:-1]
+            # With a leading 2*dt gap, every later endpoint in start=0 is one
+            # slot late. Mask the whole auxiliary horizon, not only delta[0].
+            # Preserve original row identities, action samples and current P_t.
+            clock_masked_steps = int(np.count_nonzero(times_ok & ~physical_ok))
+            times_ok &= physical_ok
         good = finite[1:] & finite[:-1] & current_valid[None, :] & times_ok[:, None]
         differences = (local[1:] - local[:-1]).transpose(1, 0, 2)
         valid[:, :steps] = good.T
@@ -116,10 +139,12 @@ def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
             "point_valid": valid, "point_current_valid": current_valid,
             "point_meta": {"schema": SCHEMA, "frame_index": start, "horizon": horizon,
                            "num_points": n, "coordinate_frame": coordinate_frame, "units": "meters",
+                           "clock_policy": clock_policy, "clock_masked_steps": clock_masked_steps,
                            "output_kind": "adjacent_displacement", "available_endpoints": len(xyz)}}
 
 
-def validate_episode(path, *, expected_cache_key=None, verify_hashes=False):
+def validate_episode(path, *, expected_cache_key=None, verify_hashes=False,
+                     require_physical_clock=False):
     path = Path(path)
     meta = json.loads((path / "complete.json").read_text(encoding="utf-8"))
     if meta.get("schema") != SCHEMA or meta.get("complete") is not True:
@@ -134,6 +159,10 @@ def validate_episode(path, *, expected_cache_key=None, verify_hashes=False):
              "point_local.npy": ((shape[1], 3), np.dtype("float64")),
              "point_face_ids.npy": ((shape[1],), np.dtype("int32")),
              "point_barycentric.npy": ((shape[1], 3), np.dtype("float64"))}
+    if require_physical_clock or meta.get("clock_policy") == PHYSICAL_CLOCK_POLICY:
+        if meta.get("clock_policy") != PHYSICAL_CLOCK_POLICY:
+            raise ValueError("GT lacks the physical-clock contract; regenerate in a new GT home")
+        specs["simulator_timestamps.npy"] = ((shape[0],), np.dtype("float64"))
     arrays = {}
     for name, (expected_shape, dtype) in specs.items():
         file = path / name
@@ -145,6 +174,17 @@ def validate_episode(path, *, expected_cache_key=None, verify_hashes=False):
         if verify_hashes and digest_file(file) != meta["files"][name]["sha256"]:
             raise ValueError(f"GT file hash mismatch: {name}")
         arrays[name] = a
+    if "simulator_timestamps.npy" in arrays:
+        # Validate once per episode, rather than scanning its clock each sample.
+        # This pure helper also rejects internal gaps and unknown leading gaps.
+        from .generate import validate_recorded_clocks
+        observed = validate_recorded_clocks(arrays["simulator_timestamps.npy"],
+            arrays["timestamps.npy"], float(meta["fps"]), float(meta["time_tolerance"]))
+        diagnostic = meta.get("clock_diagnostic", {})
+        for key in ("policy", "fps", "first_interval_seconds", "initial_extra_dt_seconds",
+                    "non_nominal_interval_indices", "physical_span_seconds"):
+            if diagnostic.get(key) != observed[key]:
+                raise ValueError("Physical clock receipt differs from recorded clock: " + key)
     if "point_categories.npy" in meta["files"]:
         file = path / "point_categories.npy"
         a = np.load(file, mmap_mode="r", allow_pickle=False)
@@ -160,7 +200,7 @@ class PointTrackStore:
     """A bounded LRU of readonly memmaps, reset automatically after worker fork."""
     def __init__(self, root, *, cache_size=8, expected_config_sha256=None,
                  num_points=1024, horizon=50, verify_hashes=False,
-                 coordinate_frame="window_start_robot_base"):
+                 coordinate_frame="window_start_robot_base", clock_policy=LEGACY_CLOCK_POLICY):
         self.root = Path(root)
         self.cache_size = int(cache_size)
         if self.cache_size < 1:
@@ -171,6 +211,9 @@ class PointTrackStore:
         if coordinate_frame not in ("world", "window_start_robot_base"):
             raise ValueError("Unsupported point coordinate frame")
         self.coordinate_frame = coordinate_frame
+        if clock_policy not in (LEGACY_CLOCK_POLICY, PHYSICAL_CLOCK_POLICY):
+            raise ValueError("Unsupported point timing policy")
+        self.clock_policy = clock_policy
         self._pid, self._cache = os.getpid(), OrderedDict()
 
     def __getstate__(self):
@@ -196,7 +239,8 @@ class PointTrackStore:
         if key in self._cache:
             self._cache.move_to_end(key)
             return self._cache[key]
-        meta, arrays = validate_episode(self.root / key, verify_hashes=self.verify_hashes)
+        meta, arrays = validate_episode(self.root / key, verify_hashes=self.verify_hashes,
+                                       require_physical_clock=self.clock_policy == PHYSICAL_CLOCK_POLICY)
         if meta["episode_key"] != key or int(meta["points"]) != self.num_points:
             self._close_arrays(arrays)
             raise ValueError("GT source identity/point count mismatch")
@@ -216,7 +260,9 @@ class PointTrackStore:
                               arrays["timestamps.npy"], frame_index, horizon=self.horizon,
                               frame_period=1.0 / meta["fps"],
                               time_tolerance=meta.get("time_tolerance", 1e-5),
-                              expected_timestamp=timestamp, coordinate_frame=self.coordinate_frame)
+                              expected_timestamp=timestamp, coordinate_frame=self.coordinate_frame,
+                              simulator_timestamps=arrays.get("simulator_timestamps.npy"),
+                              clock_policy=self.clock_policy)
         if "point_categories.npy" in arrays:
             result["point_categories"] = np.asarray(arrays["point_categories.npy"], dtype=np.int8).copy()
         result["point_meta"].update(episode_key=key, cache_key=meta["cache_key"],

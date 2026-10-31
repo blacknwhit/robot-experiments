@@ -51,21 +51,23 @@ def main():
             env=environment('pri4r_paper'),check=True)
     elif a.stage=='verify':
         activate('pri4r_paper')
-        from starVLA.pri4r.reader import episode_key,validate_episode,PointTrackStore
+        from starVLA.pri4r.reader import episode_key,validate_episode,PointTrackStore,PHYSICAL_CLOCK_POLICY
+        from starVLA.pri4r.generate import GENERATOR_VERSION
         seen=set();frames=0
         for e in entries:
             key=episode_key(e['source_prefix'],e['source_episode_index'])
             if key in seen:raise ValueError('Duplicate source episode')
-            seen.add(key);meta,arrays=validate_episode(gt/key,verify_hashes=True)
+            seen.add(key);meta,arrays=validate_episode(gt/key,verify_hashes=True,require_physical_clock=True)
             if meta['config_sha256']!=digest or meta['frames']!=e['length'] or meta['points']!=1024:
                 raise ValueError('GT scope/config differs: '+key)
-            if meta['generator']!='rigid_surface_replay_v1':raise ValueError('Wrong generator')
+            if meta['generator']!=GENERATOR_VERSION:raise ValueError('Wrong generator')
             proof=meta['alignment_evidence']
             if proof.get('passed') is not True:raise ValueError('Source/current alignment missing')
             for k in ('source_prefix','source_episode_index','current_dataset_name','current_episode_index','length'):
                 if proof[k]!=e[k]:raise ValueError('Episode mapping differs: '+k)
             PointTrackStore._close_arrays(arrays);frames+=meta['frames']
         proof={'method':'pri4r_paper','bounded':not a.full,'episodes':len(seen),'frames':frames,
+               'clock_policy':PHYSICAL_CLOCK_POLICY,
                'config_sha256':digest,'manifest_sha256':sha256(manifest),'verified_all_array_hashes':True}
         (gt/'PORTABLE_GT_ACCEPTED.json').write_text(json.dumps(proof,indent=2)+'\n');print(json.dumps(proof))
 

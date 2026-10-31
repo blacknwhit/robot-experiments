@@ -106,8 +106,9 @@ def native_audited_step(original,trainer,batch_vla,batch_vlm=None):
     params=dict(policy.named_parameters());names=audited_parameter_names(policy)
     if not hasattr(trainer,'_native_audit_window'):
         trainer._native_audit_window={'before':{n:params[n].detach().cpu().clone() for n in names},
-                                      'gradients':{},'microbatches':0}
+                                      'gradients':{},'microbatches':0,'local_valid_xyz':0}
     window=trainer._native_audit_window;handles=[]
+    window['local_valid_xyz'] += 3 * sum(int(s['point_valid'].sum()) for s in batch_vla)
     for name in names:
         def capture(g,key=name):
             window['gradients'][key]=window['gradients'].get(key,0.)+float(g.detach().float().square().sum().cpu())
@@ -123,16 +124,27 @@ def native_audited_step(original,trainer,batch_vla,batch_vlm=None):
     proof={'step':trainer.completed_steps+1,'rank':trainer.accelerator.process_index,
            'world_size':trainer.accelerator.num_processes,'global_batch':trainer.total_batch_size,
            'backend':'native_ddp','has_fp32_master_copy':False,'parameters':{}}
+    proof.update(local_valid_xyz=window['local_valid_xyz'],
+                 global_valid_xyz=int(trainer._point_global_count.item()))
     for name in names:
         p=params[name];now=p.detach().cpu();grad=window['gradients'].get(name,0.)
         change=float((now.float()-window['before'][name].float()).abs().max())
-        if not torch.isfinite(now).all() or not 0<grad<float('inf'):
+        auxiliary=name.startswith('point_track_head.')
+        expected_local_gradient=not auxiliary or proof['local_valid_xyz']>0
+        expected_global_update=not auxiliary or proof['global_valid_xyz']>0
+        if not torch.isfinite(now).all() or not 0<=grad<float('inf') or not 0<=change<float('inf'):
             raise RuntimeError('Missing finite parameter/gradient: '+name)
+        if expected_local_gradient and grad == 0:
+            raise RuntimeError('Missing gradient with valid supervision: '+name)
+        if auxiliary and not expected_local_gradient and grad != 0:
+            raise RuntimeError('Auxiliary gradient leaked from an all-invalid local window: '+name)
         # The warmup update can round to zero in upstream-native BF16 parameters.
         # Report this explicitly; never pretend a ZeRO master was updated.
-        if p.dtype==torch.float32 and not 0<change<float('inf'):
+        if p.dtype==torch.float32 and expected_global_update and change == 0:
             raise RuntimeError('No FP32 auxiliary update: '+name)
-        proof['parameters'][name]={'dtype':str(p.dtype),'gradient_squared_norm':grad,'update_max':change}
+        proof['parameters'][name]={'dtype':str(p.dtype),'gradient_squared_norm':grad,'update_max':change,
+                                  'local_gradient_required':expected_local_gradient,
+                                  'global_update_required':expected_global_update}
     output=Path(trainer.config.output_dir)
     with (output/f"native_update_rank{proof['rank']}.jsonl").open('a') as f:f.write(json.dumps(proof)+'\n')
     if trainer.accelerator.is_main_process and not (output/'engineering_sample.pt').exists():

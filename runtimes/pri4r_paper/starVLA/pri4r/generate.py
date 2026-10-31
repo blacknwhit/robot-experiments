@@ -31,9 +31,9 @@ from functools import lru_cache
 import numpy as np
 
 from .geometry import geom_triangles, sample_surfaces, transform_points
-from .reader import SCHEMA, PointTrackStore, digest_file, episode_key, timestamp_tolerance, validate_episode, validate_pose
+from .reader import SCHEMA, PHYSICAL_CLOCK_POLICY, PointTrackStore, digest_file, episode_key, timestamp_tolerance, validate_episode, validate_pose
 
-GENERATOR_VERSION = "rigid_surface_replay_v1"
+GENERATOR_VERSION = "rigid_surface_replay_physical_clock_v2"
 CLOCK_POLICY = "lerobot_frame_index_with_known_initial_capture_gap_v1"
 
 
@@ -138,8 +138,11 @@ class SamplingConfig:
     primitive_rings: int = 16
     asset_root: str = "/UNCONFIGURED_ROBOT_EXPERIMENTS_HOME"
     time_tolerance: float = 1e-5
+    clock_policy: str = PHYSICAL_CLOCK_POLICY
 
     def __post_init__(self):
+        if self.clock_policy != PHYSICAL_CLOCK_POLICY:
+            raise ValueError("New paper GT requires recorded physical clock supervision")
         if self.cube_half_extent_m <= 0 or self.num_points < 1:
             raise ValueError("positive cube half-extent/point count required")
         if self.primitive_rings % 2:
@@ -364,6 +367,7 @@ def generate_episode(entry, config, output_root, *, repo, revision):
             poses.flush()
             del tracks, poses
             np.save(staging / "timestamps.npy", timestamps)
+            np.save(staging / "simulator_timestamps.npy", np.asarray(states[:, 0], dtype=np.float64))
             for source, filename, dtype in (("geom_ids", "point_geom_ids.npy", np.int32),
                                             ("local", "point_local.npy", np.float64),
                                             ("face_ids", "point_face_ids.npy", np.int32),
@@ -382,7 +386,8 @@ def generate_episode(entry, config, output_root, *, repo, revision):
                     "source_state_format": "time_qpos_qvel_act", "state_to_frame": "same_index_no_integration",
                     "clock_diagnostic": clock_diagnostic,
                     "alignment_evidence": alignment_receipt,
-                    "units": "metres", "stored_frame": "world", "read_frame": "window_start_robot_base",
+                    "units": "metres", "stored_frame": "world", "read_frame": "selected_by_training_recipe",
+                    "clock_policy": cfg.clock_policy,
                     "base_body_id": body_id, "base_body_name": cfg.base_body_name,
                     "sampling": {k: points[k] for k in ("surface_area_m2", "clipped_triangles", "selected_geom_count")},
                     "coverage_diagnostic": {"moving_points_over_1mm": int(np.count_nonzero(max_displacement > .001)),

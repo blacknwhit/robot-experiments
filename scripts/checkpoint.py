@@ -1,7 +1,14 @@
 """Read-only same-world native state validation. Never loads untrusted checkpoints."""
 from pathlib import Path
-import json,re
+import copy,json,re
 from common import is_point_variant, POSITION_VARIANTS
+
+def canonical_recipe(config):
+    config=copy.deepcopy(config)
+    for key in ('config_yaml','output_dir'):config.pop(key,None)
+    for key in ('is_resume','resume_from_checkpoint','stop_after_steps'):
+        config['trainer'].pop(key,None)
+    return config
 
 def required_files(world,fixed=False):
     return ['latest','custom_checkpoint_0.pkl','custom_checkpoint_1.pkl',
@@ -87,6 +94,8 @@ def choose_latest(run,cfg,validator=validate):
                 marker=json.loads((path/'PORTABLE_COMPLETE.json').read_text())
                 if marker.get('step') != step or marker.get('world') != cfg['portable']['world_size']:
                     raise ValueError('Portable completion marker step/world differs')
+                if cfg['portable']['variant']=='pri4r_paper' and marker.get('recipe')!=canonical_recipe(cfg):
+                    raise ValueError('Checkpoint recipe/source/point timing policy differs')
             validator(path,cfg);return path,rejected
         except Exception as e:rejected.append({'step':step,'reason':str(e)})
     raise RuntimeError('No complete compatible checkpoint; refusing base restart: '+json.dumps(rejected))

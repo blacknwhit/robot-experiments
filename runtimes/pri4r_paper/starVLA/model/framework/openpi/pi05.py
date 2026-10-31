@@ -90,6 +90,8 @@ def _validate_point_metadata(meta: dict, cfg: Any) -> None:
         "num_points": cfg.num_points,
         "output_kind": cfg.output_kind,
     }
+    if getattr(cfg, "clock_policy", None) == "physical_window_alignment_v1":
+        expected["clock_policy"] = cfg.clock_policy
     if not isinstance(meta, dict) or any(meta.get(key) != value for key, value in expected.items()):
         raise ValueError(f"Point-track metadata does not match the model contract: expected {expected}, got {meta}")
 

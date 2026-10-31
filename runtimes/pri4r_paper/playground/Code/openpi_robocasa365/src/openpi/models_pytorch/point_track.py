@@ -38,6 +38,7 @@ class PointTrackConfig:
     coordinate_frame: str = "window_start_robot_base"
     units: str = "meters"
     output_kind: str = "adjacent_displacement"
+    clock_policy: str = "dataset_frame_index_v1"
 
     @classmethod
     def parse(cls, value=None, *, horizon=50):
@@ -49,6 +50,8 @@ class PointTrackConfig:
         return result
 
     def validate(self):
+        if self.clock_policy not in ("dataset_frame_index_v1", "physical_window_alignment_v1"):
+            raise ValueError("Unknown point-track timing policy")
         if self.version not in ("pri4r_adjacent_v1", "pri4r_query_zt_v1", "pri4r_embedding_v1"):
             raise ValueError("Unknown point-track implementation version")
         for name in ("horizon", "num_points", "hidden_dim", "num_heads",
@@ -70,6 +73,7 @@ class PointTrackConfig:
         for key in ("enabled", "point_chunk_size", "checkpoint_fusion"):
             contract.pop(key)
         if self.version != "pri4r_embedding_v1":
+            contract.pop("clock_policy")
             contract.pop("embedding_layers")
             contract.pop("embedding_ff_multiplier")
         if self.version == "pri4r_query_zt_v1":

@@ -9,5 +9,6 @@
   "primitive_segments": 32,
   "primitive_rings": 16,
   "asset_root": "${ROBOT_EXPERIMENTS_HOME}",
-  "time_tolerance": 1e-05
+  "time_tolerance": 1e-05,
+  "clock_policy": "physical_window_alignment_v1"
 }

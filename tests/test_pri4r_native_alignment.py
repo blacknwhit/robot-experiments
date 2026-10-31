@@ -55,6 +55,12 @@ class NativeTests(unittest.TestCase):
         b=PointTrackConfig(version='pri4r_embedding_v1',coordinate_frame='window_start_robot_base')
         self.assertFalse(torch.equal(a.signature(2048),b.signature(2048)))
 
+    def test_timing_policy_change_invalidates_head_signature(self):
+        a=PointTrackConfig(version='pri4r_embedding_v1',coordinate_frame='world')
+        b=PointTrackConfig(version='pri4r_embedding_v1',coordinate_frame='world',
+                          clock_policy='physical_window_alignment_v1')
+        self.assertFalse(torch.equal(a.signature(2048),b.signature(2048)))
+
     def test_launcher_preserves_selective_precision_and_rejects_offload(self):
         c=render('pri4r_paper','home','native',1,2,smoke=True)
         cmd,config,ds=launch_configuration(c,Path('recipe.yaml'),Path('control'))
