@@ -81,7 +81,8 @@
     "upstream_forward_gradient_equivalence_verified": false,
     "gpu": "NVIDIA H100 80GB HBM3",
     "engineering_only": true,
-    "closed_loop_benchmark": false
+    "closed_loop_benchmark": false,
+    "upstream_equivalence_check_scope": "Not performed by this single probe; the separate official_comparison passed with exact forward and gradients."
   },
   "server": {
     "passed": true,
@@ -327,5 +328,7 @@
   "full_gt_generated": false,
   "closed_loop_benchmark": false,
   "four_physical_gpu_runtime_verified": false,
-  "evidence_archive_sha256": "e7bf4c1da59598516c8a82cf8be867eabe6bcc94b3334197273b0a270391966a"
+  "evidence_archive_sha256": "e7bf4c1da59598516c8a82cf8be867eabe6bcc94b3334197273b0a270391966a",
+  "training_source_commit": "067999672dbe2321c7118faf53115964d0f934cb",
+  "upstream_forward_gradient_equivalence_verified": true
 }
