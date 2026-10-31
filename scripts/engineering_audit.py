@@ -34,6 +34,8 @@ def install(trainer):
     original = trainer._train_step
 
     def audited_step(self, batch_vla, batch_vlm=None):
+        if self.config.framework.pi05.get('official_precision_mode',False):
+            return native_audited_step(original,self,batch_vla,batch_vlm)
         from deepspeed.utils import safe_get_full_fp32_param
         accumulation = self.accelerator.gradient_accumulation_steps
         if self.total_batch_size not in (64,128):
@@ -96,3 +98,45 @@ def install(trainer):
         return metrics
 
     trainer._train_step = audited_step
+
+
+def native_audited_step(original,trainer,batch_vla,batch_vlm=None):
+    """Inspect actual DDP parameter updates; BF16 has no hidden FP32 master."""
+    policy=trainer.accelerator.unwrap_model(trainer.model).policy_model
+    params=dict(policy.named_parameters());names=audited_parameter_names(policy)
+    if not hasattr(trainer,'_native_audit_window'):
+        trainer._native_audit_window={'before':{n:params[n].detach().cpu().clone() for n in names},
+                                      'gradients':{},'microbatches':0}
+    window=trainer._native_audit_window;handles=[]
+    for name in names:
+        def capture(g,key=name):
+            window['gradients'][key]=window['gradients'].get(key,0.)+float(g.detach().float().square().sum().cpu())
+            return g
+        handles.append(params[name].register_hook(capture))
+    try:metrics=original(trainer,batch_vla,batch_vlm)
+    finally:
+        for handle in handles:handle.remove()
+    window['microbatches']+=1
+    if not trainer.accelerator.sync_gradients:return metrics
+    if window['microbatches']!=trainer.accelerator.gradient_accumulation_steps:
+        raise ValueError('Native audit accumulation mismatch')
+    proof={'step':trainer.completed_steps+1,'rank':trainer.accelerator.process_index,
+           'world_size':trainer.accelerator.num_processes,'global_batch':trainer.total_batch_size,
+           'backend':'native_ddp','has_fp32_master_copy':False,'parameters':{}}
+    for name in names:
+        p=params[name];now=p.detach().cpu();grad=window['gradients'].get(name,0.)
+        change=float((now.float()-window['before'][name].float()).abs().max())
+        if not torch.isfinite(now).all() or not 0<grad<float('inf'):
+            raise RuntimeError('Missing finite parameter/gradient: '+name)
+        # The warmup update can round to zero in upstream-native BF16 parameters.
+        # Report this explicitly; never pretend a ZeRO master was updated.
+        if p.dtype==torch.float32 and not 0<change<float('inf'):
+            raise RuntimeError('No FP32 auxiliary update: '+name)
+        proof['parameters'][name]={'dtype':str(p.dtype),'gradient_squared_norm':grad,'update_max':change}
+    output=Path(trainer.config.output_dir)
+    with (output/f"native_update_rank{proof['rank']}.jsonl").open('a') as f:f.write(json.dumps(proof)+'\n')
+    if trainer.accelerator.is_main_process and not (output/'engineering_sample.pt').exists():
+        torch.save(batch_vla[0],output/'engineering_sample.pt')
+    print('NATIVE_DDP_STEP_AUDIT '+json.dumps(proof),flush=True)
+    del trainer._native_audit_window
+    return metrics

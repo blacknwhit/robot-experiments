@@ -130,7 +130,9 @@ class PI0Pytorch(nn.Module):
         from openpi.models_pytorch.point_track import PointTrackConfig, PointTrackHead, QueryPointTrackHead
         self.point_track = PointTrackConfig.parse(getattr(config, "point_track", None), horizon=config.action_horizon)
         if self.point_track.enabled:
-            self.paligemma_with_expert.separate_prefix_attention = True
+            # The paper reader must not change the original action computation.
+            # Retain the upstream joint attention; only older Query variants split it.
+            self.paligemma_with_expert.separate_prefix_attention = self.point_track.version != "pri4r_embedding_v1"
             self.paligemma_with_expert.paligemma.language_model.config._attn_implementation = "eager"
             self.paligemma_with_expert.gemma_expert.model.config._attn_implementation = "eager"
         if self.point_track.enabled:

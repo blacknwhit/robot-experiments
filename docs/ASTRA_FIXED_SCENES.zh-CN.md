@@ -6,7 +6,7 @@
 
 远端Astra负责更新仓库、填写本机路径并运行现成入口，无需自行修改代码、生成场景计划或再次完成一套smoke。当前入口是 **`scripts/evaluate_parallel.py`**：每卡一份常驻模型，多task共用一组CPU仿真worker，每卡一个EGL渲染进程。不要混入旧r12/r13私有补丁，也不要继续使用旧单进程入口来期待同样的吞吐。
 
-不同模型的variant、源码/配置映射和GPU验证边界见[多版本模型说明](EVALUATION_MODELS.zh-CN.md)。已有7种`--variant`继续使用下方命令；新增结构可用`--model-spec /path/model.json`替代`--variant/--config/--checkpoint`，完整命令和模型适配接口见该文档。以后模型迭代修改模型自己的配置/adapter，无需修改本评测调度、仿真和计分代码。登记或接口通过不代表所有结构都已完成同等GPU验证。
+不同模型的variant、源码/配置映射和GPU验证边界见[多版本模型说明](EVALUATION_MODELS.zh-CN.md)。内置`--variant`继续使用下方命令；新增结构可用`--model-spec /path/model.json`替代`--variant/--config/--checkpoint`，完整命令和模型适配接口见该文档。以后模型迭代修改模型自己的配置/adapter，无需修改本评测调度、仿真和计分代码。登记或接口通过不代表所有结构都已完成同等GPU验证。
 
 **本页正式配置按单机8×H100 SXM 80GB编写。** 沿用此前的188vCPU、约1600GiB内存申请即可作为起点；这是用户现有资源配置，不是实测的最低资源要求。
 

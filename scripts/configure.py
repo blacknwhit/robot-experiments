@@ -45,13 +45,14 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
     c['portable']={'variant':variant,'world_size':world,'smoke':smoke}
     if variant == 'pri4r_paper':
         c['portable']['resource_home'] = str(home)
-        c['trainer']['optimizer_offload_cpu'] = single_smoke
+        c['trainer']['optimizer_offload_cpu'] = False
         c['trainer']['ema_device'] = 'cpu' if single_smoke else 'cuda'
         if single_smoke:
             c['datasets']['vla_data']['per_device_batch_size'] = 4
             c['trainer']['gradient_accumulation_steps'] = 32
-            c['portable']['engineering_topology'] = 'single_gpu_cpu_optimizer_ema_global128'
+            c['portable']['engineering_topology'] = 'single_gpu_native_adamw_cpu_ema_global128'
         if smoke:
+            c['trainer']['profile_timing'] = True
             c['datasets']['vla_data']['pri4r_smoke_manifest'] = str(gt/'input_manifest.json')
             c['datasets']['vla_data']['num_workers'] = 0
             c['datasets']['vla_data']['prefetch_factor'] = None

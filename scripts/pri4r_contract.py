@@ -13,6 +13,10 @@ def validate_recipe(c):
     if t['learning_rate']['base']!=5e-5 or t['lr_scheduler_type']!='openpi_cosine':
         raise ValueError('Pri4R LR/schedule differs')
     pt=p['point_track']
+    if not p.get('official_precision_mode') or t.get('optimizer_offload_cpu'):
+        raise ValueError('Pri4R alignment requires native OpenPI precision/AdamW')
+    if pt['coordinate_frame']!='world' or d.get('point_track_coordinate_frame')!='world':
+        raise ValueError('User selected world-coordinate point inputs and targets')
     if (pt['version'],pt['num_points'],pt['loss_weight'],pt['output_kind'])!=('pri4r_embedding_v1',1024,1.0,'adjacent_displacement'):
         raise ValueError('Pri4R auxiliary method differs')
     if p['foresight']['enabled'] or p['foresight']['auxiliary_enabled'] or d['group_sampling']:
@@ -25,8 +29,8 @@ def validate_recipe(c):
     world=v['world_size'];acc=t['gradient_accumulation_steps'];micro=d['per_device_batch_size']
     if world*acc*micro!=128:raise ValueError('Pri4R requires global batch128, including single-GPU smoke')
     if world==1:
-        if not smoke or (micro,acc)!=(4,32) or not t.get('optimizer_offload_cpu') or t.get('ema_device')!='cpu':
-            raise ValueError('Single GPU is a bounded CPU-offloaded engineering configuration')
+        if not smoke or (micro,acc)!=(4,32) or t.get('ema_device')!='cpu':
+            raise ValueError('Single GPU requires bounded native AdamW with CPU EMA')
     elif t.get('optimizer_offload_cpu') or t.get('ema_device','cuda')!='cuda':
         raise ValueError('Formal multi-GPU recipe changed its state placement')
 

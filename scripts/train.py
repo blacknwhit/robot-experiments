@@ -10,7 +10,39 @@ def training_environment(config):
     if variant in POSITION_VARIANTS or variant == 'pri4r_paper':env['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
     resource_home = config['portable'].get('resource_home', Path(config['run_root_dir']).parent)
     env['OPENPI_DATA_HOME']=str(Path(resource_home)/'cache/openpi')
+    if config['framework']['pi05'].get('official_precision_mode'):
+        env.update(ACCELERATE_USE_DEEPSPEED='false', ACCELERATE_USE_FSDP='false',
+                   ACCELERATE_MIXED_PRECISION='no')
     return env
+
+def launch_configuration(c, config_path, control):
+    """Keep official mixed parameter dtypes out of DeepSpeed's blanket cast."""
+    n=c['portable']['world_size'];v=c['portable']['variant']
+    micro=c['datasets']['vla_data']['per_device_batch_size']
+    acc=c['trainer']['gradient_accumulation_steps'];batch=128 if v=='pri4r_paper' else 64
+    if micro*n*acc!=batch:raise ValueError('Global batch mismatch')
+    if c['framework']['pi05'].get('official_precision_mode'):
+        if c['trainer'].get('optimizer_offload_cpu'):
+            raise ValueError('Native OpenPI AdamW does not support DeepSpeed CPU offload')
+        # torchrun also supplies RANK/WORLD_SIZE for the single-GPU bounded gate.
+        cmd=[sys.executable,'-m','torch.distributed.run','--standalone','--nnodes=1',
+             '--nproc_per_node',str(n),str(ROOT/'scripts/train_entry.py'),
+             '--config',str(Path(config_path).resolve())]
+        return cmd, {'backend':'native_ddp','mixed_precision':'no','world':n}, None
+    ds={'fp16':{'enabled':False},'bf16':{'enabled':True},'train_micro_batch_size_per_gpu':micro,'train_batch_size':batch,
+        'gradient_accumulation_steps':acc,'zero_optimization':{'stage':2,'allgather_partitions':True,'allgather_bucket_size':500000000,
+        'reduce_scatter':True,'reduce_bucket_size':500000000,'overlap_comm':True,'contiguous_gradients':True,'cpu_offload':False},'gradient_clipping':1.0,'steps_per_print':10}
+    if c['trainer'].get('optimizer_offload_cpu',False):
+        if v!='pri4r_paper' or n!=1 or not c['portable'].get('smoke'):
+            raise ValueError('CPU optimizer offload is scoped to bounded one-GPU Pri4R validation')
+        ds['zero_optimization'].pop('cpu_offload')
+        ds['zero_optimization']['offload_optimizer']={'device':'cpu','pin_memory':True}
+        ds['zero_force_ds_cpu_optimizer']=False
+    ac={'compute_environment':'LOCAL_MACHINE','distributed_type':'DEEPSPEED','num_machines':1,'num_processes':n,
+        'deepspeed_config':{'deepspeed_config_file':str(control/'deepspeed.json'),'deepspeed_multinode_launcher':'standard','zero3_init_flag':False}}
+    cmd=[sys.executable,'-m','accelerate.commands.launch','--config_file',str(control/'accelerate.yaml'),
+         str(ROOT/'scripts/train_entry.py'),'--config',str(Path(config_path).resolve())]
+    return cmd, ac, ds
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');p.add_argument('--dry-run',action='store_true')
@@ -21,24 +53,14 @@ def main():
     acc = c['trainer']['gradient_accumulation_steps']
     micro = c['datasets']['vla_data']['per_device_batch_size']
     if micro*n*acc != batch:raise ValueError('Global batch mismatch')
-    ds={'fp16':{'enabled':False},'bf16':{'enabled':True},'train_micro_batch_size_per_gpu':micro,'train_batch_size':batch,
-        'gradient_accumulation_steps':acc,'zero_optimization':{'stage':2,'allgather_partitions':True,'allgather_bucket_size':500000000,
-        'reduce_scatter':True,'reduce_bucket_size':500000000,'overlap_comm':True,'contiguous_gradients':True,'cpu_offload':False},'gradient_clipping':1.0,'steps_per_print':10}
-    if c['trainer'].get('optimizer_offload_cpu',False):
-        if v!='pri4r_paper' or n!=1 or not c['portable'].get('smoke'):
-            raise ValueError('CPU optimizer offload is scoped to bounded one-GPU Pri4R validation')
-        ds['zero_optimization'].pop('cpu_offload')
-        ds['zero_optimization']['offload_optimizer']={'device':'cpu','pin_memory':True}
-        # Preserve the configured torch AdamW algorithm and hyperparameters.
-        ds['zero_force_ds_cpu_optimizer']=False
     control=run.parent/'.launch'/c['run_id'];ds_path=control/'deepspeed.json';acc_path=control/'accelerate.yaml'
-    accelerator_config={'compute_environment':'LOCAL_MACHINE','distributed_type':'DEEPSPEED','num_machines':1,'num_processes':n,
-         'deepspeed_config':{'deepspeed_config_file':str(ds_path),'deepspeed_multinode_launcher':'standard','zero3_init_flag':False}}
-    cmd=[sys.executable,'-m','accelerate.commands.launch','--config_file',str(acc_path),str(ROOT/'scripts/train_entry.py'),'--config',str(a.config.resolve())]
+    cmd,accelerator_config,ds=launch_configuration(c,a.config,control)
     if a.resume:cmd+=['--resume']
     print(json.dumps({'command':cmd,'run':str(run),'world':n,'micro_batch':micro,'global_batch':batch,'accumulation':acc,'resume':a.resume},indent=2))
     if a.dry_run:return
-    control.mkdir(parents=True,exist_ok=True);ds_path.write_text(json.dumps(ds,indent=2));acc_path.write_text(yaml.safe_dump(accelerator_config))
+    control.mkdir(parents=True,exist_ok=True)
+    if ds is not None:ds_path.write_text(json.dumps(ds,indent=2))
+    acc_path.write_text(yaml.safe_dump(accelerator_config))
     # This process retains the lock while torchrun and every worker are alive.
     import fcntl
     with (control/'writer.lock').open('a+') as lock:

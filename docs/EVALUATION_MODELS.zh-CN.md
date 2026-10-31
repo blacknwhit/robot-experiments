@@ -15,6 +15,7 @@
 | v3 A：完整相对位置＋MLP点头 | `embedding3d_pos_a` | `runtimes/trajectory_v3` | 旧handoff用A1500权重完成H100 n1/n2闭环与eager/Graph对照 |
 | v3 B：同一点时间attention | `embedding3d_temporal_b` | `runtimes/trajectory_v3` | 旧handoff用B工程step3权重完成H100 n1/n2闭环与eager/Graph对照 |
 | v3 C：Query50＋时间点头 | `query3d_temporal_c` | `runtimes/trajectory_v3` | 仅CPU结构/接线证据；未证明完整模型GPU加载或闭环已通过 |
+| Pri4R论文方法对齐版 | `pri4r_paper` | `runtimes/pri4r_paper` | 单H100完整加载/无3D推理、实际CUDA Graph服务5请求/4并发；本版尚无全50任务闭环成绩 |
 
 证据分别见 [最新parallel验收](../provenance/PARALLEL_EVALUATION_VALIDATION.json)、[FIXED历史验收](../provenance/FIXED_SCENE_VALIDATION.json)、[A/B历史验收](../provenance/POSITION_V3_HANDOFF_VALIDATION.json)、[C的验证边界](../provenance/QUERY50_TEMPORAL_C_VALIDATION.json)。历史训练和成绩由 [实验总览](../EXPERIMENTS.md) 管理；不能把工程step3/1500当70k模型，也不能将旧协议分数混入新种子评测。
 
@@ -41,7 +42,7 @@ OUT="$HOME_DIR/eval/query-fixed-70k-parallel-seeds-v1"
 
 `evaluate_parallel.py`现在还接受 **`--model-spec /path/model.json`**，与`--variant`二选一。新模型ID不需要加入`common.py`，也不需要增加`server.py`分支。模型在独立策略进程中导入；仿真固定使用评测仓库baseline的客户端/仿真接口，不加载新模型的Python包。模型源码checkout与评测checkout可以分开维护。
 
-同一家族换checkpoint时，复用描述文件，在评测命令中指定`--checkpoint /new/weights.safetensors`并使用新OUT即可。改变结构时，更新模型自身源码、训练配置和描述文件。原来的7种`--variant`调用仍兼容。
+同一家族换checkpoint时，复用描述文件，在评测命令中指定`--checkpoint /new/weights.safetensors`并使用新OUT即可。改变结构时，更新模型自身源码、训练配置和描述文件。原有`--variant`调用仍兼容。
 
 ### 1. PI0.5兼容模型：复用内置适配器
 

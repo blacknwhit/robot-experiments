@@ -64,8 +64,12 @@ class QueryPointTrainer(VLATrainer):
                 json.dumps({'step':self.completed_steps,'decay':self.ema.decay,
                             'unique_parameters':len(self.ema.shadow_parameters),'bitwise_equal':True}))
         if self.resume_from_checkpoint:
-            from starVLA.training.foresight_resume_audit import verify_loaded_partition
-            verify_loaded_partition(self.model, self.resume_from_checkpoint, self.config.output_dir)
+            if pi05_official_precision_enabled(self.config):
+                from pri4r_native_state import audit_restored
+                audit_restored(self)
+            else:
+                from starVLA.training.foresight_resume_audit import verify_loaded_partition
+                verify_loaded_partition(self.model, self.resume_from_checkpoint, self.config.output_dir)
         if self.accelerator.is_main_process:
             runtime = {'gpu_names': [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
                        'torch': str(torch.__version__), 'world_size': self.accelerator.num_processes,
@@ -126,14 +130,22 @@ class QueryPointTrainer(VLATrainer):
             self.accelerator.backward(loss)
             if self.accelerator.sync_gradients and self.config.trainer.gradient_clipping is not None:
                 norm = self.accelerator.clip_grad_norm_(self.model.parameters(), self.config.trainer.gradient_clipping)
+            profile = bool(self.config.trainer.get('profile_timing',False)) and self.accelerator.sync_gradients
+            if profile:torch.cuda.synchronize()
+            optimizer_start=time.perf_counter()
             self.optimizer.step()
+            if profile:torch.cuda.synchronize()
+            optimizer_seconds=time.perf_counter()-optimizer_start
             if self.accelerator.sync_gradients:
                 skipped = self.accelerator.optimizer_step_was_skipped or bool(
                     getattr(getattr(self.model, 'optimizer', None), 'overflow', False))
                 if skipped:
                     raise RuntimeError('Optimizer step skipped; do not advance scheduler/progress')
                 if self.ema is not None:
+                    ema_start=time.perf_counter()
                     self.ema.update(module)
+                    if profile:torch.cuda.synchronize()
+                    ema_seconds=time.perf_counter()-ema_start
                 self.lr_scheduler.step()
             self.optimizer.zero_grad()
         sums = torch.stack([output['action_loss'].detach().float(), output['point_sum'].detach().float(),
@@ -158,6 +170,9 @@ class QueryPointTrainer(VLATrainer):
                    'timing/data': self._window_data_time, 'timing/model': elapsed,
                    'samples_per_second': self.total_batch_size / max(elapsed + self._window_data_time, 1e-6),
                    'cuda_peak_gb': torch.cuda.max_memory_allocated()/1e9}
+        if profile:
+            metrics.update(optimizer_seconds=optimizer_seconds,ema_seconds=ema_seconds,
+                           compute_excluding_optimizer_ema_seconds=elapsed-optimizer_seconds-ema_seconds)
         if before is not None:
             for name, p in module.policy_model.named_parameters():
                 if name in before:

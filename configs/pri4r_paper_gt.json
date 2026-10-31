@@ -1,5 +1,5 @@
 {
-  "cube_half_extent_m": 2.0,
+  "cube_half_extent_m": 1.5,
   "base_body_name": "mobilebase0_base",
   "num_points": 1024,
   "seed": 42,

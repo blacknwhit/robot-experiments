@@ -1,50 +1,56 @@
-# PI0.5 + Pri4R：RoboCasa365训练准备
+# PI0.5 + Pri4R：RoboCasa365训练与评测
 
-## 状态与范围
+本入口是Pri4R公开方法的独立实现，variant为`pri4r_paper`。π0.5本体对齐[官方PyTorch commit 215abfb](https://github.com/Physical-Intelligence/openpi/tree/215abfb217dbac7d5f1273282331b9b1866c0479)；主配方遵循[论文v2](https://arxiv.org/html/2603.01549v2)。作者没有公开完整训练实现，未披露的辅助结构/坐标/采样细节采用下文已明确选择的约定。
 
-本入口是按[Pri4R v2](https://arxiv.org/html/2603.01549v2)公开描述实现的独立版本，variant为`pri4r_paper`。截至2026-10-31核查时作者尚未公开训练代码，所以不能声称全部未公开细节与作者逐字节一致。论文实验为24原子任务/Human-50；本入口使用已有RoboCasa365的300任务训练数据，是方法迁移，不是论文分数复现。
+**当前版本已通过真实单H100短训、保存、新进程恢复、推理、官方前向/梯度对照及评测服务验证。** 四进程CPU归约和混合dtype状态恢复通过；每卡B32容量已用单H100的DDP＋GPU Adam/EMA实测。尚未四张实体GPU联跑，也未开始正式30k训练或完整benchmark，不承诺性能提升。
 
-**2026-10-31已通过真实单H100训练、完整保存、新进程恢复及无3D输入推理验收。** 本次只准备代码及有界验证，没有执行全量GT或正式训练。四卡配置和四进程归约检查通过；真实四卡NCCL及显存容量没有实测。下文全量命令供之后远端明确启动时使用。
+## 方法与配方
 
-## 固定方法与配方
+| 项目 | 固定设置 |
+|---|---|
+| 初始化/训练 | 原始`pi05_base`，全量微调；不使用历史70k或工程权重 |
+| 原π0.5路径 | 官方selective BF16/FP32、原joint attention、原flow matching；原生DDP＋torch AdamW，无外层autocast |
+| 辅助结构 | 独立50个query读取末层prefix；2层self→cross→FFN，d2048/8头/FFN4096；不插入动作prefix |
+| 两MLP | Point 3→128→2048；Fusion 4096→256→3；GELU，无新增RoPE或时间因果模块 |
+| GT | 首帧机器人中心、随其朝向的**边长3m**立方体内，按mesh表面积均匀采1024点；固定面片/重心坐标跨帧跟踪 |
+| 坐标与目标 | **世界坐标、米**；50段相邻位移，不额外标准化、不加累计/绝对位置loss |
+| 损失 | action FM + **1×有效XYZ逐元素平均L1**；缺失未来点mask，不用未来运动筛点或类别配额 |
+| 正式训练 | 默认4×H10080GB，每卡B32、acc1、global128；30000优化步 |
+| LR/AdamW | peak5e-5、warmup10000、cosine；未披露的末值用官方通用默认2.5e-6；beta(.9,.95)、eps1e-8、所有参数WD1e-10、clip1 |
+| EMA | .999，每次optimizer update后更新全部唯一参数的FP32 shadow；正式CUDA，单卡短测CPU；同时保留raw和EMA |
+| 保存 | 第1步额外完整保存，其后每1000步；原生模型、Adam、scheduler、每rank RNG、数据进度、EMA |
+| 推理 | 严格加载完整EMA权重后删除辅助模块；只用原始图像/语言/状态输入，输出环境动作50×12 |
 
-- 原始PI0.5 base全量微调，不加载旧70k模型，不使用Query-FIXED、Memory或未来图像teacher。
-- 独立可学习query读取VLM末层图文token；当前点经PointMLP，与时间特征经FusionMLP产生相邻3D位移。几何梯度回传VLM；动作路径不读取GT。推理时辅助分支不执行。
-- 整条示范首帧从机器人周围裁剪的mesh表面采1024点，保持面片/重心坐标身份，逐帧恢复模拟器记录状态取得轨迹。机器人和场景统一按表面积采样；不采用旧版512机械臂/512接触对象配额，不依据未来接触或运动筛选点。
-- `loss = 原flow matching loss + 1.0 * 相邻位移L1`；没有累计位移loss、位置loss、辅助loss ramp、梯度自适应配权或G8组采样。
-- global batch128、30000优化步、AdamW、峰值LR5e-5、warmup10000、cosine、策略参数EMA0.999。默认4GPU×B32×acc1；恢复时同拓扑，不自动迁移rank数量。
-- 完整状态保存raw模型、Adam、scheduler、RNG、数据进度、FP32 EMA；`steps_N_model.safetensors`是EMA评测权重，`steps_N_raw_model.safetensors`是raw对照。不要把raw或模型导出当成完整续训状态。
+`mixed_precision=no`指关闭Accelerate的自动整体转换，不是全模型FP32。本次实际参数为FP32 221,874,339个、BF16 3,497,036,912个。原生Adam按参数dtype维护状态，没有ZeRO的FP32 master；旧ZeRO验收标准和checkpoint不能直接套用。
 
-论文没有给出的细节明确写在`configs/pri4r_paper.yaml:experiment.local_conventions`：2层8头d2048辅助读取器、GELU两MLP宽度、2米cube半边长、窗口起点机器人底座坐标、米制、有效XYZ均值L1、EOF屏蔽、seed42、H50、cosine末值及AdamW细项。它们是透明的实现约定，不是作者确认参数。数据集采样沿用RoboCasa365官方300任务/100示范和长度^0.4任务权重。
+论文明确EMA=.999，但官方PyTorch trainer没有EMA实现；本仓库补充标准FP32 EMA，作者的内部细节仍未知。数据集仍是用户指定RoboCasa365 300任务×100示范，论文为24任务/Human-50，因此这里是方法迁移，不是论文原分数复现。判断增益时需对齐baseline的base、数据、训练预算与评测协议。
 
-## 1. 资源与环境
+采点范围来自4条示范的有限诊断：2m漏掉初态夹爪，3m保留全部夹爪及约98.3%–99%的机器人表面，相比4m减少约37%–48%的可采面积。静态点仍占多数；没有据未来运动筛点，不能称3m为300任务的全局最优。详见[采样证据](../provenance/PRI4R_CUBE_DIAGNOSTIC.json)。GT数组的`stored_frame`是world；训练实际坐标由recipe及`point_meta.coordinate_frame`明确选择，历史metadata里的`read_frame`描述旧reader默认值。
 
-在已准备PI0.5/FIXED资源的集群复用原始数据、base及归一化统计，不重复下载。设定资源根：
+## 1. 环境和资源
 
 ```bash
 export ROBOT_EXPERIMENTS_HOME=/absolute/path/to/pri4r_resources
 export PRI4R_ASSET_ROOT="$ROBOT_EXPERIMENTS_HOME"
 export EXPERIMENT_ROOT=/absolute/path/to/pri4r_experiment
-export PY="$ROBOT_EXPERIMENTS_HOME/envs/policy/bin/python"
 export OPENPI_DATA_HOME="$ROBOT_EXPERIMENTS_HOME/cache/openpi"
+export PY="$ROBOT_EXPERIMENTS_HOME/envs/policy/bin/python"
 ```
 
-资源目录需要：`data/robocasa365/{robocasa365-pretrain-atomic,robocasa365-pretrain-composite}`、`models/pi05_base_pytorch/model.safetensors`、`models/robocasa_norm/norm_stats.json`、`cache/openpi`。缺少资源时按仓库`HANDOFF.zh-CN.md`安装/下载，`scripts/download.py --component datasets/base/small`和`convert_base.py`仍可复用。新目录可以链接这些只读资产，训练输出使用独立`EXPERIMENT_ROOT`。
-
-GT的`PRI4R_ASSET_ROOT`同时是文件边界：需要包含`playground/Code/{robocasa365,robosuite}`的真实资产、源示范文件和GT输出，解析符号链接后也必须在其中。新装环境默认等于资源根；复用旧资产时，把新资源目录放在旧资产根下面，并将`PRI4R_ASSET_ROOT`设为旧资产根。不要把资产链接到这个边界以外。
-
-依赖安装与隔离overlay：
+优先复用原有PI0.5/FIXED资源。资源根需要：`data/robocasa365/{robocasa365-pretrain-atomic,robocasa365-pretrain-composite}`、`models/pi05_base_pytorch/model.safetensors`、`models/robocasa_norm/norm_stats.json`、`cache/openpi`和`cache/arrow`。缺少资源按[主交接文档](../HANDOFF.zh-CN.md)的下载、base转换和环境配置步骤操作，数据及权重不在GitHub中。
 
 ```bash
 bash scripts/setup_policy.sh
 "$PY" scripts/runtime_overlay.py --variant pri4r_paper
 ```
 
-若已有兼容环境，仅执行第二条并核对版本即可。GT额外需要对应RoboCasa/robosuite的mesh assets；`scripts/setup_sim.sh`及原交接文档说明其获取方式。容器在创建时设置`NVIDIA_DRIVER_CAPABILITIES=all`；GPU短训需要NCCL可用。
+已验收环境为Python3.11、Torch2.7.1+cu128、Transformers4.53.2、Accelerate1.5.2、NCCL2.26.5；安装脚本仍包含共享runtime所需的DeepSpeed依赖，但本训练入口不使用DeepSpeed引擎。不要统一调用model.bfloat16()或重新打开外层autocast。
 
-## 2. 先做少量GT和短训
+GT需要RoboCasa/robosuite真实mesh资产。`PRI4R_ASSET_ROOT`是解析符号链接后的文件边界，必须包含源示范、mesh资产及GT输出；复用旧资源时可把新资源目录放在旧资产根内，并把该变量设为旧资产根。不要为了通过路径检查指向不相关目录。
 
-以下`data_scope.py`仅建立训练元数据清单，不生成全量GT。`prepare_pri4r_gt.py`默认只选4条示范；没有`--full`时拒绝超过8条。
+## 2. 可选的少量GT与部署短测
+
+新集群复用相同代码与兼容环境可直接准备全量训练；以下用于资源/环境变更后做有界验证。默认只生成4条示范，不会自动扩成全量。
 
 ```bash
 "$PY" scripts/data_scope.py --home "$ROBOT_EXPERIMENTS_HOME"
@@ -56,46 +62,36 @@ bash scripts/setup_policy.sh
   --experiment-root "$EXPERIMENT_ROOT" --run-id pri4r_smoke --gpus 1 --smoke --stop 2 \
   --out resolved/pri4r_smoke2.yaml
 "$PY" scripts/import_preflight.py --config resolved/pri4r_smoke2.yaml
-"$PY" scripts/train.py --config resolved/pri4r_smoke2.yaml
+"$PY" scripts/train_or_resume.py --config resolved/pri4r_smoke2.yaml
 
 "$PY" scripts/configure.py --variant pri4r_paper --home "$ROBOT_EXPERIMENTS_HOME" \
   --experiment-root "$EXPERIMENT_ROOT" --run-id pri4r_smoke --gpus 1 --smoke --stop 3 \
   --out resolved/pri4r_smoke3.yaml
-"$PY" scripts/train.py --config resolved/pri4r_smoke3.yaml --resume
+"$PY" scripts/train_or_resume.py --config resolved/pri4r_smoke3.yaml
 "$PY" scripts/point_inference_probe.py --config resolved/pri4r_smoke3.yaml \
   --checkpoint "$EXPERIMENT_ROOT/smoke_runs/pri4r_smoke/checkpoints/steps_3_model.safetensors" \
   --sample "$EXPERIMENT_ROOT/smoke_runs/pri4r_smoke/engineering_sample.pt" \
   --output "$EXPERIMENT_ROOT/pri4r_inference_check.json"
 ```
 
-短训使用真实RGB/action/GT，限制到清单里的示范，不会从未准备GT的其他episode随机补样。损坏/缺失GT直接报错；正式模式拒绝绑定短测清单。验收检查每层Embedding、点头、共享VLM有限非零梯度和FP32更新，以及各rank恢复和EMA clock。推理检查完整EMA加载、训练/缓存路径一致及不读取3D点的有限动作。
+单卡短测B4/acc32/global128，**Adam在GPU、EMA在CPU、数据worker=0**。这些设置保证单卡有界验证，其速度不代表正式四卡。短测仅使用已准备GT的真实示范；formal模式拒绝绑定短测清单。保存/恢复需要同一封存release、recipe和world，缺完整状态会报错，不静默回到base。
 
-单卡短训自动使用B4、梯度累积32、global128；torch AdamW状态与FP32 EMA放在CPU，模型和前向反向仍在GPU。该设置只用于有界验收，要求足够CPU内存；不能将单卡CPU offload短测速度作为正式四卡训练速度。`--gpus 1 --formal`会直接拒绝。
+## 3. 远端全量GT
 
-四卡正式配置仍是每卡B32、acc1、global128，Adam与EMA均在CUDA。四进程CPU/Gloo检查可单独执行：
-
-```bash
-"$PY" -m unittest discover -s tests -p test_pri4r_reduction.py -v
-```
-
-它检查不等有效点数及累积下的分布式梯度与全batch串行参考等价，使用本机TCP rendezvous以避免共享盘文件锁问题。它不代表四张GPU的NCCL、显存容量或完整ZeRO2实机验收。**资源不足不要自行减global batch或改变loss/EMA。**
-
-## 3. 以后在远端全量准备GT
-
-这一步耗时、占空间，只在明确要正式训练时执行。使用全新的资源目录，不覆盖上述短测目录，也不覆盖旧armobj标签。例如在上述资产根下建立`pri4r_full`作为新的`ROBOT_EXPERIMENTS_HOME`，链接同一资产根内的RGB/base/cache，保持`PRI4R_ASSET_ROOT`不变；源文件及GT输出都应位于该资产根内。`PY`可继续指向已安装的环境，切换资源根后同步设置`OPENPI_DATA_HOME="$ROBOT_EXPERIMENTS_HOME/cache/openpi"`。不要把短测的`input_manifest.json`直接当全量清单。
+使用新的完整资源/GT目录，复用相同base/data/cache，保留短测产物。若资源根改变，同步更新`OPENPI_DATA_HOME`。下列命令只应在确实要正式训练时运行：
 
 ```bash
 "$PY" scripts/data_scope.py --home "$ROBOT_EXPERIMENTS_HOME"
 "$PY" scripts/prepare_pri4r_gt.py --home "$ROBOT_EXPERIMENTS_HOME" --asset-root "$PRI4R_ASSET_ROOT" --stage prepare --full
 "$PY" scripts/prepare_pri4r_gt.py --home "$ROBOT_EXPERIMENTS_HOME" --asset-root "$PRI4R_ASSET_ROOT" --stage generate --full \
   --workers 6 --num-shards 8 --shard-index 0
-# 其余CPU作业分别使用shard-index 1..7，保持同一份配置/manifest。
+# 其余CPU作业使用shard-index 1..7，同一配置与manifest。
 "$PY" scripts/prepare_pri4r_gt.py --home "$ROBOT_EXPERIMENTS_HOME" --asset-root "$PRI4R_ASSET_ROOT" --stage verify --full
 ```
 
-完整GT仍约350GB量级，另留原始源和中间缓存空间。完整校验要求30000条/27815381帧及每条源身份、配置、数组SHA；校验产物是`data/gt_pri4r_paper/PORTABLE_GT_ACCEPTED.json`。几何采样由`rigid_surface_replay_v1`执行，不能用旧armobj的完成marker代替。
+完整范围要求30000示范/27815381帧，GT约350GB，另留源与缓存空间。每条源身份、配置和数组SHA均检查；完成证据是`data/gt_pri4r_paper/PORTABLE_GT_ACCEPTED.json`。不能用旧armobj配额标签、4m标签或旧完成marker冒充当前3m约定。
 
-## 4. 以后正式训练及续训
+## 4. 四卡正式训练和完整续训
 
 ```bash
 "$PY" scripts/configure.py --variant pri4r_paper --home "$ROBOT_EXPERIMENTS_HOME" \
@@ -104,26 +100,50 @@ bash scripts/setup_policy.sh
 "$PY" scripts/train_or_resume.py --config resolved/pri4r_formal.yaml
 ```
 
-第一次从原base初始化；以后只选择最新完整兼容状态恢复，不从工程权重启动，不在缺state时静默重来。保持同一固定checkout和resolved配置；新checkout源SHA不同，应保留旧release续训。SCO提交默认开启原生`autoRetrain=true, autoRetrainIntervalMinutes=10`；其他集群用其任务调度重启同一条命令，不建立第二个竞争writer。
+入口自动使用torchrun启动4个rank，保持每卡B32、acc1、global128及CUDA EMA。数据loader默认每rank4个worker、prefetch2；不要套4份外层训练命令。SCO新提交按用户约定配置原生autoRetrain=true、10分钟检查；其它集群重启同一入口即可，不创建竞争writer。
 
-EMA按每次真实optimizer update更新，完整checkpoint不可缺EMA或更新数不一致。模型评测复用现有pipeline，指定`--variant pri4r_paper`及对应config、`steps_N_model.safetensors`；统一使用同一2500回合种子协议，旧历史分数不能冒充逐场景配对结果。
+重新启动同一条命令会选最新完整兼容checkpoint，恢复模型/Adam/scheduler/每rank RNG/数据进度/EMA。保持同一checkout和resolved配置；旧649dd36的ZeRO工程状态不迁入当前原生DDP。正式训练从原base开始，工程step3权重不用于正式初始化。
 
-## 验证证据
+查看`point_track_metrics.jsonl`、`native_update_rank*.jsonl`（短测）、`native_restore_rank*.json`、`ema_restore_rank*.json`、`save_timing.jsonl`及checkpoint下的`PORTABLE_COMPLETE.json`。RNG恢复采用严格失败策略，不能把Accelerate的静默RNG加载失败当成功。
 
-完整记录见[PRI4R_PAPER_VALIDATION.json](../provenance/PRI4R_PAPER_VALIDATION.json)。受测源manifest SHA：`4abd3918d42b5ed0b46502701faacb453959dd14ac9f94da373b833e8ca69616`。
+## 5. 训练后评测
 
-- 6项配置/范围契约、3项梯度/损失/EMA数学检查、1项四进程Gloo归约，以及4项旧入口回归通过。
-- 真实GT：4条示范、1126帧、每条1024点，源对应及所有数组SHA校验通过。
-- 实机：1×H10080GB、B4/acc32/global128，原始base全量微调；仅3次优化更新。实际AdamW CPU offload、FP32 EMA在CPU，训练阶段Torch峰值分配23.54GB；此数不代表完整保存期间的总显存，也不能推导四卡B32容量。
-- step1/2/3完整保存通过。新进程从step2恢复，11156733755个FP32主权重/Adam值逐位一致，BF16、RNG、padding及EMA均通过审计，数据进度64→96 microbatch、EMA更新数2→3。
-- EMA导出严格加载861项、0项丢弃；两种噪声的训练前向/缓存推理差值均0。移除所有point输入并禁止辅助分支执行后，动作`[1,50,12]`有限，同seed两次完全一致。
+使用EMA导出`steps_N_model.safetensors`，raw导出为`steps_N_raw_model.safetensors`，两者不要混淆。保持训练对应的resolved配置及归一化资产。当前服务端完整加载后移除辅助头，不需要3D GT。
 
-| update | action loss | adjacent 3D L1 | total loss | gradient norm |
-|---|---|---|---|---|
-| 1 | 0.489077 | 0.129076 | 0.618153 | 0.794764 |
-| 2 | 0.510510 | 0.128540 | 0.639050 | 0.817635 |
-| 3（恢复后） | 0.532478 | 0.129327 | 0.661806 | 0.831959 |
+```bash
+SIM_PY=/absolute/path/to/simulator/python
+CHECKPOINT="$EXPERIMENT_ROOT/runs/pri4r_paper_seed42/checkpoints/steps_30000_model.safetensors"
+OUT="$EXPERIMENT_ROOT/eval/pri4r-30k-seeds-v1"
+"$PY" scripts/evaluate_parallel.py \
+  --variant pri4r_paper --home "$ROBOT_EXPERIMENTS_HOME" \
+  --config resolved/pri4r_formal.yaml --checkpoint "$CHECKPOINT" \
+  --sim-python "$SIM_PY" --output "$OUT" --all-tasks \
+  --gpu-ids 0,1,2,3,4,5,6,7 --egl-device-ids 0,1,2,3,4,5,6,7 \
+  --n-envs 16 --tasks-per-gpu 50 --simulator-cpu-threads 1 \
+  --rgb-schedule final --initial-rgb deferred --timeout 172800
+```
 
-每步共享VLM、两层Embedding及点头的12项审计参数均有有限非零梯度与FP32主权重更新。极小warmup LR下部分BF16参数差值日志为0，不能以此替代FP32审计。日志中的`FORESIGHT_4GPU_RESTORE_AUDIT_OK`是继承的历史名称，实际world以记录中的1为准。
+评测GPU数量独立于训练：单卡/2卡/4卡相应缩短两组设备号。模型每卡一份，多task共享环境池；2500个task/episode种子固定，不生成场景计划、不做旧参考像素哈希比较。保留完整模型加载、实际请求eager/Graph对照、观测/动作健康及2500回合覆盖检查。模型迭代不改变测试任务、种子或horizon。
 
-这些证据验证训练和续训接线，不证明3步收敛、正式训练稳定性或性能提升；没有闭环benchmark结果。正式四卡仍需在目标机器观察首批更新与保存，不能把本次单卡验证称为四卡实机验证。
+模拟器安装与`receipts/sim.freeze.txt`、容器NVIDIA_DRIVER_CAPABILITIES=all及GPU/EGL实际映射要求，沿用[Astra执行文档](ASTRA_FIXED_SCENES.zh-CN.md)。本版已验证实际服务端5个请求/4客户端并发及eager/Graph一致性；本次没有重新执行Pri4R的全50任务闭环，更没有30000步模型成绩。
+
+## 实测与边界
+
+完整原始汇总见[验证记录](../provenance/PRI4R_PAPER_VALIDATION.json)、[官方对照](../provenance/PRI4R_OFFICIAL_PARITY.json)、[辅助梯度](../provenance/PRI4R_AUXILIARY_GRADIENTS.json)和[容量探针](../provenance/PRI4R_CAPACITY_PROFILE.json)。
+
+- 真实单H100：update1/2完整保存，新进程恢复2→3；模型/Adam/RNG及859个唯一参数的EMA恢复逐值一致。
+- 同一真实输入、原base权重、noise/time及增强随机流：与官方动作前向逐值一致，**805个梯度张量逐值一致**。这是一个实样本对照，不是穷尽所有输入。
+- 辅助loss单独反向传播时，18层VLM均有有限非零梯度；未把action+point总梯度冒充辅助梯度。
+- 4个CPU进程验证全局归约及混合FP32/BF16 DDP模型/Adam/RNG保存恢复，全部rank逐值一致。**不代表4张实体GPU的NCCL或速度已实测**。
+
+| 单H100容量/计算探针 | 实测 |
+|---|---|
+| DDP、原生Adam、CUDA FP32 EMA、B32 | 峰值分配57.92GB，峰值reserved 63.77GB |
+| B32预热后前向反向＋optimizer＋EMA | 1.978秒/次 |
+| B4相同工作量：action-only前向反向 | 0.482秒 |
+| B4加Pri4R前向反向 | 0.528秒，约增加9.6% |
+| 完整保存＋校验 | 126.7–132.6秒；checkpoint目录约39.6GB，另有模型导出 |
+
+容量探针重复一个真实样本，采用预热后的两次测量，包含CUDA EMA；不含数据加载、保存和多GPU通信。正式每1000步保存的摊销应结合目标集群实际step速度计算，不能把每步保存的短测速度当正常训练速度。实际四卡首批仍需核实world=4、每rank B32、global128、有限loss和完整保存；硬件拓扑/存储性能不由单卡探针保证。
+
+源码manifest：`ba16e00d3a7840a439fdcf554a89e75d1d215b6d94610a9a92a8132f25695013`。旧ZeRO验收保留在[历史记录](../provenance/PRI4R_PAPER_VALIDATION_LEGACY649dd36.json)。本次只完成工程复现准备，没有全量GT、正式训练或成功率提升结论。

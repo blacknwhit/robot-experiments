@@ -28,7 +28,7 @@ def main():
             with safe_open(str(ckpt_path),framework='pt',device='cpu') as f:
                 wrapped=all(k.startswith('policy_model.') for k in f.keys())
             proof=strict_full_state_load(framework if wrapped else framework.policy_model,ckpt_path)
-            self._framework=framework.to(device).eval();self._model_cfg=OmegaConf.to_container(cfg,resolve=True)
+            self._framework=framework;self._model_cfg=OmegaConf.to_container(cfg,resolve=True)
             self._available_unnorm_keys=[];self._default_unnorm_key=None;self._norm_processors={}
             self._direct_environment_actions=True;self._action_chunk_size=50
             if framework.policy_metadata['action_output_space']!='environment':raise ValueError('Wrong action space')
@@ -42,7 +42,12 @@ def main():
                     expected = 'relative_position_and_difference_v3' if a.variant in POSITION_VARIANTS else 'adjacent_and_cumulative_v2'
                     if model.point_track.objective_version!=expected:raise ValueError('Wrong trajectory objective')
                 def forbidden(*args):raise RuntimeError('Point head executed at inference')
-                model.point_track_head.register_forward_pre_hook(forbidden)
+                if a.variant=='pri4r_paper':
+                    from pri4r_native_state import discard_auxiliary
+                    removed=discard_auxiliary(model)
+                    proof['auxiliary_parameters_discarded']=removed
+                else:
+                    model.point_track_head.register_forward_pre_hook(forbidden)
                 if a.variant=='query3d_v2' and tuple(model.future_queries.shape)!=(1,50,2048):raise ValueError('Wrong Query50 shape')
                 if a.variant=='embedding3d_v2' and model.foresight.enabled:raise ValueError('Embedding must retain original prefix')
                 if a.variant in POSITION_VARIANTS:
@@ -54,6 +59,7 @@ def main():
                         raise ValueError('Wrong V3 temporal decoder contract')
             elif a.variant=='query_fixed':
                 if tuple(model.future_queries.shape)!=(1,64,2048):raise ValueError('Wrong FIXED queries')
+            self._framework=framework.to(device).eval()
             self._proof={'variant':a.variant,'checkpoint_sha256':sha256(ckpt_path),'config_sha256':sha256(a.config),'strict_full_state':proof}
             if a.inference_backend in ('cuda-graph','cuda-graph-pipeline'):
                 from cuda_graph_policy import CheckedCudaGraphPolicy

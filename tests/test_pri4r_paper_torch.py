@@ -17,7 +17,7 @@ spec=importlib.util.spec_from_file_location('ema_under_test',path);m=importlib.u
 
 
 class MathTests(unittest.TestCase):
-    def test_auxiliary_reaches_backbone_all_layers(self):
+    def test_auxiliary_reaches_prefix_hidden_and_head_layers(self):
         cfg=PointTrackConfig(enabled=True,version='pri4r_embedding_v1',horizon=3,num_points=8,
             hidden_dim=16,num_heads=4,embedding_layers=2,embedding_ff_multiplier=2,
             point_hidden_dim=8,fusion_hidden_dim=8,point_chunk_size=4)

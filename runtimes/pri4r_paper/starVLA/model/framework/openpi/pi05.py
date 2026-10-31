@@ -39,6 +39,8 @@ _OFFICIAL_FP32_TOP_LEVEL_PREFIXES = (
     "action_out_proj.",
     "time_mlp_in.",
     "time_mlp_out.",
+    # Independent Pri4R extension, not an author-specified precision choice.
+    "point_track_head.",
 )
 
 

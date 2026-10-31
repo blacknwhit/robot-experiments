@@ -1,0 +1,376 @@
+{
+  "status": "SINGLE_H100_BOUNDED_ACCEPTANCE_PASSED",
+  "method": "independent_Pri4R_pi05_implementation",
+  "paper": "https://arxiv.org/html/2603.01549v2",
+  "author_training_code_available_at_audit": false,
+  "benchmark": "RoboCasa365 transfer, not original Human-50 24-task score reproduction",
+  "date": "2026-10-31",
+  "source_manifest_sha256": "4abd3918d42b5ed0b46502701faacb453959dd14ac9f94da373b833e8ca69616",
+  "cpu_contract_tests_passed": 6,
+  "cpu_math_tests_passed": 3,
+  "legacy_portability_regressions_passed": 4,
+  "additional_corrupt_ema_rejection_check_passed": true,
+  "real_gt": {
+    "episodes": 4,
+    "frames": 1126,
+    "points_per_episode": 1024,
+    "sampling": "first-frame uniform clipped mesh surface; no contact quotas",
+    "source_and_all_array_sha_verified": true,
+    "sampling_config_sha256": "704b4564b4cdcd7b5f32d3bffca85974489415b6497d0cb799d64d02d34b085c"
+  },
+  "lazy_training_import_preflight_passed": true,
+  "gpu_training_passed": true,
+  "full_state_resume_passed": true,
+  "point_free_action_inference_passed": true,
+  "formal_training_started": false,
+  "full_gt_generation_started": false,
+  "limitations": [
+    "Single H100 ran the complete full-model training/save/restore/inference gate. Four physical GPUs were not allocated for runtime or capacity testing.",
+    "Single-GPU validation uses CPU AdamW/EMA and accumulation32; formal four-GPU configuration uses GPU state and accumulation1. It is not a formal throughput measurement.",
+    "FORESIGHT_4GPU_RESTORE_AUDIT_OK is a historical log label; the actual accepted world size is 1.",
+    "Paper omits architecture widths, crop size, coordinate conventions and some reduction/recipe details; these remain documented local choices.",
+    "Four real demos only. No full GT generation, formal training, closed-loop benchmark, or performance improvement claim."
+  ],
+  "training_source_commit": "727ae1a066a76f7d34c888b20f34283613a8d1a3",
+  "four_rank_gloo_reduction_passed": true,
+  "ema_state_resume_passed": true,
+  "ema_resume_placement": "CPU FP32 on single-GPU bounded test",
+  "actual_hardware": {
+    "names": [
+      "NVIDIA H100 80GB HBM3"
+    ],
+    "torch": "2.7.1+cu128"
+  },
+  "world_size": 1,
+  "micro_batch": 4,
+  "gradient_accumulation_steps": 32,
+  "global_batch": 128,
+  "optimizer": "torch.optim.AdamW, CPU offload in bounded single-GPU run",
+  "ema_device": "cpu",
+  "completed_optimizer_updates": 3,
+  "full_checkpoint_steps": [
+    1,
+    2,
+    3
+  ],
+  "new_process_resume_from_step": 2,
+  "restore_audit": {
+    "rank": 0,
+    "completed_steps": 2,
+    "fp32_values_checked": 11156733755,
+    "master_and_adam_moments_bitwise_equal": true,
+    "bf16_model_matches_master": true,
+    "rng_restore_verified_before_child_seed": true,
+    "new_cuda_seed": null,
+    "zero_alignment_padding_by_group": [
+      0,
+      1
+    ],
+    "nonparameter_padding_verified_zero": true
+  },
+  "ema_restore_audit": {
+    "step": 2,
+    "decay": 0.999,
+    "unique_parameters": 859,
+    "bitwise_equal": true
+  },
+  "inference": {
+    "passed": true,
+    "variant": "pri4r_paper",
+    "checkpoint_sha256": "653a6fff253f9c5ca1d66b5a0ca7ab2741458fbbca9044de24ec880e1976a4bf",
+    "strict_state": {
+      "strict": true,
+      "keys": 861,
+      "all_keys_present": true,
+      "all_loaded_values_exact_at_model_dtype": true,
+      "serialized_tied_aliases_exact": [
+        [
+          "policy_model.paligemma_with_expert.paligemma.lm_head.weight",
+          "policy_model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+        ]
+      ],
+      "checkpoint_keys_dropped": 0
+    },
+    "joint_cache_parity": [
+      {
+        "seed": 71,
+        "relative_l2": 0.0,
+        "max_abs": 0.0
+      },
+      {
+        "seed": 72,
+        "relative_l2": 0.0,
+        "max_abs": 0.0
+      }
+    ],
+    "actions_shape": [
+      1,
+      50,
+      12
+    ],
+    "point_inputs_required": false,
+    "point_head_called": false,
+    "prefix_queries_preserved": false,
+    "finite": true,
+    "deterministic_requests": true,
+    "gpu": "NVIDIA H100 80GB HBM3",
+    "engineering_only": true,
+    "closed_loop_benchmark": false
+  },
+  "observed_metrics": [
+    {
+      "step": 1,
+      "action_dit_loss": 0.4890768527984619,
+      "point_track_loss": 0.12907634675502777,
+      "total_loss": 0.6181532144546509,
+      "gradient_norm": 0.7947638630867004,
+      "consumed_batches": 32,
+      "cuda_peak_gb": 23.537171968
+    },
+    {
+      "step": 2,
+      "action_dit_loss": 0.5105101466178894,
+      "point_track_loss": 0.1285400390625,
+      "total_loss": 0.6390501856803894,
+      "gradient_norm": 0.8176353573799133,
+      "consumed_batches": 64,
+      "cuda_peak_gb": 23.537171968
+    },
+    {
+      "step": 3,
+      "action_dit_loss": 0.5324780941009521,
+      "point_track_loss": 0.1293274313211441,
+      "total_loss": 0.6618055105209351,
+      "gradient_norm": 0.8319591879844666,
+      "consumed_batches": 96,
+      "cuda_peak_gb": 23.537171968
+    }
+  ],
+  "fp32_update_audits": [
+    {
+      "step": 1,
+      "rank": 0,
+      "world_size": 1,
+      "global_batch": 128,
+      "accumulation": 32,
+      "masters": {
+        "paligemma_with_expert.paligemma.model.language_model.layers.17.self_attn.k_proj.weight": {
+          "gradient_squared_norm": 0.0007220580191642512,
+          "update_max": 7.450580596923828e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.point_mlp.0.weight": {
+          "gradient_squared_norm": 1.9399810980758048e-05,
+          "update_max": 7.450580596923828e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.point_mlp.2.weight": {
+          "gradient_squared_norm": 0.0018399239452264737,
+          "update_max": 7.450580596923828e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.fusion_in.weight": {
+          "gradient_squared_norm": 2.569491595029831,
+          "update_max": 5.587935447692871e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.fusion_out.weight": {
+          "gradient_squared_norm": 0.16325119812972844,
+          "update_max": 7.450580596923828e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.queries": {
+          "gradient_squared_norm": 0.009251914299966302,
+          "update_max": 7.450580596923828e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.self_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.015243854038999416,
+          "update_max": 5.587935447692871e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.cross_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.5868663489818573,
+          "update_max": 5.587935447692871e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.ff.0.weight": {
+          "gradient_squared_norm": 0.10890182305593044,
+          "update_max": 5.587935447692871e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.self_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.19546533504035324,
+          "update_max": 5.587935447692871e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.cross_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.32629318651743233,
+          "update_max": 5.587935447692871e-09,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.ff.0.weight": {
+          "gradient_squared_norm": 0.06987698283046484,
+          "update_max": 5.587935447692871e-09,
+          "actual_device": "cuda:0"
+        }
+      },
+      "optimizer_class": "AdamW",
+      "cpu_offload": true,
+      "ema_device": "cpu"
+    },
+    {
+      "step": 2,
+      "rank": 0,
+      "world_size": 1,
+      "global_batch": 128,
+      "accumulation": 32,
+      "masters": {
+        "paligemma_with_expert.paligemma.model.language_model.layers.17.self_attn.k_proj.weight": {
+          "gradient_squared_norm": 0.0008081329870037735,
+          "update_max": 1.4901161193847656e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.point_mlp.0.weight": {
+          "gradient_squared_norm": 1.9956865543235836e-05,
+          "update_max": 1.4901161193847656e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.point_mlp.2.weight": {
+          "gradient_squared_norm": 0.0018536235475039575,
+          "update_max": 1.1175870895385742e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.fusion_in.weight": {
+          "gradient_squared_norm": 2.547760546207428,
+          "update_max": 1.0244548320770264e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.fusion_out.weight": {
+          "gradient_squared_norm": 0.16152336460072547,
+          "update_max": 1.1175870895385742e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.queries": {
+          "gradient_squared_norm": 0.009325591032393277,
+          "update_max": 1.1175870895385742e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.self_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.01536771513929125,
+          "update_max": 1.0244548320770264e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.cross_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.5823919055983424,
+          "update_max": 1.0244548320770264e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.ff.0.weight": {
+          "gradient_squared_norm": 0.1084825691068545,
+          "update_max": 1.0244548320770264e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.self_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.1944486517459154,
+          "update_max": 1.0244548320770264e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.cross_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.3230182724073529,
+          "update_max": 1.0244548320770264e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.ff.0.weight": {
+          "gradient_squared_norm": 0.06952500459738076,
+          "update_max": 1.0244548320770264e-08,
+          "actual_device": "cuda:0"
+        }
+      },
+      "optimizer_class": "AdamW",
+      "cpu_offload": true,
+      "ema_device": "cpu"
+    },
+    {
+      "step": 3,
+      "rank": 0,
+      "world_size": 1,
+      "global_batch": 128,
+      "accumulation": 32,
+      "masters": {
+        "paligemma_with_expert.paligemma.model.language_model.layers.17.self_attn.k_proj.weight": {
+          "gradient_squared_norm": 0.0007829772621334996,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.point_mlp.0.weight": {
+          "gradient_squared_norm": 2.102433705886142e-05,
+          "update_max": 2.9802322387695312e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.point_mlp.2.weight": {
+          "gradient_squared_norm": 0.0018971117669934756,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.fusion_in.weight": {
+          "gradient_squared_norm": 2.5605305284261703,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.fusion_out.weight": {
+          "gradient_squared_norm": 0.1622009325074032,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.queries": {
+          "gradient_squared_norm": 0.00920468461845303,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.self_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.015183695140876807,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.cross_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.5837499746121466,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.0.ff.0.weight": {
+          "gradient_squared_norm": 0.10794743127189577,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.self_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.19391605153214186,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.cross_attention.in_proj_weight": {
+          "gradient_squared_norm": 0.32523337518796325,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        },
+        "point_track_head.embedding.layers.1.ff.0.weight": {
+          "gradient_squared_norm": 0.06936420837882906,
+          "update_max": 1.501757651567459e-08,
+          "actual_device": "cuda:0"
+        }
+      },
+      "optimizer_class": "AdamW",
+      "cpu_offload": true,
+      "ema_device": "cpu"
+    }
+  ],
+  "four_gpu_formal": {
+    "world": 4,
+    "micro_batch": 32,
+    "accumulation": 1,
+    "global_batch": 128,
+    "configuration_and_reduction_checks_passed": true,
+    "actual_nccl_and_capacity_verified": false
+  },
+  "evidence_archive_sha256": "04de791b46499ca184caa46f2db29acf4778e53cd8452f06ac5cf957f038dd57"
+}

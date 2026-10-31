@@ -1,6 +1,6 @@
 """Worker entry: preserves scientific trainers; adds portability and save markers."""
 import pyarrow  # Import before Torch/JAX, matching the accepted runtime order.
-import argparse, copy, json, os
+import argparse, copy, json, os, time
 from pathlib import Path
 import yaml
 from common import activate, is_point_variant, POSITION_VARIANTS
@@ -80,11 +80,19 @@ def main():
         klass=QueryPointTrainer
     save=klass._save_checkpoint;log=klass._log_metrics
     def checked_save(self):
+        started=time.perf_counter()
         save(self)
         if self.accelerator.is_main_process:
             step=self.completed_steps;cp=run/'checkpoints'/f'checkpoint-{step}'
+            if v=='pri4r_paper' and c['framework']['pi05'].get('official_precision_mode'):
+                from pri4r_native_state import write_metadata
+                write_metadata(self,cp)
             validate(cp,c)
             (cp/'PORTABLE_COMPLETE.json').write_text(json.dumps({'step':step,'world':world,'recipe':canonical(c)},indent=2))
+            with (run/'save_timing.jsonl').open('a') as f:
+                f.write(json.dumps({'step':step,'save_and_validate_seconds':time.perf_counter()-started,
+                    'checkpoint_bytes':sum(p.stat().st_size for p in cp.rglob('*') if p.is_file()),
+                    'gpu_lifetime_peak_gb':torch.cuda.max_memory_allocated()/1e9})+'\n')
         self.accelerator.wait_for_everyone()
     def first_save(self,metrics):
         log(self,metrics)

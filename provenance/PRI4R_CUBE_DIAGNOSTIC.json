@@ -1,0 +1,378 @@
+{
+  "rows": [
+    {
+      "episode": "pretrain/atomic/AdjustToasterOvenTemperature/20250820/episode_000000",
+      "cube_side_m": 2.0,
+      "frames": 234,
+      "area_m2": {
+        "robot": 3.639581250025376,
+        "articulated_or_free_scene": 8.597862899853776,
+        "static_scene": 45.01723949761242
+      },
+      "sampled_points": {
+        "robot": 65,
+        "articulated_or_free_scene": 155,
+        "static_scene": 804
+      },
+      "surface_area_m2": 57.254683647491575,
+      "moving_points_over_1mm": 5,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.8523344442432096,
+        "gripper": 0.0,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 65.09390957379377,
+        "articulated_or_free_scene": 153.77277540570245,
+        "static_scene": 805.1333150205038
+      },
+      "point_identity_sha256_before_replay": "dac704a2d7266a50e898c10c7ee9f4752a58bca10528c3040dcd7998ba9797e2",
+      "max_displacement_m": 0.008139026330043932,
+      "zero_prediction_adjacent_xyz_mae_m": 3.4227610688235647e-07,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/AdjustToasterOvenTemperature/20250820/episode_000000",
+      "cube_side_m": 3.0,
+      "frames": 234,
+      "area_m2": {
+        "robot": 4.299486127775333,
+        "articulated_or_free_scene": 18.46138373273248,
+        "static_scene": 102.97191839596036
+      },
+      "sampled_points": {
+        "robot": 35,
+        "articulated_or_free_scene": 140,
+        "static_scene": 849
+      },
+      "surface_area_m2": 125.73278825646818,
+      "moving_points_over_1mm": 9,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.9896268404237504,
+        "gripper": 1.0000000000000016,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 35.016115174837466,
+        "articulated_or_free_scene": 150.35423300847336,
+        "static_scene": 838.629651816689
+      },
+      "point_identity_sha256_before_replay": "a7a6a9b30844aadd6ead5b49fbbfa0c264f86047e6b4a1d93a35aa688bcd5359",
+      "max_displacement_m": 0.21686107277503017,
+      "zero_prediction_adjacent_xyz_mae_m": 7.551766048043092e-06,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/AdjustToasterOvenTemperature/20250820/episode_000000",
+      "cube_side_m": 4.0,
+      "frames": 234,
+      "area_m2": {
+        "robot": 4.343780896515721,
+        "articulated_or_free_scene": 30.495973321399802,
+        "static_scene": 175.7810497091639
+      },
+      "sampled_points": {
+        "robot": 26,
+        "articulated_or_free_scene": 152,
+        "static_scene": 846
+      },
+      "surface_area_m2": 210.6208039270795,
+      "moving_points_over_1mm": 5,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.9999999999999946,
+        "gripper": 1.0000000000000016,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 21.11867182679676,
+        "articulated_or_free_scene": 148.26586974724975,
+        "static_scene": 854.6154584259532
+      },
+      "point_identity_sha256_before_replay": "2b501da71580c351e9cda396a7767b3e8c72d96ec5d4660334a3f48a25b52178",
+      "max_displacement_m": 0.26698810041521426,
+      "zero_prediction_adjacent_xyz_mae_m": 5.3539153610068904e-06,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/OpenDrawer/20250819/episode_000000",
+      "cube_side_m": 2.0,
+      "frames": 185,
+      "area_m2": {
+        "robot": 3.63963550734263,
+        "articulated_or_free_scene": 8.216282370034556,
+        "static_scene": 48.03601611326077
+      },
+      "sampled_points": {
+        "robot": 62,
+        "articulated_or_free_scene": 141,
+        "static_scene": 821
+      },
+      "surface_area_m2": 59.891933990638016,
+      "moving_points_over_1mm": 27,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.852347150479771,
+        "gripper": 0.0,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 62.228525799508084,
+        "articulated_or_free_scene": 140.4775666157405,
+        "static_scene": 821.2939075847504
+      },
+      "point_identity_sha256_before_replay": "b900c5edd4e4e27e8c94e93c812398a903c17b21c9c1b2b0c977d82ab511fd99",
+      "max_displacement_m": 0.47113953660129043,
+      "zero_prediction_adjacent_xyz_mae_m": 1.1647431108923156e-05,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/OpenDrawer/20250819/episode_000000",
+      "cube_side_m": 3.0,
+      "frames": 185,
+      "area_m2": {
+        "robot": 4.29415563737211,
+        "articulated_or_free_scene": 9.863239254728946,
+        "static_scene": 82.11846905304706
+      },
+      "sampled_points": {
+        "robot": 48,
+        "articulated_or_free_scene": 98,
+        "static_scene": 878
+      },
+      "surface_area_m2": 96.27586394514815,
+      "moving_points_over_1mm": 27,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.9883785208333186,
+        "gripper": 0.9999999999999989,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 45.67308141918408,
+        "articulated_or_free_scene": 104.90642808042473,
+        "static_scene": 873.4204905003909
+      },
+      "point_identity_sha256_before_replay": "ab5d5069f177ed9ffb61dcdf9a9e41ee7aacc8b0db4ad55fb633711658846959",
+      "max_displacement_m": 0.9244750399769446,
+      "zero_prediction_adjacent_xyz_mae_m": 3.435793258747291e-05,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/OpenDrawer/20250819/episode_000000",
+      "cube_side_m": 4.0,
+      "frames": 185,
+      "area_m2": {
+        "robot": 4.343780896515726,
+        "articulated_or_free_scene": 23.61258973542327,
+        "static_scene": 136.48124484637069
+      },
+      "sampled_points": {
+        "robot": 26,
+        "articulated_or_free_scene": 137,
+        "static_scene": 861
+      },
+      "surface_area_m2": 164.4376154783099,
+      "moving_points_over_1mm": 11,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.9999999999999959,
+        "gripper": 0.9999999999999989,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 27.04996435939452,
+        "articulated_or_free_scene": 147.0423407609118,
+        "static_scene": 849.9076948796923
+      },
+      "point_identity_sha256_before_replay": "38b91d272d4908dd07942c17f5563fa29d386a90666609a749de86ab7fed1ad8",
+      "max_displacement_m": 0.9316072004421146,
+      "zero_prediction_adjacent_xyz_mae_m": 2.0919901194886745e-05,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/composite/AddIceCubes/20250829/episode_000000",
+      "cube_side_m": 2.0,
+      "frames": 524,
+      "area_m2": {
+        "robot": 3.6396674595199396,
+        "articulated_or_free_scene": 10.446669870290863,
+        "static_scene": 55.063927627760556
+      },
+      "sampled_points": {
+        "robot": 58,
+        "articulated_or_free_scene": 136,
+        "static_scene": 830
+      },
+      "surface_area_m2": 69.15026495757141,
+      "moving_points_over_1mm": 12,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.8523546331925941,
+        "gripper": 0.0,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 53.89739982681497,
+        "articulated_or_free_scene": 154.69774343947128,
+        "static_scene": 815.404856733713
+      },
+      "point_identity_sha256_before_replay": "8de55ab29b6df44cee06a9a0596cb9182b01438f3828a993d502e3ed1f18b896",
+      "max_displacement_m": 0.04512372955159187,
+      "zero_prediction_adjacent_xyz_mae_m": 4.252215660911462e-07,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/composite/AddIceCubes/20250829/episode_000000",
+      "cube_side_m": 3.0,
+      "frames": 524,
+      "area_m2": {
+        "robot": 4.2875887920193705,
+        "articulated_or_free_scene": 16.50063724744416,
+        "static_scene": 137.9171542557238
+      },
+      "sampled_points": {
+        "robot": 29,
+        "articulated_or_free_scene": 103,
+        "static_scene": 892
+      },
+      "surface_area_m2": 158.7053802951873,
+      "moving_points_over_1mm": 11,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.9868406657616342,
+        "gripper": 1.0000000000000016,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 27.664411344225712,
+        "articulated_or_free_scene": 106.46553072085867,
+        "static_scene": 889.8700579349158
+      },
+      "point_identity_sha256_before_replay": "ea51f79db00e0c4bf0edec3eba4be23c47af210004df2f5fb167db1d165a0861",
+      "max_displacement_m": 0.42939521171679784,
+      "zero_prediction_adjacent_xyz_mae_m": 1.0780734080385424e-05,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/composite/AddIceCubes/20250829/episode_000000",
+      "cube_side_m": 4.0,
+      "frames": 524,
+      "area_m2": {
+        "robot": 4.343780896515723,
+        "articulated_or_free_scene": 27.909348329316824,
+        "static_scene": 218.2129721262656
+      },
+      "sampled_points": {
+        "robot": 19,
+        "articulated_or_free_scene": 124,
+        "static_scene": 881
+      },
+      "surface_area_m2": 250.46610135209815,
+      "moving_points_over_1mm": 8,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.999999999999995,
+        "gripper": 1.0000000000000016,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 17.75901654563299,
+        "articulated_or_free_scene": 114.1039547265705,
+        "static_scene": 892.1370287277965
+      },
+      "point_identity_sha256_before_replay": "444f00729b4df5aa5358cab512702cccb61e4401d8428793843e9b299a42fe0c",
+      "max_displacement_m": 0.4703290437512833,
+      "zero_prediction_adjacent_xyz_mae_m": 1.3132657510937748e-05,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/NavigateKitchen/20250821/episode_000001",
+      "cube_side_m": 2.0,
+      "frames": 183,
+      "area_m2": {
+        "robot": 3.6396329946424966,
+        "articulated_or_free_scene": 5.279133142796466,
+        "static_scene": 39.89715985032445
+      },
+      "sampled_points": {
+        "robot": 64,
+        "articulated_or_free_scene": 124,
+        "static_scene": 836
+      },
+      "surface_area_m2": 48.81592598776344,
+      "moving_points_over_1mm": 64,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.8523465620437054,
+        "gripper": 0.0,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 76.3477105288989,
+        "articulated_or_free_scene": 110.73911287842101,
+        "static_scene": 836.9131765926794
+      },
+      "point_identity_sha256_before_replay": "d665e9a12404fd0fa59816f5ae318b186057ee170f51317bc6b522211ed1e8b0",
+      "max_displacement_m": 2.6097239116575364,
+      "zero_prediction_adjacent_xyz_mae_m": 0.0005402903413429755,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/NavigateKitchen/20250821/episode_000001",
+      "cube_side_m": 3.0,
+      "frames": 183,
+      "area_m2": {
+        "robot": 4.27274150014623,
+        "articulated_or_free_scene": 11.089632570474958,
+        "static_scene": 72.47776961860072
+      },
+      "sampled_points": {
+        "robot": 38,
+        "articulated_or_free_scene": 126,
+        "static_scene": 860
+      },
+      "surface_area_m2": 87.84014368922192,
+      "moving_points_over_1mm": 38,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.983363656348224,
+        "gripper": 0.9999999999999994,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 49.80965549907897,
+        "articulated_or_free_scene": 129.27783670690562,
+        "static_scene": 844.9125077940153
+      },
+      "point_identity_sha256_before_replay": "f4cfc8d6b0b853785ac426daf1aab4917810f12ae6a03812cebe0800e923b1e7",
+      "max_displacement_m": 2.5765890129290656,
+      "zero_prediction_adjacent_xyz_mae_m": 0.0003105417390940571,
+      "sampling_used_future_motion": false
+    },
+    {
+      "episode": "pretrain/atomic/NavigateKitchen/20250821/episode_000001",
+      "cube_side_m": 4.0,
+      "frames": 183,
+      "area_m2": {
+        "robot": 4.343780896515714,
+        "articulated_or_free_scene": 24.168905288686645,
+        "static_scene": 140.17437033676447
+      },
+      "sampled_points": {
+        "robot": 20,
+        "articulated_or_free_scene": 180,
+        "static_scene": 824
+      },
+      "surface_area_m2": 168.68705652196684,
+      "moving_points_over_1mm": 20,
+      "robot_area_retained_fraction": {
+        "arm_body": 0.9999999999999929,
+        "gripper": 0.9999999999999994,
+        "mobile_base": null
+      },
+      "expected_point_count": {
+        "robot": 26.368541426608257,
+        "articulated_or_free_scene": 146.71522241181708,
+        "static_scene": 850.9162361615746
+      },
+      "point_identity_sha256_before_replay": "424ba5b4e13c74a53cd47fef6d7405332f08939dd4545422f79a7fd966efe8de",
+      "max_displacement_m": 2.5111700938860366,
+      "zero_prediction_adjacent_xyz_mae_m": 0.00016074254855520738,
+      "sampling_used_future_motion": false
+    }
+  ],
+  "scope": "4 existing demos; descriptive, not performance validation",
+  "classification": "initial model ancestry, joints and robot naming; not task-object segmentation"
+}

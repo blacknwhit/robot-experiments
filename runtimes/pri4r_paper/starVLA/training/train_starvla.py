@@ -88,13 +88,19 @@ def build_accelerator(cfg) -> Accelerator:
                 "or pass accelerate_official_precision_ddp.yaml explicitly."
             )
         world_size = int(os.environ.get("WORLD_SIZE", "1"))
+        if world_size >= 8:
+            # Match the pinned upstream train_pytorch.py resource branch.
+            torch.backends.cudnn.benchmark = True
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
         ddp_kwargs = DistributedDataParallelKwargs(
             find_unused_parameters=True,
             gradient_as_bucket_view=True,
             static_graph=world_size >= 8,
         )
+        from pri4r_native_state import accumulation_plugin
         accelerator = Accelerator(
-            gradient_accumulation_steps=gradient_accumulation_steps,
+            gradient_accumulation_plugin=accumulation_plugin(gradient_accumulation_steps),
             mixed_precision="no",
             kwargs_handlers=[ddp_kwargs],
         )
@@ -165,8 +171,13 @@ def prepare_data(cfg, accelerator, output_dir) -> DataLoader:
 def setup_optimizer_and_scheduler(model, cfg) -> Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler._LRScheduler]:
     """Set optimizer and scheduler."""
     param_groups = build_param_lr_groups(model=model, cfg=cfg)
+    official = pi05_official_precision_enabled(cfg)
+    if official:
+        # Official train_pytorch.py uses one AdamW group over model.parameters().
+        param_groups = [{"params": list(model.parameters()), "name": "openpi_all",
+                         "lr": cfg.trainer.learning_rate.base}]
     foresight = getattr(getattr(model, "policy_model", None), "foresight", None)
-    if foresight is not None and (foresight.enabled or getattr(getattr(model.policy_model, "point_track", None), "enabled", False) or getattr(model.policy_model.config, "deterministic_images", False)):
+    if not official and foresight is not None and (foresight.enabled or getattr(getattr(model.policy_model, "point_track", None), "enabled", False) or getattr(model.policy_model.config, "deterministic_images", False)):
         names = {id(p): name for name, p in model.named_parameters()}
         split_groups = []
         for group in param_groups:
@@ -467,6 +478,9 @@ class VLATrainer(TrainerUtils):
         # optimizer checkpoints contain NumPy scalar LR metadata.
         with self._trusted_checkpoint_safe_globals():
             self.accelerator.load_state(checkpoint_path)
+        if pi05_official_precision_enabled(self.config):
+            from pri4r_native_state import restore_rng_strict
+            restore_rng_strict(checkpoint_path,self.accelerator.process_index)
         self.accelerator.wait_for_everyone()
         self.accelerator.print(
             f"Resumed from checkpoint: {checkpoint_path} "

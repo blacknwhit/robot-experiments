@@ -18,6 +18,7 @@ def read_point_track(dataset, episode, current):
             expected_config_sha256=expected,
             num_points=int(cfg.get('point_track_num_points', 1024)),
             horizon=int(cfg.get('point_track_horizon', 50)),
+            coordinate_frame=str(cfg.get('point_track_coordinate_frame', 'window_start_robot_base')),
             cache_size=int(cfg.get('point_track_cache_size', 8)))
     row = dataset.curr_traj_data.iloc[current]
     if int(row['frame_index']) != current:

@@ -17,7 +17,7 @@ framework:
     gradient_checkpointing: true
     deterministic_images: false
     compile_sample_actions: false
-    official_precision_mode: false
+    official_precision_mode: true
     foresight:
       enabled: false
       version: prefix_query_track_v1
@@ -45,7 +45,7 @@ framework:
       loss_weight: 1.0
       point_chunk_size: 128
       checkpoint_fusion: true
-      coordinate_frame: window_start_robot_base
+      coordinate_frame: world
       units: meters
       output_kind: adjacent_displacement
   action_model:
@@ -90,6 +90,7 @@ datasets:
     point_track_gt_config_sha256: ${GT_CONFIG_SHA256}
     point_track_num_points: 1024
     point_track_horizon: 50
+    point_track_coordinate_frame: world
     point_track_cache_size: 4
 trainer:
   max_train_steps: 30000
@@ -101,7 +102,7 @@ trainer:
     base: 5.0e-05
   lr_scheduler_type: openpi_cosine
   scheduler_specific_kwargs:
-    min_lr: 5.0e-06
+    min_lr: 2.5e-06
   freeze_modules: ''
   pretrained_checkpoint: null
   is_resume: false
@@ -120,7 +121,7 @@ trainer:
     fused: false
   expected_global_batch_size: 128
   ema_decay: 0.999
-  deterministic_algorithms: true
+  deterministic_algorithms: false
   save_first_update: true
   stop_after_steps: 3
   ema_missing_resume_policy: error
@@ -138,8 +139,10 @@ experiment:
   local_conventions:
   - embedding 2 layers/8 heads/2048 width/FFN 2x/no dropout
   - PointMLP 3-128-2048; FusionMLP 4096-256-3; GELU
-  - H50; meters; fixed window-start robot-base frame
-  - uniform clipped mesh surface area; cube half extent 2m; no class quotas
+  - H50; world coordinates in meters; explicitly selected by user
+  - uniform clipped mesh surface area; cube half extent 1.5m (side3m); no class quotas
   - valid XYZ mean L1; EOF excluded; seed42; IID frame sampling
-  - cosine end LR5e-6; AdamW betas0.9/0.95 eps1e-8 wd1e-10
+  - official PyTorch selective BF16/FP32; native AdamW without ZeRO master weights
+  - official generic cosine end LR2.5e-6; paper overrides peak5e-5 and warmup10k
+  - AdamW betas0.9/0.95 eps1e-8 wd1e-10 applied to all parameters
   - FP32 EMA of replicated model parameters; evaluation exports EMA

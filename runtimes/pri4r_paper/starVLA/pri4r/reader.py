@@ -60,7 +60,7 @@ def timestamp_tolerance(timestamps, frame_period, minimum=1e-5, source_dtype=Non
 
 def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
                  frame_period=0.05, time_tolerance=1e-5, frame_valid=None,
-                 expected_timestamp=None):
+                 expected_timestamp=None, coordinate_frame="window_start_robot_base"):
     """Return finite arrays with exactly N,H,3 deltas and no EOF clamping.
 
     Invalid targets are zero-filled and masked. A missing future state does not
@@ -75,6 +75,8 @@ def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
         raise ValueError("world_tracks must be [T,N,3]")
     if len(base_poses) != len(world_tracks) or len(timestamps) != len(world_tracks):
         raise ValueError("track/pose/time length mismatch")
+    if coordinate_frame not in ("world", "window_start_robot_base"):
+        raise ValueError("Unsupported point coordinate frame")
     anchor = validate_pose(base_poses[start])
     stop = min(len(world_tracks), start + horizon + 1)
     # Only the current small slice is inspected; a dtype conversion must not
@@ -95,7 +97,7 @@ def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
     current_valid = finite[0].copy()
     safe = np.where(finite[..., None], xyz, 0.0)
     # Row-vector inverse rigid transform: (p_world - t_world) @ R_world_from_base.
-    local = (safe - anchor[:3, 3]) @ anchor[:3, :3]
+    local = safe if coordinate_frame == "world" else (safe - anchor[:3, 3]) @ anchor[:3, :3]
     point_current = np.where(current_valid[:, None], local[0], 0.0).astype(np.float32)
     n = world_tracks.shape[1]
     delta = np.zeros((n, horizon, 3), dtype=np.float32)
@@ -113,7 +115,7 @@ def point_window(world_tracks, base_poses, timestamps, start, *, horizon=50,
     return {"point_current": point_current, "point_delta": delta,
             "point_valid": valid, "point_current_valid": current_valid,
             "point_meta": {"schema": SCHEMA, "frame_index": start, "horizon": horizon,
-                           "num_points": n, "coordinate_frame": "window_start_robot_base", "units": "meters",
+                           "num_points": n, "coordinate_frame": coordinate_frame, "units": "meters",
                            "output_kind": "adjacent_displacement", "available_endpoints": len(xyz)}}
 
 
@@ -157,7 +159,8 @@ def validate_episode(path, *, expected_cache_key=None, verify_hashes=False):
 class PointTrackStore:
     """A bounded LRU of readonly memmaps, reset automatically after worker fork."""
     def __init__(self, root, *, cache_size=8, expected_config_sha256=None,
-                 num_points=1024, horizon=50, verify_hashes=False):
+                 num_points=1024, horizon=50, verify_hashes=False,
+                 coordinate_frame="window_start_robot_base"):
         self.root = Path(root)
         self.cache_size = int(cache_size)
         if self.cache_size < 1:
@@ -165,6 +168,9 @@ class PointTrackStore:
         self.expected_config_sha256 = expected_config_sha256
         self.num_points, self.horizon = int(num_points), int(horizon)
         self.verify_hashes = bool(verify_hashes)
+        if coordinate_frame not in ("world", "window_start_robot_base"):
+            raise ValueError("Unsupported point coordinate frame")
+        self.coordinate_frame = coordinate_frame
         self._pid, self._cache = os.getpid(), OrderedDict()
 
     def __getstate__(self):
@@ -210,7 +216,7 @@ class PointTrackStore:
                               arrays["timestamps.npy"], frame_index, horizon=self.horizon,
                               frame_period=1.0 / meta["fps"],
                               time_tolerance=meta.get("time_tolerance", 1e-5),
-                              expected_timestamp=timestamp)
+                              expected_timestamp=timestamp, coordinate_frame=self.coordinate_frame)
         if "point_categories.npy" in arrays:
             result["point_categories"] = np.asarray(arrays["point_categories.npy"], dtype=np.int8).copy()
         result["point_meta"].update(episode_key=key, cache_key=meta["cache_key"],

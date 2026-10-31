@@ -9,4 +9,6 @@
 
 本次授权范围仅为训练准备及短测：4条真实示范、1126帧、每条1024点，3次优化更新和新进程恢复。没有全量GT生成、正式训练或新的benchmark成绩。作者未公开的细节列为实现约定，不宣称与未公开作者代码完全一致。
 
-单H100短测使用B4×acc32=global128，AdamW及FP32 EMA放CPU；四卡正式配置使用B32×4×acc1=128，状态放GPU。四进程CPU归约检查与真实四卡NCCL/容量检查是不同的证据，验证记录分别标明。
+单H100短测使用B4×acc32=global128，原生AdamW放GPU、FP32 EMA放CPU；四卡正式配置使用B32×4×acc1=128，状态放GPU。四进程CPU归约检查与真实四卡NCCL/容量检查是不同的证据，验证记录分别标明。
+
+2026-10-31最终对齐版：world米制、XYZ平均L1、边长3m、2层Embedding；原生DDP与官方selective precision。805个官方动作梯度张量逐值一致；18层VLM语言主干辅助梯度通过；单H100 B32＋GPU Adam/EMA容量57.92GB、约1.98秒计算探针；实际CUDA Graph服务5请求/4并发通过。四rank CPU保存恢复通过，实体四卡NCCL尚未实测。没有正式30k或benchmark结果。

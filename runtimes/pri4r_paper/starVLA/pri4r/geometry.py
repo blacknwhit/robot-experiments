@@ -164,7 +164,9 @@ def sample_surfaces(geometries, geom_rotations, geom_positions, base_pose, *,
     if clipped_indices.any():
         selected_bary[clipped_indices] = np.einsum("ni,nij->nj", weights[clipped_indices],
                                                   np.asarray(boundary_maps)[map_ids[clipped_indices]])
-    ids = np.concatenate(identity_chunks).astype(np.int32)[indices]
+    all_ids = np.concatenate(identity_chunks).astype(np.int32)
+    ids = all_ids[indices]
+    geom_areas = np.bincount(all_ids[:, 0], weights=areas)
     local = np.empty((count, 3), dtype=np.float64)
     for gid in np.unique(ids[:, 0]):
         select = ids[:, 0] == gid
@@ -173,4 +175,5 @@ def sample_surfaces(geometries, geom_rotations, geom_positions, base_pose, *,
     return {"geom_ids": ids[:, 0], "face_ids": ids[:, 1], "local": local,
             "barycentric": selected_bary,
             "surface_area_m2": float(areas.sum()), "clipped_triangles": len(areas),
+            "geom_surface_area_m2": {str(g):float(a) for g,a in enumerate(geom_areas) if a>0},
             "selected_geom_count": len(np.unique(ids[:, 0]))}

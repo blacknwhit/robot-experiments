@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "VLM_layers": [
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.0.self_attn.k_proj.weight",
+      "gradient_norm": 0.018254458904266357
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.1.self_attn.k_proj.weight",
+      "gradient_norm": 0.011024843901395798
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.2.self_attn.k_proj.weight",
+      "gradient_norm": 0.007066673599183559
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.3.self_attn.k_proj.weight",
+      "gradient_norm": 0.014787972904741764
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.4.self_attn.k_proj.weight",
+      "gradient_norm": 0.016171686351299286
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.5.self_attn.k_proj.weight",
+      "gradient_norm": 0.010559889487922192
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.6.self_attn.k_proj.weight",
+      "gradient_norm": 0.01609647087752819
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.7.self_attn.k_proj.weight",
+      "gradient_norm": 0.01057636272162199
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.8.self_attn.k_proj.weight",
+      "gradient_norm": 0.011932741850614548
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.9.self_attn.k_proj.weight",
+      "gradient_norm": 0.01400790549814701
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.10.self_attn.k_proj.weight",
+      "gradient_norm": 0.014998120255768299
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.11.self_attn.k_proj.weight",
+      "gradient_norm": 0.020425207912921906
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.12.self_attn.k_proj.weight",
+      "gradient_norm": 0.035781487822532654
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.13.self_attn.k_proj.weight",
+      "gradient_norm": 0.0290108360350132
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.14.self_attn.k_proj.weight",
+      "gradient_norm": 0.03177458792924881
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.15.self_attn.k_proj.weight",
+      "gradient_norm": 0.04548239707946777
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.16.self_attn.k_proj.weight",
+      "gradient_norm": 0.03911289572715759
+    },
+    {
+      "name": "paligemma_with_expert.paligemma.model.language_model.layers.17.self_attn.k_proj.weight",
+      "gradient_norm": 0.0674186423420906
+    }
+  ],
+  "source": "point loss only; action loss excluded"
+}

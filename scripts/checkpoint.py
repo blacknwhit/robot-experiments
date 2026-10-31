@@ -16,6 +16,15 @@ def validate(path,cfg,deep=True):
     paper=cfg['portable']['variant']=='pri4r_paper'
     batch=128 if paper else 64
     acc=cfg.get('trainer',{}).get('gradient_accumulation_steps',1)
+    if paper and cfg['framework']['pi05'].get('official_precision_mode'):
+        from pri4r_native_state import validate_native
+        validate_native(path,cfg,step,deep=deep)
+        weights=path.parent/f'steps_{step}_model.safetensors'
+        if not weights.is_file() or not weights.stat().st_size:raise ValueError('Missing evaluation export')
+        if deep:
+            from pri4r_contract import validate_ema
+            validate_ema(path,step,cfg)
+        return step
     for name in required_files(world,fixed):
         f=path/name
         if f.is_symlink() or not f.is_file() or f.stat().st_size==0:raise ValueError(f'Incomplete checkpoint: {f}')

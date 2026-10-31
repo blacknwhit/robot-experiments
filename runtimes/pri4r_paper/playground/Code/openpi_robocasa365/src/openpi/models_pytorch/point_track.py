@@ -60,9 +60,9 @@ class PointTrackConfig:
             raise ValueError("hidden_dim must be divisible by num_heads")
         if not math.isfinite(self.loss_weight) or self.loss_weight < 0:
             raise ValueError("loss_weight must be finite and nonnegative")
-        if (self.coordinate_frame, self.units, self.output_kind) != (
-                "window_start_robot_base", "meters", "adjacent_displacement"):
-            raise ValueError("V1 requires adjacent meter displacements in the fixed window-start base frame")
+        if self.coordinate_frame not in ("window_start_robot_base", "world") or (
+                self.units, self.output_kind) != ("meters", "adjacent_displacement"):
+            raise ValueError("Point tracks require adjacent meter displacements in a fixed coordinate frame")
 
     def signature(self, input_dim):
         """Fingerprint the learned contract, excluding execution-only chunking."""

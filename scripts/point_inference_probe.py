@@ -46,7 +46,10 @@ def main():
         direct_query = validate_position_policy(policy)
         if direct_query != (variant in POSITION_QUERY_VARIANTS):
             raise ValueError("Wrong V3 prefix architecture for requested variant")
-    if not policy.paligemma_with_expert.separate_prefix_attention:
+    official=variant=='pri4r_paper' and c['framework']['pi05'].get('official_precision_mode')
+    if official and policy.paligemma_with_expert.separate_prefix_attention:
+        raise AssertionError('Pri4R must preserve official joint attention')
+    if not official and not policy.paligemma_with_expert.separate_prefix_attention:
         raise AssertionError("Required cache-aligned prefix path disabled")
     preprocess = policy._preprocess_observation
     policy._preprocess_observation = lambda obs, train=True: preprocess(obs, train=False)
@@ -77,7 +80,9 @@ def main():
                                             t[:, None, None] * noise + (1 - t[:, None, None]) * truth, t)
                 delta = cached.float() - joint.float()
                 relative = float(delta.norm() / joint.float().norm().clamp_min(1e-12))
-                if not torch.isfinite(cached).all() or relative >= 1e-5:
+                # Native upstream joint/cached GEMMs have different BF16 shapes.
+                # Record their delta, without changing the model to force parity.
+                if not torch.isfinite(cached).all() or not torch.isfinite(joint).all() or (not official and relative >= 1e-5):
                     raise AssertionError(f"Joint/cache mismatch: {relative}")
                 parity.append(dict(seed=seed, relative_l2=relative, max_abs=float(delta.abs().max())))
     finally:
@@ -91,13 +96,19 @@ def main():
     if not direct_query:
         policy.point_track_head.embedding.register_forward_pre_hook(forbidden)
     x = model.predict_action([sample])["actions"]
+    removed=0
+    if official:
+        from pri4r_native_state import discard_auxiliary
+        removed=discard_auxiliary(policy)
     y = model.predict_action([sample])["actions"]
     if x.shape != (1, 50, 12) or not np.isfinite(x).all() or not np.array_equal(x, y):
         raise AssertionError("Action shape/finite/deterministic request contract failed")
     report = dict(passed=True, variant=variant, checkpoint_sha256=sha256(args.checkpoint),
                   strict_state=proof, joint_cache_parity=parity, actions_shape=list(x.shape),
                   point_inputs_required=False, point_head_called=False, prefix_queries_preserved=direct_query, finite=True,
-                  deterministic_requests=True, gpu=torch.cuda.get_device_name(0),
+                  deterministic_requests=True, auxiliary_parameters_discarded=removed,
+                  upstream_forward_gradient_equivalence_verified=False,
+                  gpu=torch.cuda.get_device_name(0),
                   engineering_only=True, closed_loop_benchmark=False)
     args.output.write_text(json.dumps(report, indent=2))
     print(json.dumps(report), flush=True)
