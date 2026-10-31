@@ -4,9 +4,11 @@
 
 用户已确认1A/2C/3A和世界坐标。最终采用XYZ mean L1、已有4条示范覆盖诊断选定边长3m、保留2层辅助头。本组合已重新通过单H100训练/恢复/推理、官方对照和服务端验证。当前运行说明与证据以[训练评测手册](PRI4R_PAPER_TRAINING.zh-CN.md)为准；下方保留决策过程。
 
+2026-11-01更新：已修复源首段2dt导致的辅助horizon时间错位，新增物理时钟契约和首帧整窗mask；新组合27项CPU、1126真实窗口及H100训练/恢复/推理/服务验收通过。旧GT完成凭证和旧时序策略state不直接复用，按[时钟修复说明](PRI4R_PHYSICAL_CLOCK_FIX.zh-CN.md)生成新GT和resolved配置。下方10月31日的验证数字为历史过程。
+
 ## 已确定并实施的部分
 
-- 用户已选择世界坐标、单位米；当前点和整段未来位移统一使用world frame，不额外标准化。已有GT保存的就是world tracks，读取无需重新生成全量GT。坐标变化进入head语义签名，禁止旧base-frame训练state混入。
+- 用户已选择世界坐标、单位米；当前点和整段未来位移统一使用world frame，不额外标准化。已有GT坐标本身是world tracks；新的物理时钟契约另要求在新GT根生成并核验，不复用旧完成凭证。坐标及时间策略进入head语义签名，禁止旧base-frame或旧时间策略训练state混入。
 - π0.5主干保留官方selective BF16/FP32，原生DDP、无外层autocast，不经过DeepSpeed整体BF16转换。新增辅助头FP32是明确的本地实现约定。
 - 使用原生torch AdamW统一参数组，beta=(0.9,0.95)、eps=1e-8、weight_decay=1e-10、clip=1；没有ZeRO FP32 master副本，Adam状态遵循实际参数dtype。
 - 原始joint attention不因辅助头开启而拆分。训练读取prefix输出，不改原action mask，不把辅助query插入动作prefix。

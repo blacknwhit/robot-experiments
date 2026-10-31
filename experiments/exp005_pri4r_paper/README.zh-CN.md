@@ -12,3 +12,5 @@
 单H100短测使用B4×acc32=global128，原生AdamW放GPU、FP32 EMA放CPU；四卡正式配置使用B32×4×acc1=128，状态放GPU。四进程CPU归约检查与真实四卡NCCL/容量检查是不同的证据，验证记录分别标明。
 
 2026-10-31最终对齐版：world米制、XYZ平均L1、边长3m、2层Embedding；原生DDP与官方selective precision。805个官方动作梯度张量逐值一致；18层VLM语言主干辅助梯度通过；单H100 B32＋GPU Adam/EMA容量57.92GB、约1.98秒计算探针；实际CUDA Graph服务5请求/4并发通过。四rank CPU保存恢复通过，实体四卡NCCL尚未实测。没有正式30k或benchmark结果。
+
+2026-11-01物理时钟修复：独立保存simulator时间，屏蔽首段2dt导致的start0整段辅助监督；原数据行/action/采点不变。27项CPU、1126个真实窗口、新H100三步保存恢复与推理验证通过。详见[时钟修复说明](../../docs/PRI4R_PHYSICAL_CLOCK_FIX.zh-CN.md)，旧GT/state不可混用新策略。

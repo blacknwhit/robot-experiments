@@ -2,7 +2,7 @@
 
 本入口是Pri4R公开方法的独立实现，variant为`pri4r_paper`。π0.5本体对齐[官方PyTorch commit 215abfb](https://github.com/Physical-Intelligence/openpi/tree/215abfb217dbac7d5f1273282331b9b1866c0479)；主配方遵循[论文v2](https://arxiv.org/html/2603.01549v2)。作者没有公开完整训练实现，未披露的辅助结构/坐标/采样细节采用下文已明确选择的约定。
 
-**当前版本已通过真实单H100短训、保存、新进程恢复、推理、官方前向/梯度对照及评测服务验证。** 四进程CPU归约和混合dtype状态恢复通过；每卡B32容量已用单H100的DDP＋GPU Adam/EMA实测。尚未四张实体GPU联跑，也未开始正式30k训练或完整benchmark，不承诺性能提升。
+**2026-11-01物理时钟修复已通过新的单H100短训、完整保存、新进程恢复、EMA与无3D推理/并发服务验收。** 新策略另通过27项CPU测试及4条真实示范全部1126个窗口核对。前一版本7be9465的官方前向/805梯度对照和B32容量属于未改变模型计算的历史证据，不作为本次重新测量。参见[首段时间缺口及修复](PRI4R_PHYSICAL_CLOCK_FIX.zh-CN.md)。尚未四张实体GPU联跑、正式30k训练或完整benchmark。
 
 ## 方法与配方
 
@@ -15,6 +15,7 @@
 | GT | 首帧机器人中心、随其朝向的**边长3m**立方体内，按mesh表面积均匀采1024点；固定面片/重心坐标跨帧跟踪 |
 | 坐标与目标 | **世界坐标、米**；50段相邻位移，不额外标准化、不加累计/绝对位置loss |
 | 损失 | action FM + **1×有效XYZ逐元素平均L1**；缺失未来点mask，不用未来运动筛点或类别配额 |
+| 时间有效性 | 独立校验recorded simulator clock；首段2dt的起始辅助窗口整体mask，原动作样本不变 |
 | 正式训练 | 默认4×H10080GB，每卡B32、acc1、global128；30000优化步 |
 | LR/AdamW | peak5e-5、warmup10000、cosine；未披露的末值用官方通用默认2.5e-6；beta(.9,.95)、eps1e-8、所有参数WD1e-10、clip1 |
 | EMA | .999，每次optimizer update后更新全部唯一参数的FP32 shadow；正式CUDA，单卡短测CPU；同时保留raw和EMA |
@@ -25,7 +26,7 @@
 
 论文明确EMA=.999，但官方PyTorch trainer没有EMA实现；本仓库补充标准FP32 EMA，作者的内部细节仍未知。数据集仍是用户指定RoboCasa365 300任务×100示范，论文为24任务/Human-50，因此这里是方法迁移，不是论文原分数复现。判断增益时需对齐baseline的base、数据、训练预算与评测协议。
 
-采点范围来自4条示范的有限诊断：2m漏掉初态夹爪，3m保留全部夹爪及约98.3%–99%的机器人表面，相比4m减少约37%–48%的可采面积。静态点仍占多数；没有据未来运动筛点，不能称3m为300任务的全局最优。详见[采样证据](../provenance/PRI4R_CUBE_DIAGNOSTIC.json)。GT数组的`stored_frame`是world；训练实际坐标由recipe及`point_meta.coordinate_frame`明确选择，历史metadata里的`read_frame`描述旧reader默认值。
+采点范围来自4条示范的有限诊断：2m漏掉初态夹爪，3m保留全部夹爪及约98.3%–99%的机器人表面，相比4m减少约37%–48%的可采面积。静态点仍占多数；没有据未来运动筛点，不能称3m为300任务的全局最优。详见[采样证据](../provenance/PRI4R_CUBE_DIAGNOSTIC.json)。GT数组的`stored_frame`是world；训练实际坐标由recipe及`point_meta.coordinate_frame`明确选择，新metadata的read_frame标明由训练recipe选定。
 
 ## 1. 环境和资源
 
@@ -74,7 +75,7 @@ GT需要RoboCasa/robosuite真实mesh资产。`PRI4R_ASSET_ROOT`是解析符号�
   --output "$EXPERIMENT_ROOT/pri4r_inference_check.json"
 ```
 
-单卡短测B4/acc32/global128，**Adam在GPU、EMA在CPU、数据worker=0**。这些设置保证单卡有界验证，其速度不代表正式四卡。短测仅使用已准备GT的真实示范；formal模式拒绝绑定短测清单。保存/恢复需要同一封存release、recipe和world，缺完整状态会报错，不静默回到base。
+单卡短测B4/acc32/global128，**Adam在GPU、EMA在CPU、数据worker=0**。这些设置保证单卡有界验证，其速度不代表正式四卡。短测仅使用已准备GT的真实示范；formal模式拒绝绑定短测清单。保存/恢复需要同一封存release、recipe和world，缺完整状态会报错，不静默回到base。物理时钟修复需要新的GT根及resolved配置；旧GT完成凭证和旧时序策略checkpoint不能直接复用。
 
 ## 3. 远端全量GT
 
@@ -129,14 +130,14 @@ OUT="$EXPERIMENT_ROOT/eval/pri4r-30k-seeds-v1"
 
 ## 实测与边界
 
-完整原始汇总见[验证记录](../provenance/PRI4R_PAPER_VALIDATION.json)、[官方对照](../provenance/PRI4R_OFFICIAL_PARITY.json)、[辅助梯度](../provenance/PRI4R_AUXILIARY_GRADIENTS.json)和[容量探针](../provenance/PRI4R_CAPACITY_PROFILE.json)。
+当前时钟修复汇总见[验证记录](../provenance/PRI4R_PAPER_VALIDATION.json)、[官方对照](../provenance/PRI4R_OFFICIAL_PARITY.json)、[辅助梯度](../provenance/PRI4R_AUXILIARY_GRADIENTS.json)和[容量探针](../provenance/PRI4R_CAPACITY_PROFILE.json)。
 
 - 真实单H100：update1/2完整保存，新进程恢复2→3；模型/Adam/RNG及859个唯一参数的EMA恢复逐值一致。
-- 同一真实输入、原base权重、noise/time及增强随机流：与官方动作前向逐值一致，**805个梯度张量逐值一致**。这是一个实样本对照，不是穷尽所有输入。
-- 辅助loss单独反向传播时，18层VLM语言主干均有有限非零梯度；未把action+point总梯度冒充辅助梯度。
-- 4个CPU进程以小型混合dtype模型（非完整π0.5）验证全局归约及DDP模型/Adam/RNG保存恢复，全部rank逐值一致。**不代表4张实体GPU的NCCL或速度已实测**。
+- 历史7be9465对照：同一真实输入、原base权重、noise/time及增强随机流：与官方动作前向逐值一致，**805个梯度张量逐值一致**。这是一个实样本对照，不是穷尽所有输入。
+- 历史7be9465的辅助loss独立反向：18层VLM语言主干均有有限非零梯度；未把action+point总梯度冒充辅助梯度。本次时钟修复没有改变这条模型连接。
+- 历史7be9465：4个CPU进程以小型混合dtype模型（非完整π0.5）验证全局归约及DDP模型/Adam/RNG保存恢复，全部rank逐值一致。**不代表4张实体GPU的NCCL或速度已实测**。
 
-| 单H100容量/计算探针 | 实测 |
+| 历史7be9465单H100容量/计算探针（本次未重测） | 实测 |
 |---|---|
 | DDP、原生Adam、CUDA FP32 EMA、B32 | 峰值分配57.92GB，峰值reserved 63.77GB |
 | B32预热后前向反向＋optimizer＋EMA | 1.978秒/次 |
@@ -146,4 +147,4 @@ OUT="$EXPERIMENT_ROOT/eval/pri4r-30k-seeds-v1"
 
 容量探针重复一个真实样本，采用预热后的两次测量，包含CUDA EMA；不含数据加载、保存和多GPU通信。正式每1000步保存的摊销应结合目标集群实际step速度计算，不能把每步保存的短测速度当正常训练速度。实际四卡首批仍需核实world=4、每rank B32、global128、有限loss和完整保存；硬件拓扑/存储性能不由单卡探针保证。
 
-源码manifest：`ba16e00d3a7840a439fdcf554a89e75d1d215b6d94610a9a92a8132f25695013`。旧ZeRO验收保留在[历史记录](../provenance/PRI4R_PAPER_VALIDATION_LEGACY649dd36.json)。本次只完成工程复现准备，没有全量GT、正式训练或成功率提升结论。
+当前源码manifest：`72db60431bd894496e2ee9c350ef347b27cbf227eeb50c856daa8129ffcba2a9`。旧ZeRO验收保留在[历史记录](../provenance/PRI4R_PAPER_VALIDATION_LEGACY649dd36.json)。本次只完成工程复现准备，没有全量GT、正式训练或成功率提升结论。
