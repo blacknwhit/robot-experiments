@@ -10,7 +10,7 @@
 | EXP-002：Query-FIXED | [实验记录](experiments/exp002_query_fixed/README.zh-CN.md) |
 | EXP-003：3D轨迹v2两组对照 | [实验记录](experiments/exp003_trajectory_v2/README.zh-CN.md) |
 | **EXP-004：本轮3D位置轨迹A/B/C** | **[资源复用、GT、训练和测试手册](experiments/exp004_trajectory_v3_abc/README.zh-CN.md)** |
-| Pri4R论文方法准备版 | [独立训练、少量GT与远端复现说明](docs/PRI4R_PAPER_TRAINING.zh-CN.md)（GPU验收进行中） |
+| EXP-005：Pri4R论文方法准备版 | [独立实验及远端训练说明](experiments/exp005_pri4r_paper/README.zh-CN.md) |
 
 已有PI0.5/FIXED集群优先复用正确的数据、原始OpenPI `pi05_base`预训练权重、环境、缓存和兼容GT。EXP-004以独立输出根管理新配置、日志、checkpoint和评测结果；从原始base微调不等于加载旧70k权重，也不是全模型随机初始化。安装和下载仅在缺少资源时进行。
 
@@ -29,6 +29,7 @@
 - `runtimes/query_fixed/`：独立 FIXED 源码与固定教师。
 - `runtimes/trajectory_v2/`：最新 Query/Embedding 3D v2，共享实现、分开配置。
 - `runtimes/trajectory_v3/`：EXP-004的A/B/C共享实现。
+- `runtimes/pri4r_paper/`：EXP-005的原PI0.5前缀、独立辅助Embedding及论文训练配方。
 - `configs/`：完整科学配置模板；`scripts/`：可迁移入口。
 - `assets/`：冻结任务清单、训练 registry、归一化统计；没有训练数据和模型参数。
 - `provenance/`：来源与发布文件 SHA；`tests/`：CPU 迁移边界检查。
