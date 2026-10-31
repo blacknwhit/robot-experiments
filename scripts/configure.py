@@ -3,9 +3,14 @@ import argparse, hashlib, json, re
 from pathlib import Path
 import yaml
 from common import ROOT, VARIANTS, POSITION_VARIANTS, runtime, sha256
+from pri4r_profiles import PROFILES,load_profile
 
 def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=False, formal=False,
-           experiment_root=None):
+           experiment_root=None, training_profile=None):
+    profile=load_profile(training_profile) if training_profile is not None else None
+    if profile and (variant!='pri4r_paper' or not formal or smoke or engineering
+                    or world!=profile['world_size'] or stop!=profile['stop_after_steps']):
+        raise ValueError('pri4r_8gpu70k_v1 requires --variant pri4r_paper --gpus 8 --formal --stop 70000')
     single_smoke = variant == 'pri4r_paper' and world == 1 and smoke
     if (world not in (2,4,8) and not single_smoke) or not 1 <= stop <= 70000:
         raise ValueError('Supported world sizes: 2/4/8; Pri4R bounded smoke also permits 1 GPU')
@@ -15,13 +20,13 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
     if variant in POSITION_VARIANTS:
         if not (smoke or engineering or formal) or stop > (10 if smoke else (1500 if engineering else 70000)):
             raise ValueError('V3 requires explicit --smoke <=10, --engineering <=1500, or --formal <=70000')
-    if variant == 'pri4r_paper' and (not (smoke or formal) or stop > (10 if smoke else 30000)):
+    if variant == 'pri4r_paper' and not profile and (not (smoke or formal) or stop > (10 if smoke else 30000)):
         raise ValueError('Pri4R requires --smoke --stop <=10 or --formal --stop <=30000')
     home=Path(home).resolve(); r=runtime(variant).resolve()
     output_home = home
     if experiment_root is not None:
         if variant not in POSITION_VARIANTS and variant != 'pri4r_paper':
-            raise ValueError('--experiment-root is scoped to the new A/B/C experiment')
+            raise ValueError('--experiment-root is scoped to V3 A/B/C and Pri4R experiments')
         output_home = Path(experiment_root).resolve()
         if output_home == home:
             raise ValueError('Use a distinct experiment output root, not the shared resource home')
@@ -64,6 +69,13 @@ def render(variant, home, run_id, world, stop=70000, smoke=False, engineering=Fa
         c['portable']['formal'] = True
         if variant in POSITION_VARIANTS:
             c['experiment'].update(phase='formal_candidate', formal_training_authorized=True)
+    if profile:
+        for key in ('max_train_steps','stop_after_steps','save_interval','gradient_accumulation_steps','expected_global_batch_size'):
+            c['trainer'][key]=profile[key]
+        for key in ('per_device_batch_size','num_workers','prefetch_factor'):
+            c['datasets']['vla_data'][key]=profile[key]
+        c['portable']['training_profile']=profile['name']
+        c['experiment'].update(training_profile=profile['name'],training_budget_source=profile['budget_source'])
     # Same immutable code identity used by v2 checkpoint contracts on fresh/resumed runs.
     c['trajectory_release_sha256']=sha256(ROOT/'provenance/source_files.sha256')
     return c
@@ -74,10 +86,12 @@ def main():
     p.add_argument('--stop',type=int,default=70000);p.add_argument('--smoke',action='store_true')
     p.add_argument('--engineering',action='store_true');p.add_argument('--out',type=Path,required=True)
     p.add_argument('--formal',action='store_true',help='Explicitly prepare a fresh formal candidate recipe; never starts a job')
+    p.add_argument('--training-profile',choices=PROFILES,
+                   help='Explicit user recipe: 8 GPUs, B16, no accumulation, max/stop/cosine70k')
     p.add_argument('--experiment-root', type=Path,
-                   help='A/B/C outputs only; --home still supplies existing data, base, GT and caches')
+                   help='V3/Pri4R outputs only; --home still supplies existing data, base, GT and caches')
     a=p.parse_args();c=render(a.variant,a.home,a.run_id,a.gpus,a.stop,a.smoke,a.engineering,a.formal,
-                            experiment_root=a.experiment_root)
+                            experiment_root=a.experiment_root,training_profile=a.training_profile)
     if a.out.exists():raise FileExistsError('Refusing to overwrite an existing resolved recipe')
     a.out.parent.mkdir(parents=True,exist_ok=True);a.out.write_text(yaml.safe_dump(c,sort_keys=False))
     print(a.out.resolve())

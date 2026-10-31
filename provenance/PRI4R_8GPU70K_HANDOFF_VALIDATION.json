@@ -1,0 +1,65 @@
+{
+  "schema": "pri4r_8gpu70k_handoff_validation_v1",
+  "date": "2026-11-01",
+  "release_tag": "pri4r-h8-70k-20261101",
+  "training_profile": "pri4r_8gpu70k_v1",
+  "source_manifest_sha256": "b21502c3782777b32cd70720519f1e73514fa65e7b15969e5a91dc23360579e7",
+  "source_files": 1250,
+  "passed": true,
+  "cpu_tests": {
+    "test_pri4r_8gpu70k": 9,
+    "test_pri4r_paper": 6,
+    "test_legacy_contract": 7,
+    "test_portability": 4
+  },
+  "cpu_test_total": 26,
+  "shell_syntax_passed": true,
+  "document_bash_blocks": 9,
+  "actual_cli_checks": {
+    "configure_profile": true,
+    "train_or_resume_dry_run": true,
+    "policy_import_without_model_allocation": true,
+    "bounded_real_gt_rejected_for_formal": true,
+    "eval_dry_run": {
+      "tasks": 50,
+      "episodes_per_task": 50,
+      "gpus": 8,
+      "workers_per_gpu": 16
+    }
+  },
+  "effective_training": {
+    "world": 8,
+    "micro_batch": 16,
+    "gradient_accumulation": 1,
+    "global_batch": 128,
+    "max_steps": 70000,
+    "stop_steps": 70000,
+    "cosine_decay_steps": 70000,
+    "warmup": 10000,
+    "peak_lr": 5e-05,
+    "ema": 0.999,
+    "ema_device": "cuda",
+    "save_interval": 5000,
+    "loader_workers": 8,
+    "prefetch": 4
+  },
+  "gpu_training_this_revision": false,
+  "physical_eight_gpu_acceptance": false,
+  "full_gt_generated": false,
+  "formal_training_started": false,
+  "benchmark_run_this_revision": false,
+  "model_gt_loss_kernels_changed": false,
+  "historical_gpu_evidence": "PRI4R_PAPER_VALIDATION.json; single H100 physical-clock fix acceptance only",
+  "evidence_sha256": {
+    "actual_train_or_resume_dryrun.log": "3bbc06d33d6fd92c03da81a62b1518c40dd2428aaafd6758b9b283fa61a53071",
+    "bounded_gt_formal_rejection.log": "22bbf3a95e423b3d4483c1f2a6eb1f369d8776767e67cf14de12085f240a3419",
+    "configure.log": "6e333d6b30ecf5a0bcb63ebfe189dabc0d2a067524d3b602950dcc800b14e03b",
+    "eval8_dryrun.log": "dabc53248c9b4e078e2f18d8b64a5473358e1984efc9a308717181444256121e",
+    "overlay.log": "3aceea73089c54e67383437918c46c0c03fa8286ef4d767a5b20cc18e8765b0d",
+    "policy_import.log": "7bf3ee5dd313fc9249f24cc2137f7f004d7188e79a4462be9f7b5b08d7424859",
+    "test_legacy_contract.log": "6788df8f9e481f2af803e6683e94ae48c8b8866b1c8cfa8d0094ad711ed75d34",
+    "test_portability.log": "027f34958c55c6df18fa07b05b49c24e42d73faaae3b8f40e7caf6cf1e38a282",
+    "test_pri4r_8gpu70k.log": "05d25cb031ce3a19209f7128f3754499f6ab9cb094ef2d32afec160643cf5578",
+    "test_pri4r_paper.log": "9abf6b457f49ffbde19d2ca1a69097eb0782db1d3aee39075366ee29a3569c30"
+  }
+}

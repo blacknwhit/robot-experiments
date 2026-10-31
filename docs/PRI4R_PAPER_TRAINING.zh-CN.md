@@ -1,5 +1,7 @@
 # PI0.5 + Pri4R：RoboCasa365训练与评测
 
+**2026-11-01当前远端正式方案：请直接使用[8×H100、关闭梯度累积、训练70k与测试说明](ASTRA_PRI4R_8GPU_70K.zh-CN.md)。** 对应显式profile `pri4r_8gpu70k_v1`：B16×8×acc1/global128，max/stop/cosine均70k，save5000、loader8/prefetch4。以下4卡30k配方与单卡工程步骤保留用于解释论文默认和历史验收，不与新70k run混用。
+
 本入口是Pri4R公开方法的独立实现，variant为`pri4r_paper`。π0.5本体对齐[官方PyTorch commit 215abfb](https://github.com/Physical-Intelligence/openpi/tree/215abfb217dbac7d5f1273282331b9b1866c0479)；主配方遵循[论文v2](https://arxiv.org/html/2603.01549v2)。作者没有公开完整训练实现，未披露的辅助结构/坐标/采样细节采用下文已明确选择的约定。
 
 **2026-11-01物理时钟修复已通过新的单H100短训、完整保存、新进程恢复、EMA与无3D推理/并发服务验收。** 新策略另通过27项CPU测试及4条真实示范全部1126个窗口核对。前一版本7be9465的官方前向/805梯度对照和B32容量属于未改变模型计算的历史证据，不作为本次重新测量。参见[首段时间缺口及修复](PRI4R_PHYSICAL_CLOCK_FIX.zh-CN.md)。尚未四张实体GPU联跑、正式30k训练或完整benchmark。

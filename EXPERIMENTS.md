@@ -8,7 +8,7 @@
 | EXP-002 | Query-FIXED未来视觉辅助监督 | `query_fixed` | 历史70k：559/2500，22.36%；当前这里记录的最佳FIXED | [Query-FIXED](experiments/exp002_query_fixed/README.zh-CN.md) |
 | EXP-003 | 3D轨迹v2：比较Query与Embedding | `query3d_v2`、`embedding3d_v2` | 历史70k：Query 373/2500（14.92%），Embedding 443/2500（17.72%） | [轨迹v2](experiments/exp003_trajectory_v2/README.zh-CN.md) |
 | **EXP-004** | **本轮3D位置轨迹：监督与结构对照** | **A：`embedding3d_pos_a`；B：`embedding3d_temporal_b`；C：`query3d_temporal_c`** | **A/B已有有界GPU工程证据；C仅CPU结构/接线检查。三组尚无正式70k成绩，不宣称效果提升** | **[本次实验：资源复用→GT→三组训练→测试](experiments/exp004_trajectory_v3_abc/README.zh-CN.md)** |
-| EXP-005 | PI0.5 + Pri4R论文方法迁移到RoboCasa365 | `pri4r_paper` | 少量真实GT与训练工程验收；没有正式训练或benchmark成绩 | [独立训练准备](experiments/exp005_pri4r_paper/README.zh-CN.md) |
+| EXP-005 | PI0.5 + Pri4R论文方法迁移到RoboCasa365 | `pri4r_paper` | 单H100工程验收；8卡acc1/70k远端配方已准备，未正式训练 | [8卡训练与测试](docs/ASTRA_PRI4R_8GPU_70K.zh-CN.md) · [实验记录](experiments/exp005_pri4r_paper/README.zh-CN.md) |
 
 历史分数来自旧集群原协议，不是本公开代码在新集群重跑的分数；新的固定场景集合不能直接冒充旧逐场景对照。新评测须记录实际checkpoint/config/source/scene身份和每任务原始结果。
 

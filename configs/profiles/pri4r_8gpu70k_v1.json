@@ -1,0 +1,16 @@
+{
+  "schema": "pri4r_training_profile_v1",
+  "name": "pri4r_8gpu70k_v1",
+  "variant": "pri4r_paper",
+  "world_size": 8,
+  "per_device_batch_size": 16,
+  "gradient_accumulation_steps": 1,
+  "expected_global_batch_size": 128,
+  "max_train_steps": 70000,
+  "stop_after_steps": 70000,
+  "save_interval": 5000,
+  "num_workers": 8,
+  "prefetch_factor": 4,
+  "budget_source": "user_2026_11_01_override_of_paper_30000",
+  "remaining_recipe": "Pri4R model/loss/LR/warmup/EMA; original pi05 base/data/norm/action semantics; baseline save/loader settings"
+}

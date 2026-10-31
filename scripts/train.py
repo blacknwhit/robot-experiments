@@ -48,6 +48,9 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--config',type=Path,required=True);p.add_argument('--resume',action='store_true');p.add_argument('--dry-run',action='store_true')
     a=p.parse_args();c=yaml.safe_load(a.config.read_text());v=c['portable']['variant'];n=c['portable']['world_size']
     verify_release(c)
+    if v=='pri4r_paper':
+        from pri4r_contract import validate_recipe
+        validate_recipe(c)
     run=Path(c['run_root_dir'])/c['run_id'];env=training_environment(c)
     batch = 128 if v == 'pri4r_paper' else 64
     acc = c['trainer']['gradient_accumulation_steps']
@@ -56,7 +59,10 @@ def main():
     control=run.parent/'.launch'/c['run_id'];ds_path=control/'deepspeed.json';acc_path=control/'accelerate.yaml'
     cmd,accelerator_config,ds=launch_configuration(c,a.config,control)
     if a.resume:cmd+=['--resume']
-    print(json.dumps({'command':cmd,'run':str(run),'world':n,'micro_batch':micro,'global_batch':batch,'accumulation':acc,'resume':a.resume},indent=2))
+    print(json.dumps({'command':cmd,'run':str(run),'world':n,'micro_batch':micro,'global_batch':batch,'accumulation':acc,'resume':a.resume,
+        'training_profile':c['portable'].get('training_profile'),'max_train_steps':c['trainer']['max_train_steps'],
+        'stop_after_steps':c['trainer']['stop_after_steps'],'cosine_decay_steps':c['trainer']['max_train_steps'],
+        'save_interval':c['trainer']['save_interval'],'ema_device':c['trainer'].get('ema_device')},indent=2))
     if a.dry_run:return
     control.mkdir(parents=True,exist_ok=True)
     if ds is not None:ds_path.write_text(json.dumps(ds,indent=2))
