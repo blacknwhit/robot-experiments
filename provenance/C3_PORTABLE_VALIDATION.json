@@ -1,0 +1,74 @@
+{
+  "schema": "c3_portable_training_validation_v1",
+  "date": "2026-11-04",
+  "repository_base_commit": "e472c951b047d7c1358ebf214f7a18a39fd4c7b9",
+  "scope": "C3 training and full-state resume only; no new evaluation entry",
+  "original_model_head_ast_equal": true,
+  "original_action_encoder_and_objective_bytes_equal": true,
+  "original_source_sha256": {
+    "model.py": "768f30f622b190efa3d5252c5b3e6edddb02201f0f5f9a5ae7f1f3bb9f8d2735",
+    "action_head.py": "d6224a008011a9c6018f9019fdd7473bb31e5efce4865e7ae765dfeacbbdad04",
+    "state.py": "90ab041f1a63264ff7f41c791e9cd9209deb2a79228b045402925047721473ae",
+    "experiment.json": "cd4401577fe6d003396dbedbc27d7171794d05e8dc07926f9649a31a408bc4fe",
+    "CALIBRATION.json": "eb207ecfe3cf38c02bdbe98cb4da7a07453bd5e50d1f693bc393043f2850ef2c"
+  },
+  "cpu_tests": {
+    "passed": true,
+    "tests": 8,
+    "torch": "2.7.1+cpu",
+    "python": "3.12.10",
+    "device": "CPU",
+    "cases": [
+      "actual fusion equals independent reference, gradients reach shared features and GRU, not GT input",
+      "C1/C3 zero-init projection parity",
+      "GRU future-action causality",
+      "masked adjacent/cumulative loss including NaN invalid labels",
+      "rank sampling and resume cursor",
+      "frame0 masks auxiliary only",
+      "same LR formula",
+      "model/Adam/RNG exact next-update restore including absent Adam state"
+    ]
+  },
+  "two_rank_cpu_ddp": {
+    "passed": true,
+    "backend": "gloo",
+    "world": 2,
+    "full_model_optimizer_signature_after_restored_update_matches_continuous": true,
+    "unused_adam_entries_preserved": true
+  },
+  "recipe_and_real_launcher_dry_run": {
+    "passed": true,
+    "world": 8,
+    "micro_batch": 8,
+    "accumulation": 1,
+    "global_batch": 64,
+    "stop": 70000,
+    "cosine_decay_steps": 100000,
+    "warmup_steps": 1000,
+    "formal_world4_rejected": true,
+    "single_gpu_smoke_accumulation": 8
+  },
+  "new_release_real_full_model_gpu_training": "not run",
+  "new_release_8_h100_nccl_capacity_throughput": "not validated",
+  "formal_70k_training": "not run",
+  "historical_evidence": "Original C3 computation trained2000 on singleH100 and completed160 diagnostic episodes; does not validate new portable full-data8GPU launcher",
+  "declared_scope_changes": [
+    "300 tasks x100 demonstrations instead of8x50 training subset",
+    "baseline weighted ordered_group8 sampler instead of finite adjacent-window balanced cache",
+    "frame0 auxiliary whole-horizon mask; baseline action draw retained",
+    "checkpoint cadence first+5000+final instead of first+500+final"
+  ],
+  "release_files": {
+    "experiments/c3_action/action_head.py": "d6224a008011a9c6018f9019fdd7473bb31e5efce4865e7ae765dfeacbbdad04",
+    "experiments/c3_action/checkpoints.py": "5883f00e07d9cf371601592bc930358339b83500a98141d25c7a3e3d1de4db26",
+    "experiments/c3_action/contract.py": "c0cc6c7553af5380c96442f0dece27910b46d2e8aea299b24a4f7244b9f78703",
+    "experiments/c3_action/data.py": "9bea0a7c23942b0ac64da3a7a6e3f319924c0f325f952fa400fb08a314a6c2b4",
+    "experiments/c3_action/model.py": "8f124c95aa3eed5d496ac31128bc32169e33b0c943319779dccf8d2de7b80774",
+    "experiments/c3_action/prepare.py": "bf01befbc0adaa696a9b3fddb79a25dab859a1ea2600b5091d594eba1f229800",
+    "experiments/c3_action/run.py": "5c5ef1e5bad01cd7c2fdd45483c165a6ea30510c84786e27e877e4c48bcd926a",
+    "experiments/c3_action/state.py": "924bb724bcab70450a220abc419a0bd073cbd113746d2c82f87cdfc94e4fd927",
+    "experiments/c3_action/test_cpu.py": "10984eb61e8b65f05a1abdae4c3666529213a00135fd99039c22d1550c2aca83",
+    "experiments/c3_action/test_ddp_cpu.py": "c0e5d6cb0f5413e390d7ec3814134c5536a23a6fca00649e6bef7f9ce81bb44a",
+    "experiments/c3_action/worker.py": "04fad66835a99e88b610572781d774882cb3643eadcc22fd53d49a0352a9642d"
+  }
+}

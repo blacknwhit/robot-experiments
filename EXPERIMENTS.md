@@ -29,3 +29,8 @@
 - [第三方许可证](THIRD_PARTY_NOTICES.md)、[来源记录](provenance/PORTABILITY.md)。GitHub不保存大数据、GT数组或模型权重。
 
 本总览的评测操作说明更新于2026-10-28；实验历史结果仍保留各自日期。这不是SCO实时任务看板。
+
+
+## EXP-006：C3动作条件轨迹辅助全量70k
+
+执行入口：[ASTRA_C3_70K.zh-CN.md](docs/ASTRA_C3_70K.zh-CN.md)。复用旧armobj GT；原π0.5动作路径＋辅助GRU动作条件，8×H100 B8/acc1/global64，保留100k cosine、1000warmup并在70k停止。与原2000步8任务缓存初筛的数据范围/采样不同；不复用工程权重。当前portable版本CPU验证与实际GPU验收边界见该文档。

@@ -11,6 +11,7 @@
 | EXP-003：3D轨迹v2两组对照 | [实验记录](experiments/exp003_trajectory_v2/README.zh-CN.md) |
 | **EXP-004：本轮3D位置轨迹A/B/C** | **[资源复用、GT、训练和测试手册](experiments/exp004_trajectory_v3_abc/README.zh-CN.md)** |
 | EXP-005：Pri4R论文方法准备版 | [8卡B8/acc1/70k训练和评测](docs/ASTRA_PRI4R_8GPU_70K.zh-CN.md) · [独立实验记录](experiments/exp005_pri4r_paper/README.zh-CN.md) |
+| EXP-006：C3动作条件轨迹辅助 | [8×H100 B8/acc1 70k执行文档](docs/ASTRA_C3_70K.zh-CN.md) |
 
 已有PI0.5/FIXED集群优先复用正确的数据、原始OpenPI `pi05_base`预训练权重、环境、缓存和兼容GT。EXP-004以独立输出根管理新配置、日志、checkpoint和评测结果；从原始base微调不等于加载旧70k权重，也不是全模型随机初始化。安装和下载仅在缺少资源时进行。
 
