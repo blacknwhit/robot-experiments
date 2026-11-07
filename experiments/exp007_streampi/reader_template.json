@@ -1,0 +1,18 @@
+{
+  "dataset_py": "lerobot_datasets",
+  "sample_format": "pi05_raw",
+  "include_state": true,
+  "data_mix": "pi05_robocasa365_pretrain_all",
+  "official_task_sampling": true,
+  "official_filter_key": "100_demos",
+  "official_filter_seed": 0,
+  "official_weight_alpha": 0.4,
+  "lerobot_version": "v3.0",
+  "per_device_batch_size": 2,
+  "num_workers": 0,
+  "pin_memory": true,
+  "prefetch_factor": 2,
+  "load_all_data_for_training": true,
+  "delete_pause_frame": false,
+  "video_backend": "opencv"
+}

@@ -7,6 +7,7 @@ This repository preserves source attribution and license notices. It does not re
 | StarVLA and experiment adaptations | https://github.com/starVLA/starVLA | Root LICENSE and each runtime/LICENSE; existing source headers |
 | OpenPI, openpi-client | https://github.com/Physical-Intelligence/openpi and https://github.com/robocasa-benchmark/openpi | Each `runtimes/*/playground/Code/openpi_robocasa365/LICENSE` (Apache-2.0) and `LICENSE_GEMMA.txt` |
 | Transformers patch files | OpenPI's pinned `models_pytorch/transformers_replace`; upstream Hugging Face Transformers | Original copyright/Apache headers preserved; full installed Transformers is generated locally, not vendored |
+| StreamPI JAX temporal core | https://github.com/hku-sail/StreamPI commit ba024b2149ed94542a6c3352554f4f52f766a26d | `runtimes/streampi/LICENSE`, `LICENSE_GEMMA.txt`, and original headers; no weights/tokenizer redistributed |
 | RoboCasa training registry | https://github.com/robocasa/robocasa commit `6f90063c0ec2b9916bbd977368b54c98d9c2d908` | `assets/ROBOCASA_LICENSE` |
 | RoboCasa-compatible simulator wrappers | StarVLA/NVIDIA source | Apache-2.0 notices in each wrapper |
 

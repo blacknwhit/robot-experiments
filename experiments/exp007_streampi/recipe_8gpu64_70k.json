@@ -1,0 +1,42 @@
+{
+  "protocol": "streampi_official_fixed5_flush_robocasa365_v2",
+  "source_commit": "ba024b2149ed94542a6c3352554f4f52f766a26d",
+  "seed": 42,
+  "history_frames": 3,
+  "replan_steps": 5,
+  "action_horizon": 50,
+  "action_dim": 32,
+  "environment_action_dim": 12,
+  "state_dim": 16,
+  "max_token_len": 200,
+  "deterministic_gpu": true,
+  "ema_decay": 0.999,
+  "learning_rate": {
+    "warmup_steps": 10000,
+    "peak_lr": 5e-05,
+    "decay_steps": 1000000,
+    "decay_lr": 5e-05
+  },
+  "optimizer": {
+    "b1": 0.9,
+    "b2": 0.95,
+    "eps": 1e-08,
+    "weight_decay": 1e-10,
+    "clip_gradient_norm": 1.0
+  },
+  "history_interval": 5,
+  "enable_jitter": false,
+  "training_anchor": "all_episode_frames",
+  "discrete_state_input": true,
+  "experiment": "EXP-007-StreamPI",
+  "gpus": 8,
+  "global_batch_size": 64,
+  "per_device_batch_size": 8,
+  "gradient_accumulation_steps": 1,
+  "fsdp_devices": 8,
+  "num_train_steps": 70000,
+  "save_interval": 5000,
+  "log_interval": 10,
+  "optimizer_execution": "gpu_fsdp",
+  "data_prefetch_batches": 1
+}

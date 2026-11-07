@@ -1,0 +1,8 @@
+{
+  "base_checkpoint": "/YOUR_AUTHORIZED_ROOT/models/pi05_base/params",
+  "norm_assets": "/YOUR_AUTHORIZED_ROOT/assets/robocasa_norm",
+  "tokenizer": "/YOUR_AUTHORIZED_ROOT/cache/openpi/paligemma_tokenizer.model",
+  "data_root": "/YOUR_AUTHORIZED_ROOT/data/robocasa365",
+  "registry_file": "/YOUR_AUTHORIZED_ROOT/code/robocasa/robocasa/utils/dataset_registry.py",
+  "arrow_cache": "/YOUR_AUTHORIZED_ROOT/cache/lerobot_v3_arrow"
+}
