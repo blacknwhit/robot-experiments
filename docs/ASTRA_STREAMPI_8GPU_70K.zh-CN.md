@@ -101,6 +101,8 @@ done
 
 先记录GPU型号、驱动、软件版本、8卡可见性、显存和任务回执。仅设置8个可见GPU；一个进程管理全部8张卡。按如下顺序运行，**不要让多个8卡smoke在同一组卡上重叠**：
 
+真实smoke启动必须显式传入`--stop-after`且范围1–20；省略或超过20步会在模型加载前拒绝。70k只能使用已通过实体8GPU验收的formal配置。
+
 ```bash
 bash experiments/exp007_streampi/launch.sh \
   --config "$RESOLVED/zf-streampi-smoke-ref.json" --dry-run

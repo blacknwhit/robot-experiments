@@ -25,6 +25,8 @@ def main():
     if args.stop_after is not None and cfg['mode']!='smoke':raise ValueError('stop-after is allowed only for isolated smoke runs')
     target=args.stop_after if args.stop_after is not None else cfg['num_train_steps']
     if not 1<=target<=cfg['num_train_steps']:raise ValueError('Invalid stop target')
+    if cfg['mode']=='smoke' and not args.dry_run and (args.stop_after is None or target>20):
+        raise ValueError('Smoke requires explicit --stop-after in 1..20; use the GPU-gated formal config for 70k')
     if args.dry_run:
         print(json.dumps({'mode':cfg['mode'],'gpus':8,'per_device_batch':8,'accumulation':1,'global_batch':64,
                           'stop':target,'schedule':cfg['learning_rate'],'execution':'one Python process; native JAX FSDP8',
