@@ -1,0 +1,58 @@
+{
+  "scope": "Portable entry end-to-end bounded engineering validation; not eight-GPU/full-training results",
+  "date": "2026-11-15",
+  "full_plan": {
+    "source_video_exact_matches": 12,
+    "terminal_clip_repeat_last_passed": true,
+    "all_30000_episodes_sampled": true,
+    "full_unique_frames": 4076006,
+    "full_draws": 4480000
+  },
+  "cpu_tests": {
+    "passed": 4,
+    "covers": [
+      "8-rank batch partition",
+      "70k schedule endpoints",
+      "partial/incompatible checkpoint handling",
+      "exact AdamW/RNG continuation"
+    ]
+  },
+  "portable_gpu": {
+    "device": "H100 80GB",
+    "world_size": 1,
+    "microbatch": 2,
+    "global_batch": 2,
+    "steps": 2,
+    "cold_resume_from_step": 1,
+    "episodes": 1,
+    "cached_frames": 4,
+    "teacher_branches": [
+      "VGGT geometry",
+      "Track4World DA3 motion"
+    ],
+    "checkpoints": [
+      1,
+      2
+    ],
+    "final_checkpoint_bytes": 41352871380,
+    "optimizer_states": 821,
+    "optimizer_steps": [
+      2
+    ],
+    "optimizer_dtypes": [
+      "torch.float32"
+    ],
+    "data_draws": 4,
+    "rank_rng_states": 1,
+    "loss_by_step": [
+      2.340669891834259,
+      1.5659125983715059
+    ],
+    "max_allocated_GiB": 57.904226303100586,
+    "finite_losses_and_gradient_norm": true,
+    "timing_note": "One update per cold process includes worker startup; not a throughput benchmark"
+  },
+  "source_sha256": "794cf827330cd91d50a1a4e493afa59ee1e8bbadffd416de0f70b6f30d6ca6d9",
+  "formal_8gpu_70k_started": false,
+  "full_teacher_cache_generated": false
+}

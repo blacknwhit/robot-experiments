@@ -1,0 +1,40 @@
+{
+  "vggt": {
+    "repo": "facebook/VGGT-1B",
+    "revision": "860abec7937da0a4c03c41d3c269c366e82abdf9",
+    "files": [
+      {
+        "name": "model.pt",
+        "size": 5026874952,
+        "sha256": "d15bf50a8615c8225ed48b51ea5cac673d82442ec0309036df555a053253afe0"
+      }
+    ]
+  },
+  "track4world": {
+    "repo": "TencentARC/Track4World",
+    "revision": "93ae34410efd05d1b7abfdb0f749bc93f7655404",
+    "files": [
+      {
+        "name": "track4world_da3.pth",
+        "size": 5527438950,
+        "sha256": "6c589c0f41632a2329920087dcd8cbd6465d4198d574f0d4186eeada78c492c7"
+      }
+    ]
+  },
+  "da3": {
+    "repo": "depth-anything/DA3NESTED-GIANT-LARGE-1.1",
+    "revision": "b2359bdf726fb44ef62acca04d629dcf158053e7",
+    "files": [
+      {
+        "name": "config.json",
+        "size": 3113,
+        "sha256": null
+      },
+      {
+        "name": "model.safetensors",
+        "size": 6759558100,
+        "sha256": "8ebe871a022ed58d2fc8fdfb2ebdb31d57b60fe39611c849095851a7b7c6020c"
+      }
+    ]
+  }
+}

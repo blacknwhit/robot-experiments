@@ -10,6 +10,7 @@
 | **EXP-004** | **本轮3D位置轨迹：监督与结构对照** | **A：`embedding3d_pos_a`；B：`embedding3d_temporal_b`；C：`query3d_temporal_c`** | **A/B已有有界GPU工程证据；C仅CPU结构/接线检查。三组尚无正式70k成绩，不宣称效果提升** | **[本次实验：资源复用→GT→三组训练→测试](experiments/exp004_trajectory_v3_abc/README.zh-CN.md)** |
 | EXP-005 | PI0.5 + Pri4R论文方法迁移到RoboCasa365 | `pri4r_paper` | 单H100工程验收；8卡B8/acc1/70k远端配方已准备，未正式训练 | [8卡训练与测试](docs/ASTRA_PRI4R_8GPU_70K.zh-CN.md) · [实验记录](experiments/exp005_pri4r_paper/README.zh-CN.md) |
 | EXP-007 | StreamPI官方代码协议迁移到RoboCasa365 | `streampi_official_fixed5_flush` | 单H100方法证据；新增8卡/global64/70k入口，实体8卡验收与正式训练待执行 | [Astra训练交接](docs/ASTRA_STREAMPI_8GPU_70K.zh-CN.md) · [实验记录](experiments/exp007_streampi/README.zh-CN.md) |
+| EXP-008 | FOCAL-VLA 子任务几何/未来运动蒸馏与语义监督 | `focalvla_robocasa365_8gpu_70k` | 两卡50步工程链路与约4倍提速已验证；全量300×100的8卡/global64/70k配方与代码已准备，正式训练待执行 | [训练手册](docs/FOCALVLA_8GPU_TRAINING.zh-CN.md) · [实验记录](experiments/exp008_focalvla/README.zh-CN.md) |
 
 历史分数来自旧集群原协议，不是本公开代码在新集群重跑的分数；新的固定场景集合不能直接冒充旧逐场景对照。新评测须记录实际checkpoint/config/source/scene身份和每任务原始结果。
 
@@ -35,3 +36,4 @@
 ## EXP-006：C3动作条件轨迹辅助全量70k
 
 执行入口：[ASTRA_C3_70K.zh-CN.md](docs/ASTRA_C3_70K.zh-CN.md)。复用旧armobj GT；原π0.5动作路径＋辅助GRU动作条件，8×H100 B8/acc1/global64，保留100k cosine、1000warmup并在70k停止。与原2000步8任务缓存初筛的数据范围/采样不同；不复用工程权重。当前portable版本CPU验证与实际GPU验收边界见该文档。
+

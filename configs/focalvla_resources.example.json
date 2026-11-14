@@ -1,0 +1,18 @@
+{
+  "pi05_weights": "/resources/pi05_base_pytorch/model.safetensors",
+  "norm_assets": "/resources/pi05_robocasa_norm/assets",
+  "tokenizer": "/resources/paligemma_tokenizer.model",
+  "dataset_root": "/resources/robocasa365",
+  "training_scope": "/resources/training_scope.json",
+  "source_root": "/resources/source",
+  "asset_roots": {
+    "robocasa": "/resources/robocasa365/robocasa/models/assets",
+    "robosuite": "/resources/robosuite/robosuite/models/assets"
+  },
+  "vggt_source": "/resources/upstream/vggt",
+  "track4world_source": "/resources/upstream/Track4World",
+  "utils3d_source_parent": "/resources/upstream",
+  "vggt_weights": "/resources/weights/vggt/model.pt",
+  "track4world_weights": "/resources/weights/track4world/track4world_da3.pth",
+  "da3_weights": "/resources/weights/da3"
+}
