@@ -5,6 +5,7 @@ import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'runtimes/focalvla'))
 from focalvla.common import read_json,atomic_json,digest,sha256,source_digest
 from prepare_stream import PreparedStream
+from cache_partition import assigned_episodes
 
 
 def annotate(row):
@@ -42,6 +43,8 @@ def main():
     parser.add_argument('--status-dir',required=True);parser.add_argument('--batch-size',type=int,default=8)
     parser.add_argument('--renderer',choices=['osmesa','egl'],default='osmesa')
     parser.add_argument('--annotation-workers',type=int,default=4)
+    parser.add_argument('--shard-index',type=int,default=0,help='This independent job index, starting at zero.')
+    parser.add_argument('--num-shards',type=int,default=1,help='Number of independent jobs; use the same local world size in each.')
     parser.add_argument('--max-episodes',type=int,default=0,help='Bounded integration check only; 0 uses the complete scope.')
     parser.add_argument('--episode-limit',type=int,default=0,help='Restrict assigned episodes for integration validation; 0 uses all.')
     args=parser.parse_args();root=Path(args.prepared);dest=Path(args.status_dir);dest.mkdir(parents=True,exist_ok=True)
@@ -52,7 +55,8 @@ def main():
     rank=int(os.environ.get('RANK',0));world=int(os.environ.get('WORLD_SIZE',1));local=int(os.environ.get('LOCAL_RANK',0))
     resources=read_json(args.resources)
     identity=cache_identity(resources,root)
-    records=np.load(root/'records.npy',mmap_mode='r');episodes=read_json(root/'episodes.json')[rank::world]
+    records=np.load(root/'records.npy',mmap_mode='r')
+    episodes=assigned_episodes(read_json(root/'episodes.json'),rank,world,args.shard_index,args.num_shards)
     if args.episode_limit:episodes=episodes[:args.episode_limit]
     pending=[];completed=0;targets_done=0
     for row in episodes:
@@ -68,10 +72,12 @@ def main():
             completed+=1;targets_done+=info['frames']
         else:pending.append(row)
     if args.max_episodes:pending=pending[:args.max_episodes]
-    execution={'version':'feature_only_stream_v1','batch_size':args.batch_size,'renderer':args.renderer,
-               'sources':{name:sha256(Path(__file__).parent/name) for name in ['feature_teachers.py','prepare_stream.py','prepare_fast.py']}}
+    partition={'shard_index':args.shard_index,'num_shards':args.num_shards,'local_world':world,
+               'global_rank':args.shard_index*world+rank,'global_world':args.num_shards*world}
+    execution={'version':'feature_only_stream_v1','batch_size':args.batch_size,'renderer':args.renderer,'partition':partition,
+               'sources':{name:sha256(Path(__file__).parent/name) for name in ['feature_teachers.py','prepare_stream.py','prepare_fast.py','cache_partition.py']}}
     def status(stage,**fields):
-        atomic_json(dest/f'prepare_rank{rank}.json',{'rank':rank,'world':world,'time':time.time(),'hostname':os.uname().nodename,
+        atomic_json(dest/f'prepare_rank{rank}.json',{'rank':rank,'world':world,**partition,'time':time.time(),'hostname':os.uname().nodename,
             'stage':stage,'completed_episodes':completed,'assigned_episodes':len(episodes),'completed_targets':targets_done,'execution':execution,**fields})
     status('loading_teachers',remaining_episodes=len(pending))
     if not pending:status('complete');return
@@ -122,7 +128,7 @@ def main():
                     'label_sha256':meta['label_sha256'],'identity':identity,'image_storage':'source_video','execution':execution,
                     'file_bytes':{name+'.npy':(cache/(name+'.npy')).stat().st_size for name in ['state','action','frames',*values]}})
                 completed+=1;targets_done+=n
-                event={'event':'CACHED_FAST','rank':rank,'episode':row['name'],'frames':n,'seconds':time.perf_counter()-start,
+                event={'event':'CACHED_FAST','rank':rank,**partition,'hostname':os.uname().nodename,'episode':row['name'],'frames':n,'seconds':time.perf_counter()-start,
                        'teacher_seconds':gpu,'input_wait_seconds':wait,'time':time.time()}
                 print(event,flush=True)
                 with (dest/f'cache_performance_rank{rank}.jsonl').open('a') as output:

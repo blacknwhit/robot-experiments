@@ -162,3 +162,21 @@ python -m unittest discover -s runtimes/focalvla/tests -v
 
 已测范围与本次 portable GPU 验收记录见 [EXP-008](../experiments/exp008_focalvla/README.zh-CN.md)。此前两卡 global128 的 50 步短训耗时 4.308 秒/步、相对旧实现约 4 倍加速；该数字不作为本轮 8 卡 global64 的实测速度。70k 训练及策略成功率尚未运行。
 
+
+## 多任务并行生成教师缓存
+
+可将同一全量计划拆成5个独立双卡任务，共10卡。所有任务使用相同`RESOURCES`、`PREPARED`，各自设置不同的`SHARD_INDEX`（0到4）。以下命令分别在五个任务中执行；`--num-shards`和本地GPU数必须一致。
+
+```bash
+SHARD_INDEX=0  # 五个任务分别填写0、1、2、3、4
+python -m torch.distributed.run --standalone --nproc_per_node=2 \
+  scripts/focalvla/prepare_fast.py --resources "$RESOURCES" \
+  --prepared "$PREPARED" --status-dir "$PREPARED/progress/shard_$SHARD_INDEX" \
+  --shard-index "$SHARD_INDEX" --num-shards 5 \
+  --batch-size 8 --renderer osmesa --annotation-workers 4
+```
+
+全局worker编号为`shard_index × 2 + local_rank`，按10个worker轮转分配演示。30,000集正好每任务6,000集、每卡3,000集；不重叠、不漏集。完整旧缓存直接复用，不完整集由新所属worker重算。每个任务的日志与进度目录独立；缓存与只读计划共享。分片不改变教师、目标、取样计划或原GB64/70k训练配方，也不会训练出五个独立策略。原先覆盖同一缓存的未分片准备任务必须先退出。
+
+五份任务全部完成后，执行一次前述`seal`，再使用原训练入口；不能在仅部分分片完成时启动训练。分片校验可运行`python scripts/focalvla/test_cache_partition.py -v`。普通单机入口不加分片参数，默认行为保持原样。
+
