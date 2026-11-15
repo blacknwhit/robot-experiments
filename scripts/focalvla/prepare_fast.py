@@ -12,6 +12,30 @@ def annotate(row):
     return annotate_one(row)
 
 
+def cache_identity(resources,root):
+    expected={'source_sha256':source_digest(),'plan_contract':read_json(root/'PLAN.json')['contract']}
+    path=root/'CACHE_IDENTITY.json'
+    if not path.exists():
+        # Some shared FUSE mounts return EAGAIN even for blocking flock. Existing
+        # identities need no writer lock; cold initialization uses explicit retry.
+        with (root/'cache_identity.lock').open('a') as lock:
+            deadline=time.monotonic()+900
+            while not path.exists():
+                try:
+                    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if time.monotonic()>=deadline:raise TimeoutError('Cache identity initialization timed out')
+                    time.sleep(.1)
+            if not path.exists():
+                identity={**expected,'weights':{k:sha256(resources[k]) for k in ('vggt_weights','track4world_weights')},
+                          'da3_sha256':sha256(Path(resources['da3_weights'])/'model.safetensors')}
+                atomic_json(path,identity)
+    identity=read_json(path)
+    assert all(identity[k]==v for k,v in expected.items())
+    return identity
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--resources',required=True);parser.add_argument('--prepared',required=True)
@@ -27,16 +51,7 @@ def main():
                       MUJOCO_GL='osmesa',PYOPENGL_PLATFORM='osmesa',LIBGL_ALWAYS_SOFTWARE='1',LP_NUM_THREADS='2')
     rank=int(os.environ.get('RANK',0));world=int(os.environ.get('WORLD_SIZE',1));local=int(os.environ.get('LOCAL_RANK',0))
     resources=read_json(args.resources)
-    expected={'source_sha256':source_digest(),'plan_contract':read_json(root/'PLAN.json')['contract']}
-    with (root/'cache_identity.lock').open('a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX)
-        if (root/'CACHE_IDENTITY.json').exists():
-            identity=read_json(root/'CACHE_IDENTITY.json')
-            assert all(identity[k]==v for k,v in expected.items())
-        else:
-            identity={**expected,'weights':{k:sha256(resources[k]) for k in ('vggt_weights','track4world_weights')},
-                      'da3_sha256':sha256(Path(resources['da3_weights'])/'model.safetensors')}
-            atomic_json(root/'CACHE_IDENTITY.json',identity)
+    identity=cache_identity(resources,root)
     records=np.load(root/'records.npy',mmap_mode='r');episodes=read_json(root/'episodes.json')[rank::world]
     if args.episode_limit:episodes=episodes[:args.episode_limit]
     pending=[];completed=0;targets_done=0
