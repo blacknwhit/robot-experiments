@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-15",
+  "gpu": "H100 80GB",
+  "world_size_measured": 1,
+  "teacher_batch_size": 8,
+  "renderer": "osmesa",
+  "cross_task": {
+    "tasks": 12,
+    "samples": 36,
+    "valid_flags_equal": true,
+    "max_relative_l2": {
+      "geo": 1.5635714589734562e-07,
+      "motion": 1.0944524575506875e-07
+    }
+  },
+  "complete_episode_validation": {
+    "passed": true,
+    "episodes": 2,
+    "targets": 235,
+    "errors": [
+      {
+        "episode": 0,
+        "key": "geo",
+        "targets": 114,
+        "max_abs": 1.52587890625e-05,
+        "max_relative_l2": 1.7450859957079956e-07
+      },
+      {
+        "episode": 0,
+        "key": "motion",
+        "targets": 114,
+        "max_abs": 2.384185791015625e-07,
+        "max_relative_l2": 1.3563970924224122e-07
+      },
+      {
+        "episode": 1,
+        "key": "geo",
+        "targets": 121,
+        "max_abs": 1.52587890625e-05,
+        "max_relative_l2": 1.8229458476071159e-07
+      },
+      {
+        "episode": 1,
+        "key": "motion",
+        "targets": 121,
+        "max_abs": 2.384185791015625e-07,
+        "max_relative_l2": 1.7202481217282184e-07
+      }
+    ],
+    "contract_equal": true,
+    "state_action_goals_frames_valid_equal": true,
+    "no_rgb_files": true
+  },
+  "performance": {
+    "frames": 235,
+    "seconds": 115.71327422186732,
+    "targets_per_second": 2.0308819500640323,
+    "seconds_per_target": 0.49239691158241417,
+    "teacher_seconds_per_target": 0.4760065368198334,
+    "input_wait_seconds_per_target": 0.009654832441121974,
+    "model_loading_excluded": true,
+    "includes_video_masks_teachers_numeric_writes": true,
+    "four_gpu_rate_is_not_measured_by_this_test": true,
+    "episodes": [
+      {
+        "episode": "AddIceCubes__000000",
+        "frames": 114,
+        "seconds": 55.87108889967203,
+        "teacher_seconds": 54.65625976026058,
+        "input_wait_seconds": 0.5711090117692947
+      },
+      {
+        "episode": "AddIceCubes__000001",
+        "frames": 121,
+        "seconds": 59.84218532219529,
+        "teacher_seconds": 57.205276392400265,
+        "input_wait_seconds": 1.6977766118943691
+      }
+    ]
+  },
+  "unchanged": {
+    "current_cameras": 3,
+    "vggt_resolution": 518,
+    "motion_resolution": 630,
+    "motion_frames": 11,
+    "motion_offsets": [
+      0,
+      5,
+      10,
+      15,
+      20,
+      25,
+      30,
+      35,
+      40,
+      45,
+      50
+    ],
+    "full_unique_target_count": 4076006,
+    "reference_view_selection_per_clip": true,
+    "torch_compile_enabled": false,
+    "full_rgb_disk_cache": false
+  },
+  "source_sha256": {
+    "feature_teachers.py": "15bc59dfaa4a91c0b6472949c89cd309e99d410953726ce75fc46339a151c3cc",
+    "prepare_stream.py": "32d2d86bb3897470aef8e794da183068ee7d47e162c71b97bee4dda54d94048b",
+    "prepare_fast.py": "e59cf19d0605deb08d33f2ebe82bdefd060fea9a4ce1d72109295c61cc099ded"
+  }
+}

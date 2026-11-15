@@ -50,6 +50,13 @@
 
 初始配置存在一次长等待，不能只引用中位数声称无减速。加深有限预取后，本次反向顺序复测没有再出现长等待；中位数差1.29%，两组逐步各项损失最大差为0。保留这两轮原始时间序列，见[机器可读GPU对照](video_training_ab_20261115.json)。正式8卡/global64/70k配方采用每worker预取4批；实体8卡训练尚未启动。
 
+## 2026-11-15：教师离线提取提速
+
+新增`prepare_fast.py`，标注、原视频解码/OSMesa mask与GPU教师计算并行；每卡教师常驻，以8个目标合批，只保留最终特征依赖的分支。跳过未使用的深度/相机预测、metric模型、几何后处理和2D flow，缓存有界RoPE，并避免反复转换线性层权重。参考视角选择保持逐clip原始计算，避免小矩阵合批舍入改变离散argmin。保留全部三相机、11帧运动窗口、518/630分辨率、原注意力与精度，不生成PNG/images.bin。
+
+12类任务36个时刻与原教师对照通过；另用两条完整演示的235个计划目标执行读视频→渲染→教师→数值落盘。两类特征最大相对L2误差均低于1.83e-7，状态/动作/帧/子任务/有效标记完全相同，缓存contract一致。恢复会跳过完整集，原有完整缓存可复用。单H100整条管线实测2.03目标/秒，约0.492秒/目标；这是单卡测试，不冒充四卡实测。详见[验收数据](teacher_cache_validation_20261115.json)及更新后的[启动命令](../../docs/FOCALVLA_8GPU_TRAINING.zh-CN.md)。
+
 ## 来源
 
 OpenPI兼容实现及必要三视角修改随代码保留，许可证见 [OPENPI_LICENSE](../../runtimes/focalvla/vendor/OPENPI_LICENSE)。教师分别来自 [VGGT](https://github.com/facebookresearch/vggt)、[Track4World](https://github.com/TencentARC/Track4World)；固定commit及必要的DA3导入处理见 [provision_teachers.py](../../scripts/focalvla/provision_teachers.py)。权重、数据、模拟器资产和机器资源路径不上传本仓库。
+

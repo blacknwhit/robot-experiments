@@ -81,23 +81,26 @@ CONFIG=configs/focalvla_robocasa365_8gpu_70k.json
 
 python -m focalvla.prepare plan --config "$CONFIG" \
   --resources "$RESOURCES" --prepared "$PREPARED"
-python -m focalvla.prepare annotate --config "$CONFIG" \
-  --resources "$RESOURCES" --prepared "$PREPARED" --workers 16
 python -m torch.distributed.run --standalone --nproc_per_node=8 \
-  -m focalvla.prepare cache --config "$CONFIG" \
-  --resources "$RESOURCES" --prepared "$PREPARED"
+  scripts/focalvla/prepare_fast.py --resources "$RESOURCES" \
+  --prepared "$PREPARED" --status-dir "$PREPARED/progress" \
+  --batch-size 8 --renderer osmesa --annotation-workers 4
 python -m focalvla.prepare seal --config "$CONFIG" \
   --resources "$RESOURCES" --prepared "$PREPARED"
 ```
 
-四步的输出与含义：
+三个入口依次完成计划、标注与教师提取、封存；具体输出与含义：
 
 1. `plan` 校验完整 scope，生成 70k×64 的确定性取样计划，并对实际用到的 `(episode,frame)` 去重。真实全量检查产生 **4,076,006 个唯一时刻**；全量数据有 4 条演示不足 50 帧。所有 30,000 条演示参与采样，未使用先前“每任务一条、每子任务一个 anchor”的短训样本集。任务概率正比于任务帧数的 0.4 次方，任务内按帧均匀采样；这属于本 RoboCasa365 迁移的固定数据协议。
-2. `annotate` 对全部演示生成粗子任务文本、连续帧区间和实体名单。当前默认是已完成 300 类抽查的 v5 标注器：人工语义模板结合录制的抓取、运动、接触、支持关系进行离线对齐。它是此前为修复小物体/遮挡误判采用的标注增强；**不是声称与论文 Qwen3-VL-8B 标注器逐项一致**。模型训练和推理不接收这些模拟器状态。`ANNOTATION_QC.json` 列出失败记录；修正相应 `annotations/physics_v5/<episode>/LABELS.json` 后再重跑。覆盖连续性、实体有效性检查必须通过；自动检查不冒充人工逐条审核。
+2. `prepare_fast.py` 的每卡四个CPU进程提前标注后续演示，生成粗子任务文本、连续帧区间和实体名单；已有标注直接复用。当前默认是已完成300类抽查的v5标注器：人工语义模板结合录制的抓取、运动、接触、支持关系进行离线对齐。它是此前为修复小物体/遮挡误判采用的标注增强；**不是声称与论文Qwen3-VL-8B标注器逐项一致**。模型训练和推理不接收这些模拟器状态。覆盖连续性、实体有效性检查必须通过；自动检查不冒充人工逐条审核。独立执行`python -m focalvla.prepare annotate --config "$CONFIG" --resources "$RESOURCES" --prepared "$PREPARED" --workers 16`仍可汇总`ANNOTATION_QC.json`，但不必先串行等待全部标注完成。
 3. `cache` 按 episode 分配到 8 张卡，各卡教师常驻，只计算计划实际需要的时刻。VGGT 看同步三路完整图像；Track4World 看完整 agent-left 的当前和未来 10 帧。相关实体 mask 只用于教师输出的池化。轨迹内部取 `t,t+5,…,t+50`，跨子任务边界不截断；episode 结束后使用最后一帧/最后一条动作补齐，既不跨 episode 也不丢弃短演示。论文未规定 episode 末端规则，这里显式固定。**缓存只保存数值状态/动作、目标特征、子任务和有效标志，不生成 PNG 或 `images.bin`。** 提取教师目标时的视频顺序解码、最多51帧缓冲只存在于内存。训练时从原视频按需读取当前三路图像。完成的 episode 可以复用，半成品会重算该集。
 4. `seal` 汇总全量缓存、按实际训练抽样频次计算两类目标的均值/标准差，生成 `READY.json`。没有完整数据和目标就不会进入正式训练。规范化不混入评测数据。`geo_valid/motion_valid` 为 false 的样本只关闭对应辅助监督，action 和 semantic 仍参与训练。
 
 完整的 407 万目标缓存需要独立的教师计算时间和磁盘容量；当前已完成的是全量采样计划与小规模端到端验收，**尚未生成这套全量缓存**。不要用已有 665 个短训 anchor 缓存替代它。改标注、种子、步数、batch 或教师版本时，使用新的 `PREPARED` 目录，重新生成与该计划对应的缓存。
+
+优化入口只执行最终目标依赖的教师分支：VGGT最终聚合特征，以及DA3主干→Track4World 3D聚合特征；深度/相机预测头、metric模型、几何后处理和2D flow不参与目标，已跳过。保留三路518×518当前图像、11路630×630运动图像、原参考视角选择、原注意力及混合精度。参考视角选择按每条clip单独计算，避免批量小矩阵舍入影响离散argmin。教师常驻GPU，以8个目标合批；CPU进程顺序解码并用原OSMesa生成mask，最多预取两批，与GPU计算重叠。帧缓冲和队列均有上限，不保存RGB副本。
+
+首次调用会生成`CACHE_IDENTITY.json`；同一计划/权重的完整旧缓存可继续使用。优化脚本单独记录SHA到每集`COMPLETE.json.execution`；不修改科学运行时代码来伪装缓存身份。恢复直接重跑同一命令；完整集跳过，尺寸不完整的集重算。`prepare_rank*.json`显示当前集与帧进度，`cache_performance_rank*.jsonl`记录逐集总时间、教师时间和输入等待；以去掉首集加载影响后的多集窗口衡量吞吐。`--episode-limit 2`仅用于隔离目录中的有界验收，正式全量命令不要添加。
 
 按4,076,006个唯一时刻计算，FP32几何/运动目标合计约37.6 GB；加状态、动作、索引和标注为40多GB量级，不再为全量RGB另外预算TB级空间。原始MP4需要在整个训练期间可读。旧缓存中的教师数组也可以供新读取器使用；已有的PNG副本不会被自动删除。
 
@@ -158,3 +161,4 @@ python -m unittest discover -s runtimes/focalvla/tests -v
 ```
 
 已测范围与本次 portable GPU 验收记录见 [EXP-008](../experiments/exp008_focalvla/README.zh-CN.md)。此前两卡 global128 的 50 步短训耗时 4.308 秒/步、相对旧实现约 4 倍加速；该数字不作为本轮 8 卡 global64 的实测速度。70k 训练及策略成功率尚未运行。
+
