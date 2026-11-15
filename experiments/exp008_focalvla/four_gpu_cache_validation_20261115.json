@@ -1,0 +1,112 @@
+{
+  "date": "2026-11-15",
+  "code_commit": "4f5e963f58d66ac88e8a8144937b30019bcc96e3",
+  "world_size": 4,
+  "gpu_type": "H100 80GB",
+  "teacher_batch_size_per_gpu": 8,
+  "scope": "Historical active extraction window. Instance subsequently exited; this is not an uninterrupted long-run acceptance.",
+  "first_completed_episodes_per_rank": [
+    {
+      "rank": 0,
+      "episode": "AddIceCubes__000038",
+      "targets": 174,
+      "seconds": 85.10775898583233,
+      "targets_per_second": 2.044466944887661,
+      "input_wait_seconds_per_target": 0.004660122289225973
+    },
+    {
+      "rank": 1,
+      "episode": "AddIceCubes__000035",
+      "targets": 118,
+      "seconds": 57.58591970615089,
+      "targets_per_second": 2.0491120156130136,
+      "input_wait_seconds_per_target": 0.004918502438497745
+    },
+    {
+      "rank": 2,
+      "episode": "AddIceCubes__000031",
+      "targets": 123,
+      "seconds": 60.24466242454946,
+      "targets_per_second": 2.0416746488379025,
+      "input_wait_seconds_per_target": 0.00503143575799659
+    },
+    {
+      "rank": 3,
+      "episode": "AddIceCubes__000028",
+      "targets": 184,
+      "seconds": 89.66152190044522,
+      "targets_per_second": 2.0521623557126607,
+      "input_wait_seconds_per_target": 0.005350500233876316
+    }
+  ],
+  "aggregate_active_targets_per_second": 8.187415965051237,
+  "prior_four_gpu_active_targets_per_second": 4.515160680980472,
+  "active_speedup": 1.813316633345888,
+  "gpu_utilization_common_window_seconds": 57.08884787559509,
+  "gpu": [
+    {
+      "rank": 0,
+      "samples": 6,
+      "mean_utilization_percent": 95.0,
+      "minimum_utilization_percent": 70.0,
+      "mean_power_W": 616.3116666666666,
+      "peak_observed_memory_MiB": 17193.0
+    },
+    {
+      "rank": 1,
+      "samples": 6,
+      "mean_utilization_percent": 98.83333333333333,
+      "minimum_utilization_percent": 93.0,
+      "mean_power_W": 617.9566666666667,
+      "peak_observed_memory_MiB": 17193.0
+    },
+    {
+      "rank": 2,
+      "samples": 6,
+      "mean_utilization_percent": 100.0,
+      "minimum_utilization_percent": 100.0,
+      "mean_power_W": 627.895,
+      "peak_observed_memory_MiB": 17193.0
+    },
+    {
+      "rank": 3,
+      "samples": 6,
+      "mean_utilization_percent": 87.5,
+      "minimum_utilization_percent": 25.0,
+      "mean_power_W": 628.375,
+      "peak_observed_memory_MiB": 17193.0
+    }
+  ],
+  "gpu_after_first_ten_seconds": [
+    {
+      "rank": 0,
+      "samples": 5,
+      "mean_utilization_percent": 100.0,
+      "minimum_utilization_percent": 100.0
+    },
+    {
+      "rank": 1,
+      "samples": 5,
+      "mean_utilization_percent": 100.0,
+      "minimum_utilization_percent": 100.0
+    },
+    {
+      "rank": 2,
+      "samples": 5,
+      "mean_utilization_percent": 100.0,
+      "minimum_utilization_percent": 100.0
+    },
+    {
+      "rank": 3,
+      "samples": 5,
+      "mean_utilization_percent": 85.0,
+      "minimum_utilization_percent": 25.0
+    }
+  ],
+  "full_preparation_active_days_estimate": 5.7620127732297455,
+  "estimate_excludes_interruptions_loading_and_policy_training": true,
+  "completed_episodes_this_attempt": 5,
+  "completed_targets_this_attempt": 653,
+  "training_updates": 0,
+  "full_rgb_cache": false
+}

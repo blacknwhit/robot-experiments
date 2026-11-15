@@ -56,6 +56,12 @@
 
 12类任务36个时刻与原教师对照通过；另用两条完整演示的235个计划目标执行读视频→渲染→教师→数值落盘。两类特征最大相对L2误差均低于1.83e-7，状态/动作/帧/子任务/有效标记完全相同，缓存contract一致。恢复会跳过完整集，原有完整缓存可复用。单H100整条管线实测2.03目标/秒，约0.492秒/目标；这是单卡测试，不冒充四卡实测。详见[验收数据](teacher_cache_validation_20261115.json)及更新后的[启动命令](../../docs/FOCALVLA_8GPU_TRAINING.zh-CN.md)。
 
+## 2026-11-15：实体四卡提取窗口
+
+4×H100、每卡B8，从原完整缓存继续提取。四个rank各自首条完整演示的实测吞吐为2.044/2.049/2.042/2.052目标/秒，合计**8.187目标/秒**；此前四卡4.515目标/秒，约**1.81倍**。每卡输入等待约4.7—5.4毫秒/目标，四卡计算阶段均达到100% GPU利用率。按此有效计算速度，全407万目标约5.76天，不含实例中断、冷加载和后续70k训练。
+
+该次运行新增5条完整演示、653目标后实例退出，未留下Python异常；因此这是有真实四卡数据的短窗口吞吐验收，**不是长时间连续运行验收**。完整缓存保留供恢复。用户要求现阶段尽快采用已验证方案，故固定B8，停止继续测试B16/B32。详见[四卡实测](four_gpu_cache_validation_20261115.json)。
+
 ## 来源
 
 OpenPI兼容实现及必要三视角修改随代码保留，许可证见 [OPENPI_LICENSE](../../runtimes/focalvla/vendor/OPENPI_LICENSE)。教师分别来自 [VGGT](https://github.com/facebookresearch/vggt)、[Track4World](https://github.com/TencentARC/Track4World)；固定commit及必要的DA3导入处理见 [provision_teachers.py](../../scripts/focalvla/provision_teachers.py)。权重、数据、模拟器资产和机器资源路径不上传本仓库。
