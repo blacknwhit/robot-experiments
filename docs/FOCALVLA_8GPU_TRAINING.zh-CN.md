@@ -94,10 +94,24 @@ python -m focalvla.prepare seal --config "$CONFIG" \
 
 1. `plan` 校验完整 scope，生成 70k×64 的确定性取样计划，并对实际用到的 `(episode,frame)` 去重。真实全量检查产生 **4,076,006 个唯一时刻**；全量数据有 4 条演示不足 50 帧。所有 30,000 条演示参与采样，未使用先前“每任务一条、每子任务一个 anchor”的短训样本集。任务概率正比于任务帧数的 0.4 次方，任务内按帧均匀采样；这属于本 RoboCasa365 迁移的固定数据协议。
 2. `annotate` 对全部演示生成粗子任务文本、连续帧区间和实体名单。当前默认是已完成 300 类抽查的 v5 标注器：人工语义模板结合录制的抓取、运动、接触、支持关系进行离线对齐。它是此前为修复小物体/遮挡误判采用的标注增强；**不是声称与论文 Qwen3-VL-8B 标注器逐项一致**。模型训练和推理不接收这些模拟器状态。`ANNOTATION_QC.json` 列出失败记录；修正相应 `annotations/physics_v5/<episode>/LABELS.json` 后再重跑。覆盖连续性、实体有效性检查必须通过；自动检查不冒充人工逐条审核。
-3. `cache` 按 episode 分配到 8 张卡，各卡教师常驻，只计算计划实际需要的时刻。VGGT 看同步三路完整图像；Track4World 看完整 agent-left 的当前和未来 10 帧。相关实体 mask 只用于教师输出的池化。轨迹内部取 `t,t+5,…,t+50`，跨子任务边界不截断；episode 结束后使用最后一帧/最后一条动作补齐，既不跨 episode 也不丢弃短演示。论文未规定 episode 末端规则，这里显式固定。缓存包含无损 RGB、数值状态/动作、目标特征和有效标志；每集一组文件，视频顺序解码，缓冲最多 51 帧。完成的 episode 可以复用，半成品会重算该集。
+3. `cache` 按 episode 分配到 8 张卡，各卡教师常驻，只计算计划实际需要的时刻。VGGT 看同步三路完整图像；Track4World 看完整 agent-left 的当前和未来 10 帧。相关实体 mask 只用于教师输出的池化。轨迹内部取 `t,t+5,…,t+50`，跨子任务边界不截断；episode 结束后使用最后一帧/最后一条动作补齐，既不跨 episode 也不丢弃短演示。论文未规定 episode 末端规则，这里显式固定。**缓存只保存数值状态/动作、目标特征、子任务和有效标志，不生成 PNG 或 `images.bin`。** 提取教师目标时的视频顺序解码、最多51帧缓冲只存在于内存。训练时从原视频按需读取当前三路图像。完成的 episode 可以复用，半成品会重算该集。
 4. `seal` 汇总全量缓存、按实际训练抽样频次计算两类目标的均值/标准差，生成 `READY.json`。没有完整数据和目标就不会进入正式训练。规范化不混入评测数据。`geo_valid/motion_valid` 为 false 的样本只关闭对应辅助监督，action 和 semantic 仍参与训练。
 
 完整的 407 万目标缓存需要独立的教师计算时间和磁盘容量；当前已完成的是全量采样计划与小规模端到端验收，**尚未生成这套全量缓存**。不要用已有 665 个短训 anchor 缓存替代它。改标注、种子、步数、batch 或教师版本时，使用新的 `PREPARED` 目录，重新生成与该计划对应的缓存。
+
+按4,076,006个唯一时刻计算，FP32几何/运动目标合计约37.6 GB；加状态、动作、索引和标注为40多GB量级，不再为全量RGB另外预算TB级空间。原始MP4需要在整个训练期间可读。旧缓存中的教师数组也可以供新读取器使用；已有的PNG副本不会被自动删除。
+
+`plan`完成后即可独立测试原视频供给，无需等待教师目标生成：
+
+```bash
+python scripts/focalvla/benchmark_video.py --resources "$RESOURCES" \
+  --prepared "$PREPARED" --workers 4 --batches 96
+# 32 workers用于整节点聚合压力测试；不是在一张卡的正式训练中开32 workers。
+python scripts/focalvla/benchmark_video.py --resources "$RESOURCES" \
+  --prepared "$PREPARED" --workers 32 --batches 256
+```
+
+该工具使用训练计划的真实随机视频样本和正式读取器，只测解码/拼批的持续供给；不包含模型计算、目标读取及原生归一化。2026-11-15在22 CPU核配额、初始`prefetch_factor=2`下，4 workers实测24.17个三视角样本/秒，32 workers实测103.15个/秒。后续完整训练A/B将正式配置调整为`prefetch_factor=4`；工具默认也为4，可显式传2复查初始配置。完整8卡训练步速需要在训练中确认，不能直接用该供给量替代。
 
 ## 4. 启动与恢复训练
 
@@ -113,9 +127,15 @@ bash scripts/focalvla/train_8gpu.sh "$RESOURCES" "$PREPARED" "$OUTPUT"
 
 恢复时执行**同一条命令**。不传 `--resume`，也不改输出目录。程序检查配置、源码、准备数据和 base 权重身份，加载最新完整 checkpoint，恢复 optimizer、学习率步数、每卡 RNG 和下一 global batch。`.tmp` 或尺寸不完整的 checkpoint 会跳过；发现不兼容的已完成 checkpoint 会报错。首次保存前中断时，只能重新从 base 开始，最多重做未保存的 10k 步。
 
-`metrics.jsonl` 每 10 步记录四项损失、学习率、秒/步、samples/s、rank0 数据等待和峰值显存。旧尝试中超出恢复点的日志会归档，避免把回滚前后拼成虚假的连续进度。保存期间不计入常规速度窗口。每个完整 checkpoint 约 41 GB，保留七个约需 290 GB，另留写临时文件的空间。
+`metrics.jsonl` 每10步记录四项损失、学习率、秒/步、samples/s、rank0数据等待、各rank中最大数据等待（`max_rank_data_wait_seconds_per_step`）和峰值显存。看最大rank等待可以发现其他卡供给不足而rank0正常的情况。旧尝试中超出恢复点的日志会归档，避免把回滚前后拼成虚假的连续进度。保存期间不计入常规速度窗口。每个完整checkpoint约41 GB，保留七个约需290 GB，另留写临时文件的空间。
 
-DataLoader 每卡 4 个 worker、pin memory、预取 2 个 batch，有界 episode 缓存；训练不随机 seek 长视频。模型保留已测的共享 context、五类可见性分块 FlashAttention、三相机 ViT 合批、单层 checkpoint 和 fused AdamW。没有整模型外层重复 checkpoint，也没有随训练增长的样本缓存。
+DataLoader每卡4个worker，每个worker预取4个batch（每卡最多16个在途batch），持续准备GPU即将使用的数据。worker完成视频解码和原生预处理，主进程使用pin memory及非阻塞传输。`video.py`在一个batch内按视频分组、按时间排序解码，再还原样本顺序；同一帧不重复解码，不改变训练抽样和断点数据游标。
+
+每个worker最多保留16个解码器、64 MiB的已请求RGB帧缓存。相邻请求最多顺序跨32帧，较远请求定位到前一个关键帧并按PTS解码到准确时刻；未请求的中间帧不转换成RGB。FFmpeg每个解码器只用1个线程，避免32个worker各自展开大量线程。8卡的RGB缓存总预算是2 GiB，另加固定数量的预取batch及解码器缓冲；缓存不会随训练增长，也不写磁盘副本。上述限制可通过科学配置末尾的`video_*`字段调整。
+
+模型保留已测的共享context、五类可见性分块FlashAttention、三相机ViT合批、单层checkpoint和fused AdamW。实际8卡的磁盘带宽及解码吞吐仍需结合训练日志的数据等待时间测量；增加预取深度不能替代持续的解码吞吐。
+
+单H100、B8完整训练对照已完成：224条真实样本覆盖158任务，模型/Adam初始状态、逐步随机数、样本顺序均一致；每组28步，排除前4步后统计24步，包含预处理、H2D、四项损失前后向、梯度裁剪和fused AdamW更新。初始2批预取出现一次5.619秒数据等待，均值比PNG慢37.55%，没有按这个结果发布。改为4批预取并交换测试顺序后，PNG为0.63157秒/步，视频为0.64320秒/步，平均差1.84%；中位数差1.29%，视频平均数据等待0.224毫秒、最大0.420毫秒，两组逐步损失最大差为0。此结果支持当前有界预取方案；未把单卡测试当成实体8卡验收。完整记录见[训练I/O对照](../experiments/exp008_focalvla/video_training_ab_20261115.json)。
 
 ## 5. 代码入口和验证边界
 
@@ -125,7 +145,7 @@ DataLoader 每卡 4 个 worker、pin memory、预取 2 个 batch，有界 episod
 | `reference.py` | 可读的可见性参考实现、保留 query 条件的动作推理 |
 | `adapter.py`、`vendor/openpi/` | 原生三视角 π0.5 网络、tokenizer、归一化与动作接口 |
 | `plan.py`、`prepare.py`、`teachers.py`、`annotation/` | 全量取样、离线子任务标注、教师目标和缓存封存 |
-| `data.py` | mmap 数组、无损 RGB 读取和固定 global batch 分片 |
+| `data.py`、`video.py` | mmap目标数组、原视频批量解码、有界内存缓存和固定global batch分片 |
 | `train.py`、`checkpoint.py` | DDP 优化、日志、完整保存与恢复 |
 
 论文的 8 geometry queries、8 motion queries、2048/256 维目标、MSE/SmoothL1(beta=1) 和原生 autoregressive semantic CE 都保留。semantic 标签只对 context+自身因果前缀可见；context、geometry、motion 和 action 均看不到 GT semantic tokens。动作专家读取当前 context 和两组 query latents。推理无需教师、未来图像、mask 或 GT 子任务文本。

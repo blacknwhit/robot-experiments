@@ -31,6 +31,25 @@
 
 这次测试验证了整理后的执行链路与冷恢复，不能替代实体8卡吞吐或70k效果验收。详情见 [机器可读验收记录](validation_20261115.json)。
 
+## 2026-11-15：取消全量RGB副本，改为训练时预取
+
+新准备流程只落盘数值目标/状态/动作/标注，不再生成`images.bin`或PNG。训练直接从原MP4读取当前三视角，DataLoader每卡4 workers、每worker预取4个batch（初始2批设置在后续GPU对照后调整为4）。读取器按视频/帧分组并还原采样顺序，复用有界解码器，RGB缓存限制为64 MiB/worker。worker启动仅传递路径和小配置，重新打开mmap并延迟加载精简元数据，避免复制407万条索引到每个进程。
+
+验证：6项协议/视频回归测试通过，覆盖B帧/GOP定位、乱序与重复取帧、句柄/内存上限、无PNG缓存读取、末动作补齐及worker序列化。真实视频输出与已有PNG逐像素一致；真实场景回放的缓存写出测试没有RGB文件，8类数值数组与原缓存相同（该写出测试复用已验证的教师目标，不重复运行教师）。
+
+在22 CPU核配额的单主机上，用正式读取器和全量计划中的真实随机样本测得：4 workers为24.17 samples/s（96×B8）；32 workers为103.15 samples/s（256×B8）。这是视频解码/拼批供给量，实体8卡训练吞吐未在本次重测。新增各rank最大数据等待日志用于训练时确认。详见[视频读取验收](video_reader_validation_20261115.json)及[训练说明](../../docs/FOCALVLA_8GPU_TRAINING.zh-CN.md)。
+
+## 2026-11-15：完整训练PNG/视频A/B与预取调整
+
+单H100、B8、4 workers；224条真实样本覆盖158任务，672张图像逐像素一致。两种方式均执行原生预处理、H2D、完整FOCAL前向/反向、梯度裁剪和fused AdamW，每组28步、前4步预热。每组从相同模型和空Adam状态开始，逐步样本/RNG一致，组内不重复样本。A/B的PNG参考只保存这224条小样本约40.5MB，不是全量RGB缓存。
+
+| 设置 | PNG平均秒/步 | 视频平均秒/步 | 视频减速 | 视频平均/最大数据等待 |
+|---|---:|---:|---:|---:|
+| 初始prefetch=2，PNG→视频 | 0.62016 | 0.85302 | 37.55% | 234.3 / 5618.9 ms |
+| 发布prefetch=4，视频→PNG | 0.63157 | 0.64320 | **1.84%** | **0.224 / 0.420 ms** |
+
+初始配置存在一次长等待，不能只引用中位数声称无减速。加深有限预取后，本次反向顺序复测没有再出现长等待；中位数差1.29%，两组逐步各项损失最大差为0。保留这两轮原始时间序列，见[机器可读GPU对照](video_training_ab_20261115.json)。正式8卡/global64/70k配方采用每worker预取4批；实体8卡训练尚未启动。
+
 ## 来源
 
 OpenPI兼容实现及必要三视角修改随代码保留，许可证见 [OPENPI_LICENSE](../../runtimes/focalvla/vendor/OPENPI_LICENSE)。教师分别来自 [VGGT](https://github.com/facebookresearch/vggt)、[Track4World](https://github.com/TencentARC/Track4World)；固定commit及必要的DA3导入处理见 [provision_teachers.py](../../scripts/focalvla/provision_teachers.py)。权重、数据、模拟器资产和机器资源路径不上传本仓库。

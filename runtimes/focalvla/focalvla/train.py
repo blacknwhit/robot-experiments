@@ -90,7 +90,10 @@ def main():
                          collate_fn=Collate(resources), generator=torch.Generator().manual_seed(config['seed']))
     if config['num_workers']:
         loader_kwargs.update(persistent_workers=True, prefetch_factor=config['prefetch_factor'], multiprocessing_context='spawn')
-    loader = DataLoader(CacheDataset(root, config['episode_cache_size']),
+    dataset = CacheDataset(root, resources['dataset_root'], config['episode_cache_size'],
+                           config.get('video_max_open', 16), config.get('video_cache_mb_per_worker', 64),
+                           config.get('video_max_forward_gap', 32))
+    loader = DataLoader(dataset,
         batch_sampler=PlanBatches(root, start, stop, rank, world, batch, accumulation), **loader_kwargs)
     iterator = iter(loader)
     if rank == 0:
@@ -133,8 +136,9 @@ def main():
         completed = step+1
         if completed % config['log_interval'] == 0 or completed == stop:
             torch.cuda.synchronize()
-            duration = torch.tensor(time.perf_counter()-began, device=device)
-            dist.all_reduce(duration, op=dist.ReduceOp.MAX)
+            timing = torch.tensor([time.perf_counter()-began, wait_seconds], device=device)
+            dist.all_reduce(timing, op=dist.ReduceOp.MAX)
+            duration, max_data_wait = timing
             dist.all_reduce(sums); sums /= world*window
             values = dict(zip(loss_keys, sums.cpu().tolist()))
             values['loss'] = values['action']+sum(weights[k]*values[k] for k in weights)
@@ -143,6 +147,7 @@ def main():
                 record = {'step':completed, **values, 'lr':lr_at(step,config), 'seconds_per_step':float(duration)/window,
                           'samples_per_second':window*config['global_batch']/float(duration),
                           'rank0_data_wait_seconds_per_step':wait_seconds/window,
+                          'max_rank_data_wait_seconds_per_step':float(max_data_wait)/window,
                           'rank0_peak_allocated_GiB':torch.cuda.max_memory_allocated()/2**30, 'gradient_norm':float(norm)}
                 with (out/'metrics.jsonl').open('a') as stream: stream.write(json.dumps(record)+'\n')
                 print(json.dumps(record), flush=True)

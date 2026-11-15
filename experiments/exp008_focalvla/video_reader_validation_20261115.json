@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-15",
+  "scope": "Initial prefetch=2 CPU reader validation; subsequent full training A/B and selected prefetch=4 are in video_training_ab_20261115.json.",
+  "full_rgb_cache_enabled": false,
+  "video_decode": "PyAV 18, one decoder thread, exact presentation timestamps",
+  "workers_per_rank": 4,
+  "prefetch_batches_per_worker": 2,
+  "frame_cache_MiB_per_worker": 64,
+  "decoder_handles_per_worker": 16,
+  "cpu_quota_cores": 22,
+  "tests_passed": 6,
+  "alignment": {
+    "png_rgb_exact_matches": 15,
+    "cache_bytes": 2359296,
+    "decoder_handles": 3
+  },
+  "preparation_without_rgb": {
+    "real_video_and_scene_replay": true,
+    "frozen_targets_reused_without_recompute": true,
+    "frames": 4,
+    "files": [
+      "COMPLETE.json",
+      "action.npy",
+      "frames.npy",
+      "geo.npy",
+      "geo_valid.npy",
+      "goal_ids.npy",
+      "motion.npy",
+      "motion_valid.npy",
+      "state.npy"
+    ],
+    "no_rgb_files": true,
+    "all_numeric_arrays_equal_previous_cache": true
+  },
+  "throughput": [
+    {
+      "workers": 4,
+      "warmup_batches": 16,
+      "warmup_seconds": 21.147995598614216,
+      "measured_batches": 96,
+      "batch_size": 8,
+      "seconds": 31.77159958332777,
+      "samples_per_second": 24.17253176018906,
+      "mean_batch_seconds": 0.33095416232633096,
+      "p95_next_seconds": 1.3688984457403421,
+      "scope": "Production video reader on original full-plan sample order; video decode and collation only. Not a GPU training benchmark."
+    },
+    {
+      "workers": 32,
+      "warmup_batches": 64,
+      "warmup_seconds": 27.086335215717554,
+      "measured_batches": 256,
+      "batch_size": 8,
+      "seconds": 19.855253525078297,
+      "samples_per_second": 103.14650464741038,
+      "mean_batch_seconds": 0.0775595840823371,
+      "p95_next_seconds": 0.5520006520673633,
+      "scope": "Production video reader on original full-plan sample order; video decode and collation only. Not a GPU training benchmark."
+    }
+  ],
+  "formal_gpu_training_rerun": false,
+  "source_files_sha256": {
+    "runtimes/focalvla/focalvla/video.py": "dfb809fb6edfe6f27c9a1d44c89567d288e545ae4195859a977a0b911ae5f226",
+    "runtimes/focalvla/focalvla/data.py": "c59c185a057f17ca18c1f97945563c6c7876c663ec31d02ec91a1d326b1b8150",
+    "runtimes/focalvla/focalvla/prepare.py": "838aecf3c11efaf2b0d322770caf58d8c7e12b066d43a99548f7b1b7548f16aa",
+    "runtimes/focalvla/focalvla/train.py": "2b541493622ef456e27a1176fecbf7f5b900fa689fad97033859e6dfcf6c6453",
+    "configs/focalvla_robocasa365_8gpu_70k.json": "1370b9dafe3d977a63f9823cee1f9e6a96a20aee684c18695bc31f6ef9a37bd6",
+    "runtimes/focalvla/requirements-policy.txt": "16d99c9576e56df7205ca9ea5e8ae1023e49ea0fa507a8a628437bbe45dbf535",
+    "runtimes/focalvla/tests/test_video.py": "5cbf4cef9e2f03f386bcfad106850c25d0424400546a6f9dbd3db0153816a479",
+    "scripts/focalvla/benchmark_video.py": "4b46d8a0b6954711dcc5c57dd4776b4d63e5057e47580bc4457a9d6aaf8ede74"
+  }
+}

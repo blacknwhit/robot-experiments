@@ -71,7 +71,6 @@ class Videos:
 
 
 def cache_episode(row, frames, resources, root, teachers, identity):
-    import cv2
     import mujoco
     import pyarrow.parquet as pq
     from .annotation.prepare import make_sim
@@ -105,10 +104,10 @@ def cache_episode(row, frames, resources, root, teachers, identity):
     count = len(frames)
     arrays = {'geo':np.zeros((count,2048),np.float32),'motion':np.zeros((count,256),np.float32),
               'geo_valid':np.zeros(count,bool),'motion_valid':np.zeros(count,bool),
-              'goal_ids':np.zeros(count,np.int32),'offsets':np.zeros((count,4),np.int64)}
+              'goal_ids':np.zeros(count,np.int32)}
     videos = Videos(resources['dataset_root'],row)
     try:
-        with mujoco.Renderer(model,height=256,width=256) as renderer, (dest/'images.bin').open('wb') as stream:
+        with mujoco.Renderer(model,height=256,width=256) as renderer:
             option = mujoco.MjvOption(); option.geomgroup[:]=0; option.geomgroup[1]=1
             for i,t in enumerate(frames):
                 t = int(t)
@@ -125,18 +124,15 @@ def cache_episode(row, frames, resources, root, teachers, identity):
                     masks.append(np.isin(seg[:,:,0],relevant)&(seg[:,:,1]==int(mujoco.mjtObj.mjOBJ_GEOM)))
                 target = teachers(images,clip,np.stack(masks))
                 for key,value in target.items(): arrays[key][i] = value
-                # Lossless original RGB, one file per episode, no millions of tiny files.
-                arrays['offsets'][i,0] = stream.tell()
-                for camera,img in enumerate(images):
-                    ok,encoded = cv2.imencode('.png',cv2.cvtColor(img,cv2.COLOR_RGB2BGR),[cv2.IMWRITE_PNG_COMPRESSION,1])
-                    assert ok
-                    stream.write(encoded.tobytes()); arrays['offsets'][i,camera+1] = stream.tell()
+                # RGB/teacher clips are transient. Training decodes original videos
+                # in its bounded DataLoader pipeline; no full image copy is saved.
                 if (i+1)%50 == 0: print({'episode':row['name'],'cached_frames':i+1,'total':count},flush=True)
     finally:
         videos.close()
     for key,value in arrays.items(): np.save(dest/(key+'.npy'),value)
     atomic_json(dest/'COMPLETE.json',{'contract':contract,'episode':row['id'],'frames':count,'goals':label['goals'],
-                'label_sha256':sha256(label_path),'identity':identity,'file_bytes':{f.name:f.stat().st_size for f in dest.iterdir() if f.suffix in ('.npy','.bin')}})
+                'label_sha256':sha256(label_path),'identity':identity,'image_storage':'source_video',
+                'file_bytes':{name+'.npy':(dest/(name+'.npy')).stat().st_size for name in ('state','action','frames',*arrays)}})
     print({'event':'CACHED','episode':row['name'],'frames':count},flush=True)
 
 
@@ -177,7 +173,7 @@ def seal(config,resources,root):
         'norm_sha256':sha256(Path(resources['norm_assets'])/'norm_stats.json'),'tokenizer_sha256':sha256(resources['tokenizer']),
         'training_files':{f:sha256(root/f) for f in ('draws.npy','records.npy','episodes.json','target_stats.json','validity.npy','CACHE_MANIFEST.json')},
         'annotation_review':'Automated integrity checks; human_review status is retained per episode, not fabricated.',
-        'teachers_frozen':True,'future_visible_to_policy':False})
+        'teachers_frozen':True,'future_visible_to_policy':False,'training_images':'source_video'})
 
 
 def main():

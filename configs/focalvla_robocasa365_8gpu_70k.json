@@ -22,7 +22,10 @@
   "expected_episodes": 30000,
   "episodes_per_task": 100,
   "num_workers": 4,
-  "prefetch_factor": 2,
+  "prefetch_factor": 4,
   "episode_cache_size": 8,
+  "video_max_open": 16,
+  "video_cache_mb_per_worker": 64,
+  "video_max_forward_gap": 32,
   "log_interval": 10
 }
