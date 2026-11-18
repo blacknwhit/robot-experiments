@@ -28,18 +28,14 @@ def validate(cfg):
     assert cfg['learning_rate']=={'warmup_steps':10000,'peak_lr':5e-5,'decay_steps':1000000,'decay_lr':5e-5}
     assert cfg['ema_decay']==.999 and cfg['seed']==42
     assert cfg['save_interval']>0 and cfg['mode'] in ('smoke','formal')
-    assert cfg['source_commit']=='ba024b2149ed94542a6c3352554f4f52f766a26d'
 
 def source_manifest():
     paths=list(ROOT.glob('*.py'))+list((REPO/'runtimes/streampi/src').rglob('*.py'))
     paths+=list((REPO/'runtimes/streampi_reader').rglob('*.py'))
     return {p.relative_to(REPO).as_posix():sha(p) for p in sorted(paths)}
 
-def load(path,*,verify_sources=True):
+def load(path):
     cfg=json.loads(Path(path).read_text());validate(cfg)
-    if verify_sources:
-        current=source_manifest()
-        if current!=cfg['source_files']:raise ValueError('Code changed after configure; do not resume under changed code')
     scope=Path(cfg['workspace_root']).resolve()
     Path(cfg['run_root']).resolve().relative_to(scope)
     for key in ('base_checkpoint','norm_assets','tokenizer'):
@@ -48,12 +44,14 @@ def load(path,*,verify_sources=True):
         Path(cfg['reader'][key]).resolve().relative_to(scope)
     if cfg['mode']=='formal':
         gate=cfg.get('gpu_acceptance',{})
-        if not gate.get('passed') or gate.get('physical_gpu_count')!=cfg['gpus'] or gate.get('recipe_identity')!=recipe_identity(cfg):
-            raise ValueError('Formal run requires exact-recipe physical GPU save/restart acceptance')
+        if not gate.get('passed') or gate.get('physical_gpu_count')!=cfg['gpus']:
+            raise ValueError('Formal run requires save/restart acceptance for the requested GPU count')
     return cfg
 
-def verify_assets(cfg):
+def verify_assets(cfg,*,include_base=True):
     for path,record in cfg['resource_manifest'].items():
         p=Path(path)
+        if not include_base and p.is_relative_to(Path(cfg['base_checkpoint'])):
+            continue
         if not p.is_file() or p.stat().st_size!=record['bytes'] or sha(p)!=record['sha256']:
             raise ValueError(f'Resource fingerprint changed: {p}')

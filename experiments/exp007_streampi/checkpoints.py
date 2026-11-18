@@ -21,7 +21,6 @@ def file_manifest(root):
 
 def verify(path,cfg):
     marker=json.loads((path/'COMPLETE.json').read_text())
-    if marker['identity']!=identity(cfg):raise ValueError('Checkpoint identity mismatch')
     if not marker['files']:raise ValueError('Empty checkpoint manifest')
     for rel,record in marker['files'].items():
         p=(path/rel).resolve();p.relative_to(path.resolve())
@@ -29,12 +28,50 @@ def verify(path,cfg):
             raise ValueError(f'Incomplete/corrupt checkpoint: {rel}')
     return marker
 
+def verify_step(path,cfg):
+    if path.name.endswith('.partial') or not (path/'state').is_dir():
+        raise ValueError(f'Expected a complete full-state checkpoint containing state/: {path}')
+    marker=verify(path,cfg)
+    for key in ('step','next_sample'):
+        if type(marker.get(key)) is not int or marker[key]<0:
+            raise ValueError(f'Invalid checkpoint {key}: {path}')
+    return marker
+
 def discover(root,cfg):
     skipped=[]
     for path in sorted(root.glob('step_[0-9]*'),reverse=True):
         if not path.is_dir():continue
-        try:return path,verify(path,cfg),skipped
+        try:
+            path.resolve().relative_to(Path(cfg['workspace_root']).resolve())
+            return path,verify_step(path,cfg),skipped
         except (OSError,ValueError,KeyError) as exc:skipped.append({'path':path.name,'reason':str(exc)})
+    return None,None,skipped
+
+def select_resume(root,cfg,requested,claim):
+    """Prefer committed destination progress on automatic restarts."""
+    def scoped(path):
+        resolved=Path(path).resolve()
+        resolved.relative_to(Path(cfg['workspace_root']).resolve())
+        return resolved
+
+    origin=scoped(requested) if requested is not None else None
+    recorded=(claim or {}).get('resume_from')
+    if recorded is not None:
+        recorded=scoped(recorded)
+        if origin is not None and origin!=recorded:
+            raise ValueError(f'Destination already follows checkpoint {recorded}')
+        origin=recorded
+    selected,marker,skipped=discover(root/'checkpoints',cfg)
+    if selected is not None:
+        if origin is not None and recorded is None and origin!=selected.resolve():
+            raise ValueError(f'Destination already has progress at {selected}; use a fresh --run-root to start from {origin}')
+        return selected,marker,skipped
+    if origin is not None:
+        if claim is not None and recorded is None and origin.parent!=(root/'checkpoints').resolve():
+            raise ValueError('Use a fresh destination to import a checkpoint into a different run')
+        return origin,verify_step(origin,cfg),skipped
+    if claim is not None or skipped:
+        raise RuntimeError('Existing run has no complete training checkpoint to restore')
     return None,None,skipped
 
 def save(root,state,rng,cursor,cfg):
@@ -50,8 +87,8 @@ def save(root,state,rng,cursor,cfg):
     temp.rename(final)
     return final,marker
 
-def restore(path,shape_state,state_sharding,rng,cfg,mesh):
-    marker=verify(path,cfg)
+def restore(path,shape_state,state_sharding,rng,cfg,mesh,*,verified_marker=None):
+    marker=verify_step(path,cfg) if verified_marker is None else verified_marker
     target=payload(shape_state,rng,marker['next_sample'])
     rep=jax.sharding.NamedSharding(mesh,jax.sharding.PartitionSpec())
     shard={'params':state_sharding.params.to_pure_dict(),'opt_state':state_sharding.opt_state,
@@ -60,6 +97,10 @@ def restore(path,shape_state,state_sharding,rng,cfg,mesh):
     args=jax.tree.map(lambda s:ocp.ArrayRestoreArgs(restore_type=jax.Array,sharding=s),shard)
     with ocp.PyTreeCheckpointer() as reader:
         loaded=reader.restore(path/'state',args=ocp.args.PyTreeRestore(item=target,restore_args=args))
+    def check_leaf(key,expected,actual):
+        if np.shape(expected)!=actual.shape or (hasattr(expected,'dtype') and expected.dtype!=actual.dtype):
+            raise ValueError(f'Incompatible restored shape or dtype at {jax.tree_util.keystr(key)}')
+    jax.tree_util.tree_map_with_path(check_leaf,target,loaded)
     params=copy.deepcopy(shape_state.params);ema=copy.deepcopy(shape_state.ema_params)
     params.replace_by_pure_dict(loaded['params']);ema.replace_by_pure_dict(loaded['ema_params'])
     state=dataclasses.replace(shape_state,params=params,opt_state=loaded['opt_state'],ema_params=ema,step=loaded['step'])

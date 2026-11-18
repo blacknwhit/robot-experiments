@@ -97,13 +97,13 @@ done
 
 `configure`封存源码、原始base、norm/tokenizer、任务registry和数据元信息SHA；`check-data`核验300×100人口、4份可逐SHA复核样本，以及**真实global64的完整图像/token/action batch**。输入预处理为三相机`[64,3,224,224,3]`、prompt`[64,3,200]`、action`[64,50,32]`。不生成新GT，不改变评分。
 
-配置输出拒绝覆盖；源码变化会使旧resolved config失效。需要修复时先保留失败日志，生成新的配置/独立测试目录，重新验收对应变化。不要在正在运行的目录改代码。
+配置文件保留生成时的源码清单。新版可读取旧 resolved config，在独立 run 中直接载入旧版完整训练断点。[跨版本恢复命令](../experiments/exp007_streampi/TRAINING.zh-CN.md#6-从旧版完整-checkpoint-直接续训)
 
 ## 4. 实体8卡必须先通过短训与恢复
 
 先记录GPU型号、驱动、软件版本、8卡可见性、显存和任务回执。仅设置8个可见GPU；一个进程管理全部8张卡。按如下顺序运行，**不要让多个8卡smoke在同一组卡上重叠**：
 
-真实smoke启动必须显式传入`--stop-after`且范围1–20；省略或超过20步会在模型加载前拒绝。70k只能使用已通过实体8GPU验收的formal配置。
+smoke 启动时用 `--stop-after` 指定绝对停止步。单次最多新增 20 步。正式训练使用对应 GPU 卡数通过验收的 formal 配置。
 
 ```bash
 bash experiments/exp007_streampi/launch.sh \
@@ -123,7 +123,7 @@ bash experiments/exp007_streampi/launch.sh \
   --out "$RESOLVED/GPU8_ACCEPTED.json"
 ```
 
-必须看到：8张实体GPU、global64/FSDP8，真实完整模型更新且loss/各组梯度有限；恢复attempt从step2开始、数据cursor128；step3模型、Adam、EMA、RNG、cursor与连续运行逐值签名相同；完整检查点和EMA导出可读。`GPU8_ACCEPTED.json`仅由实体GPU比较生成，CPU测试不能代替。正式配置器会校验该凭证覆盖相同配方和代码。
+必须看到：8张实体GPU、global64/FSDP8，真实完整模型更新且loss/各组梯度有限；恢复attempt从step2开始、数据cursor128；step3模型、Adam、EMA、RNG、cursor与连续运行逐值签名相同；完整检查点和EMA导出可读。`GPU8_ACCEPTED.json`仅由实体GPU比较生成，CPU测试不能代替。正式配置器会核对凭证的通过状态和实体 GPU 数。
 
 同时记录初始化峰值、每卡显存、首编译耗时、稳定阶段step/data等待时间、GPU利用率、保存/恢复耗时与磁盘容量。三步只能验收功能，不能声称长训吞吐稳定；进入正式任务前可在该smoke配置进一步运行到20步观察，但保留step2/3检查点和凭证。对照签名检查只使用step3。
 
@@ -159,7 +159,7 @@ bash experiments/exp007_streampi/launch.sh \
 - 标准配额优先；标准实际拒绝/不可用后才转闲时。同样8卡请求可排队，不能仅因暂时空闲不足在本地等待或降卡。
 - 提交必须设置并读回 **`autoRetrain=true`、`autoRetrainIntervalMinutes=10`**；记录native monitor ID、rootJob/currentJob、任务ID、启动命令、commit、resolved config、卡数、输出目录和真实启动日志。
 - 任务启动命令只运行一次第5节的`launch.sh --config ...`，启动前设置本节需要的环境变量和正确cwd；不额外包8份torchrun，不使用Codex心跳作为训练恢复。
-- 恢复时重复完全相同命令。入口选择最新完整且identity一致的checkpoint；校验文件SHA，恢复全量模型、Adam、EMA、step、随机key和样本游标；不完整保存跳过。文件锁防并发writer。
+- 恢复时重复完全相同命令。入口优先选择目标目录的最新完整 checkpoint，核验文件 SHA 并恢复模型、Adam、EMA、step、随机 key 和实际样本游标。外部导入由 `--resume-from` 指定。文件锁防并发writer。
 - 如果已有CLAIM但完全没有可恢复checkpoint，入口拒绝静默从base重跑。检查是否初始化阶段中断或产物损坏；保留原目录。必要时用新run-id重新开展初始化验收，而不是删除CLAIM掩盖失败。
 - 如需定时只读检查，按项目约定复用独立GPT-6.1 Sol检查聊天，正常进度只记日志，新增异常/用户阻塞/关键验收去重汇报。SCO原生恢复仍是唯一恢复者；不要创建竞争重启循环。
 

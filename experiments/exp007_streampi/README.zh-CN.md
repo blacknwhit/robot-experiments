@@ -1,5 +1,7 @@
 # EXP-007 · StreamPI 在 RoboCasa365 上的训练
 
+已有旧版完整训练断点时，可用 `--resume-from` 读取旧 `step_*`，配合 `--run-root` 写入独立的新 run。[旧 checkpoint 直接续训命令](TRAINING.zh-CN.md#6-从旧版完整-checkpoint-直接续训)
+
 从原始 JAX π0.5 预训练权重开始，按单机 8 卡/global64/70,000 步或 16 卡/global128/35,001 步全量训练。准备资源、选择 worker 数、做实体 GPU 恢复验收和启动正式训练的命令见[训练与恢复手册](TRAINING.zh-CN.md)。
 
 方法以 StreamPI 公开提交 `ba024b2149ed94542a6c3352554f4f52f766a26d` 为准。每个训练样本包含三个时刻，间隔固定为 5 帧，所有有效帧都可作为当前时刻。在线推理在编码前按周期清空历史缓存。RoboCasa 使用三路相机、逐时刻的 16 维状态和当前时刻的 50 步动作监督，环境动作维度为 12。[原始 8 卡方法与资源说明](../../docs/ASTRA_STREAMPI_8GPU_70K.zh-CN.md)

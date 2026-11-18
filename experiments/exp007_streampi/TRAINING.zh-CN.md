@@ -132,8 +132,25 @@ bash "$EXP/launch.sh" --config "$CFGDIR/$FORMAL.json"
 
 到达停止点时检查 `FINISHED.json`、对应的完整 checkpoint 及 `exports/step_*/COMPLETE.json`。16 卡配方的最终 `step=35001`、`next_sample=4480128`，8 卡配方为 `step=70000`、`next_sample=4480000`。
 
-## 6. 已经在跑的任务
+## 6. 从旧版完整 checkpoint 直接续训
 
-- **旧版在跑或需要续训**。保留启动时的 checkout、resolved config、run 目录及原启动命令。该版本可以用兼容的完整 checkpoint 继续原有进度。
-- **已用新版开始，作业中断**。重新执行第 5 节最后一行，指向原来的正式配置。入口在原 run 中寻找最新的完整兼容 checkpoint，恢复模型、Adam、EMA、RNG、步数和数据游标。重启后从 `attempts.jsonl` 核对接续位置。
-- **旧版断点希望切换新版**。本次交付提供新 run 的训练入口和同版本恢复。旧断点带有旧配置与源码身份，直接替换源码或改 worker 数会触发身份检查。采用新版可以独立开 run。若必须保留旧步数，跨版本完整状态迁移还需在旧断点副本上验证连续更新的一致性。多机断点也需单独验证。
+用新版 checkout 的 `launch.sh`，传入旧任务的 resolved config 或 `CONFIG.json`，以及已经保存完成的 `checkpoints/step_XXXXXX`。目录内应有 `COMPLETE.json` 和 `state/`。训练恢复需要参数、优化器和 EMA 等完整状态，`exports/` 里的推理权重缺少这些状态。
+
+```bash
+# 在第 1 节设置的同一环境下执行。将下列示例目录和已保存步数换为实际值。
+OLD_RUN="$ROBOT_WORKSPACE/zf-streampi-old"
+OLD_STEP="$OLD_RUN/checkpoints/step_010000"
+NEW_RUN="$ROBOT_WORKSPACE/zf-streampi-resumed-loader"
+bash "$EXP/launch.sh" --config "$OLD_RUN/CONFIG.json" \
+  --resume-from "$OLD_STEP" --run-root "$NEW_RUN" --loader-workers 8
+```
+
+首次启动选择旧断点，直接恢复模型参数、Adam、EMA、全局步数、训练随机 key 和已保存的 `next_sample`。数据、采样 seed、学习率日程、GPU 拓扑和停止步取自传入的运行配置。`--loader-workers 8` 会覆盖旧配置里的 worker 数。更换读取器时沿用原训练的其他设置，可保持优化器与采样的接续语义。新版接受旧格式中的源码及配置哈希作为历史记录，加载只检查实际状态结构、形状、dtype、计数器和文件完整性。正式模式继续核对已验收的设备数和本机物理设备。
+
+旧任务可以继续向自己的目录写后续 checkpoint。上面的命令只读指定的完整断点，日志、新 checkpoint 和 EMA 导出均落在 `$NEW_RUN`。新进程独占自己的目标目录，两个训练进程需要各自可用的计算资源。第一次启动应选新的目标目录。
+
+启动日志 `TRAINING_ATTEMPT` 及 `$NEW_RUN/attempts.jsonl` 中的 `restored_from` 应指向旧断点，`start_step` 与 `next_sample` 应与旧 `COMPLETE.json` 一致。若断点为第 N 步，首次更新是 N+1。读取起点始终使用实际保存的游标，之后每步增加当前 global batch。旧实现若曾记录错误游标，需结合旧训练日志核对数据进度。
+
+**自动续训时重复同一条命令，保持同一目标目录。** 首次本地完整保存之前，目标 run 的 `CLAIM.json` 记住外部源路径，需保留源断点可读。已有本地完整 checkpoint 后，优先恢复最新的本地进度。外部路径无效、文件损坏或状态无法装入模型时，首次导入会报错。若源任务已停止，也可在原目录用原配置自动发现最新完整 checkpoint。
+
+跨版本回归在 8 个虚拟 CPU 设备上用真实 Orbax、AdamW 和 EMA 执行。由旧版 `test_cpu.py --mode reference` 生成完整断点，再从新版运行 `tools/test_legacy_resume.py --reference OLD_REFERENCE_DIR --output NEW_SIBLING_DIR`，可核对新旧版本的下一步完整状态与数据游标。

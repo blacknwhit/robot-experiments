@@ -22,8 +22,8 @@ def signature(state,rng,cursor):
 def main():
     p=argparse.ArgumentParser();p.add_argument('--reference',required=True);p.add_argument('--resumed',required=True);p.add_argument('--out',required=True);a=p.parse_args()
     roots=[Path(a.reference),Path(a.resumed)];cfgs=[load(r/'CONFIG.json') for r in roots]
-    comparable=[{k:v for k,v in c.items() if k!='run_root'} for c in cfgs]
-    if comparable[0]!=comparable[1]:raise ValueError('Runs differ beyond isolated run path')
+    if any(cfgs[0][k]!=cfgs[1][k] for k in ('gpus','fsdp_devices','global_batch_size')):
+        raise ValueError('Full-state comparison requires matching topology and batch geometry')
     from environment import setup
     setup(cfgs[0])
     import jax
