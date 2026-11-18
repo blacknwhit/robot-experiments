@@ -5,7 +5,7 @@ from pathlib import Path
 from contract import ROOT,REPO,sha,validate,source_manifest,load,verify_assets,recipe_identity
 
 def configure(args):
-    cfg=json.loads((ROOT/'recipe_8gpu64_70k.json').read_text())
+    cfg=json.loads(Path(args.recipe).read_text())
     scope=Path(args.workspace_root).resolve();run=(scope/args.run_id).resolve();run.relative_to(scope)
     if run==scope or len(Path(args.run_id).parts)!=1:raise ValueError('run-id must be a unique single directory name')
     if not args.run_id.startswith('zf-'):raise ValueError('Use zf- task/run names')
@@ -15,10 +15,13 @@ def configure(args):
         if name!='arrow_cache' and not p.exists():raise FileNotFoundError(p)
         resources[name]=str(p)
     reader=json.loads((ROOT/'reader_template.json').read_text())
+    if args.loader_workers is not None:
+        if args.loader_workers < 0:raise ValueError('loader-workers must be >= 0')
+        reader['num_workers'] = args.loader_workers
     reader.update(data_root_dir=resources['data_root'],official_registry_file=resources['registry_file'],v3_arrow_cache_dir=resources['arrow_cache'])
     cfg.update(workspace_root=str(scope),run_root=str(run),mode=args.mode,reader=reader,
                base_checkpoint=resources['base_checkpoint'],norm_assets=resources['norm_assets'],tokenizer=resources['tokenizer'],
-               batch_size=64,source_files=source_manifest())
+               batch_size=cfg['global_batch_size'],source_files=source_manifest())
     files=[Path(resources['tokenizer']),Path(resources['registry_file'])]
     files+=list(Path(resources['base_checkpoint']).rglob('*'))+list(Path(resources['norm_assets']).rglob('*.json'))
     for bundle in ('robocasa365-pretrain-atomic','robocasa365-pretrain-composite'):
@@ -35,15 +38,15 @@ def configure(args):
         raise ValueError('Base checkpoint differs from accepted original pi05_base; verify provenance before changing contract')
     validate(cfg)
     if args.mode=='formal':
-        if not args.gpu_acceptance:raise ValueError('First complete the two actual eight-GPU smoke runs and compare_runs.py')
+        if not args.gpu_acceptance:raise ValueError('First complete the smoke/restart comparison on the configured physical topology')
         gate_path=Path(args.gpu_acceptance).resolve();gate_path.relative_to(scope)
         gate=json.loads(gate_path.read_text())
-        if not gate.get('passed') or gate.get('physical_gpu_count')!=8 or gate.get('recipe_identity')!=recipe_identity(cfg):
+        if not gate.get('passed') or gate.get('physical_gpu_count')!=cfg['gpus'] or gate.get('recipe_identity')!=recipe_identity(cfg):
             raise ValueError('GPU acceptance does not cover this exact formal recipe')
         cfg['gpu_acceptance']=gate
     out=Path(args.out).resolve();out.relative_to(scope);out.parent.mkdir(parents=True,exist_ok=True)
     with out.open('x') as f:json.dump(cfg,f,indent=2)
-    print(json.dumps({'config':str(out),'mode':args.mode,'gpus':8,'global_batch':64,'updates':70000,'resources':len(cfg['resource_manifest'])}))
+    print(json.dumps({'config':str(out),'mode':args.mode,'gpus':cfg['gpus'],'global_batch':cfg['global_batch_size'],'updates':cfg['num_train_steps'],'resources':len(cfg['resource_manifest'])}))
 
 def check_data(args):
     cfg=load(args.config);verify_assets(cfg)
@@ -51,17 +54,27 @@ def check_data(args):
     setup(cfg,cpu=True)
     from data import DemoStream,Processor,fingerprint
     stream=DemoStream(cfg);processor=Processor(cfg)
-    rows=[]
-    for i in range(4):
-        s=stream.sample(i);batch=processor.batch([s]);rows.append({k:v for k,v in s.items() if k!='units'}|{'input_sha256':fingerprint(*batch)})
     import numpy as np
-    obs,actions=processor.batch([stream.sample(i) for i in range(64)])
-    assert actions.shape==(64,50,32) and obs.tokenized_prompt.shape==(64,3,200)
-    assert all(v.shape==(64,3,224,224,3) for v in obs.images.values())
+    from input_pipeline import Windows,batches
+    from contextlib import closing
+    size = cfg['global_batch_size']
+    windows = Windows(stream)
+    rows = []
+    for i in range(4):
+        sample = stream.sample(i)
+        expected = fingerprint(*processor.batch([sample]))
+        actual = fingerprint(*processor.batch([windows.sample(i)]))
+        if actual != expected:
+            raise ValueError(f"Fast reader changed model input at sample {i}")
+        rows.append({k:v for k,v in sample.items() if k != 'units'} | {'input_sha256':actual})
+    with closing(batches(windows,processor,cfg,0,size)) as it:
+        obs,actions=next(it)
+    assert actions.shape==(size,50,32) and obs.tokenized_prompt.shape==(size,3,200)
+    assert all(v.shape==(size,3,224,224,3) for v in obs.images.values())
     assert np.isfinite(actions).all()
     from contract import identity
     result={'passed':True,'identity':identity(cfg),'tasks':len(stream.population),'demos':sum(x['episodes'] for x in stream.population),'samples':rows,
-            'real_global_batch':64,'batch_input_sha256':fingerprint(obs,actions),'image_shapes':{k:list(v.shape) for k,v in obs.images.items()},
+            'real_global_batch':size,'batch_input_sha256':fingerprint(obs,actions),'image_shapes':{k:list(v.shape) for k,v in obs.images.items()},
             'prompt_shape':list(obs.tokenized_prompt.shape),'action_shape':list(actions.shape)}
     p=Path(cfg['run_root'])/'DATA_ACCEPTED.json'
     with p.open('x') as f:json.dump(result,f,indent=2)
@@ -72,6 +85,8 @@ def main():
     c=sub.add_parser('configure');c.add_argument('--resources',required=True);c.add_argument('--workspace-root',required=True)
     c.add_argument('--run-id',required=True);c.add_argument('--mode',choices=['smoke','formal'],required=True);c.add_argument('--out',required=True)
     c.add_argument('--gpu-acceptance')
+    c.add_argument('--recipe', default=str(ROOT/'recipe_8gpu64_70k.json'))
+    c.add_argument('--loader-workers', type=int, help='DataLoader processes per host (0 runs in the caller)')
     d=sub.add_parser('check-data');d.add_argument('--config',required=True)
     a=p.parse_args();configure(a) if a.command=='configure' else check_data(a)
 if __name__=='__main__':main()

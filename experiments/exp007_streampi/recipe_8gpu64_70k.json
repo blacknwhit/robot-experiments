@@ -37,6 +37,5 @@
   "num_train_steps": 70000,
   "save_interval": 5000,
   "log_interval": 10,
-  "optimizer_execution": "gpu_fsdp",
-  "data_prefetch_batches": 1
+  "optimizer_execution": "gpu_fsdp"
 }

@@ -17,11 +17,11 @@ def recipe_identity(cfg):
     return identity({k:v for k,v in cfg.items() if k not in ('run_root','mode','gpu_acceptance')})
 
 def validate(cfg):
-    assert cfg['gpus']==8 and cfg['global_batch_size']==64
+    assert cfg['gpus'] in (8,16)
     assert cfg['per_device_batch_size']==8 and cfg['gradient_accumulation_steps']==1
     assert cfg['gpus']*cfg['per_device_batch_size']*cfg['gradient_accumulation_steps']==cfg['global_batch_size']
-    assert cfg['fsdp_devices']==8 and cfg['optimizer_execution']=='gpu_fsdp'
-    assert cfg['num_train_steps']==70000
+    assert cfg['fsdp_devices'] in (8,cfg['gpus']) and cfg['optimizer_execution']=='gpu_fsdp'
+    assert cfg['num_train_steps'] in ((70000,) if cfg['gpus']==8 else (35000,35001))
     assert cfg['history_frames']==3 and cfg['history_interval']==5 and not cfg['enable_jitter']
     assert cfg['training_anchor']=='all_episode_frames' and cfg['discrete_state_input']
     assert cfg['action_horizon']==50 and cfg['action_dim']==32 and cfg['environment_action_dim']==12
@@ -48,8 +48,8 @@ def load(path,*,verify_sources=True):
         Path(cfg['reader'][key]).resolve().relative_to(scope)
     if cfg['mode']=='formal':
         gate=cfg.get('gpu_acceptance',{})
-        if not gate.get('passed') or gate.get('physical_gpu_count')!=8 or gate.get('recipe_identity')!=recipe_identity(cfg):
-            raise ValueError('Formal run requires exact-recipe actual eight-GPU save/restart acceptance')
+        if not gate.get('passed') or gate.get('physical_gpu_count')!=cfg['gpus'] or gate.get('recipe_identity')!=recipe_identity(cfg):
+            raise ValueError('Formal run requires exact-recipe physical GPU save/restart acceptance')
     return cfg
 
 def verify_assets(cfg):

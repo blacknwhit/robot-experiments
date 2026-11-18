@@ -31,9 +31,10 @@ def main():
     from official_init import init_train_state
     from engine import make_config
     import checkpoints
-    if jax.device_count()!=8 or jax.process_count()!=1 or any(d.platform!='gpu' for d in jax.devices()):
-        raise ValueError('This gate requires actual eight-GPU single-host topology')
-    mesh=sharding.make_mesh(8);results=[]
+    devices=cfgs[0]['gpus']
+    if jax.device_count()!=devices or jax.process_count()!=1 or any(d.platform!='gpu' for d in jax.devices()):
+        raise ValueError('This gate requires the configured physical, single-host topology')
+    mesh=sharding.make_mesh(cfgs[0]['fsdp_devices']);results=[]
     for root,cfg in zip(roots,cfgs):
         rng,ir=jax.random.split(jax.random.key(cfg['seed']))
         shape,ss=init_train_state(make_config(cfg),ir,mesh,resume=True)
@@ -43,7 +44,7 @@ def main():
     if not any(r['start_step']==2 and r['restored_from'] for r in attempts):raise ValueError('No actual step2 restart evidence')
     if results[0]!=results[1]:raise AssertionError({'reference':results[0],'resumed':results[1]})
     r={'passed':True,'exact_full_state':True,'reference':str(roots[0]),'resumed':str(roots[1]),'state':results[0],
-       'physical_gpu_count':8,'device_kinds':[d.device_kind for d in jax.devices()],'recipe_identity':recipe_identity(cfgs[0])}
+       'physical_gpu_count':devices,'device_kinds':[d.device_kind for d in jax.devices()],'recipe_identity':recipe_identity(cfgs[0])}
     out=Path(a.out).resolve();out.relative_to(Path(cfgs[0]['workspace_root']).resolve())
     with out.open('x') as f:json.dump(r,f,indent=2)
     print(json.dumps(r))

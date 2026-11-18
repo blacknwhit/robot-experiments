@@ -45,7 +45,7 @@ model=Tiny();params=nnx.state(model);tx=optax.chain(optax.clip_by_global_norm(1.
 state=utils.TrainState(step=0,params=params,model_def=nnx.graphdef(model),tx=tx,opt_state=tx.init(params),ema_decay=.999,ema_params=params)
 shape=jax.eval_shape(lambda:state);ss=sharding.fsdp_sharding(shape,mesh)
 conf=SimpleNamespace(trainable_filter=nnx.Param,lr_schedule=SimpleNamespace(create=lambda:lambda step:jnp.float32(.001)))
-step_fn=jax.jit(functools.partial(train_step,conf),in_shardings=(rep,ss,data_shard),out_shardings=(ss,rep),donate_argnums=(1,))
+step_fn=jax.jit(functools.partial(train_step,conf,detailed_metrics=(args.mode=='reference')),in_shardings=(rep,ss,data_shard),out_shardings=(ss,rep),donate_argnums=(1,))
 rng=jax.random.key(42);cursor=0
 if args.mode=='resume':
     picked,_,skipped=discover(root/'checkpoints',cfg)
@@ -66,6 +66,7 @@ while int(state.step)<3:
     with sharding.set_mesh(mesh):state,metrics=step_fn(rng,state,jax.device_put(batch,data_shard))
     jax.block_until_ready(state);cursor+=64
     assert np.isfinite(float(metrics['loss']))
+    assert ('gradient_groups' in metrics) == (args.mode=='reference')
     if int(state.step)==2 and args.mode=='reference':
         save(root/'checkpoints',state,rng,cursor,cfg)
         (root/'checkpoints/step_999999').mkdir() # Simulate an interrupted latest save.
@@ -74,5 +75,5 @@ if args.mode=='reference':(root/'REFERENCE.json').write_text(json.dumps(result,i
 else:
     assert result==json.loads((root/'REFERENCE.json').read_text())
     (root/'CPU_8DEVICE_ACCEPTED.json').write_text(json.dumps({'passed':True,'virtual_devices':8,'global_batch':64,'physical_gpus':0,
-        'full_state_resume_exact':True,'partial_latest_skipped':True,'contract_rejections':5,'scope':'tiny model; real FSDP/AdamW/EMA/checkpoint machinery, not full-model GPU acceptance','signature':result},indent=2))
+        'full_state_resume_exact':True,'lean_vs_detailed_update_exact':True,'partial_latest_skipped':True,'contract_rejections':5,'scope':'tiny model; real FSDP/AdamW/EMA/checkpoint machinery, not full-model GPU acceptance','signature':result},indent=2))
 print(args.mode.upper()+'_ACCEPTED',json.dumps(result),flush=True)

@@ -1,5 +1,7 @@
 # 给Astra：StreamPI迁移到RoboCasa365，8卡/global64/70k
 
+本页保留 8 卡/global64/70k 的方法细节。当前发布版的多进程读取、16 卡配方和旧任务处理方式见[8/16 卡训练与恢复手册](../experiments/exp007_streampi/TRAINING.zh-CN.md)。
+
 这是EXP-007的主执行文档。用户已明确：**论文与公开代码冲突时以公开代码为准；原始π0.5预训练权重初始化；8卡，global batch64，训练至70000次优化更新。** 本文和配置是后续执行依据，不沿用C3、Pri4R、EventVLA或此前A/B的配方。
 
 当前交付包含方法核心、完整RoboCasa读取器、单机8卡JAX FSDP训练入口和自动恢复。**实体8卡完整模型的显存、通信、吞吐、恢复尚待Astra验收；不要把CPU虚拟设备检查或旧单H100证据当成已通过8卡。** 先执行第4节，再配置正式训练。此交接以70k训练、完整状态和EMA导出为完成条件；没有授权本轮发布者启动70k，也没有新benchmark成绩。
@@ -23,7 +25,7 @@
 | 保存 | 初始化step0、step1、每5000和停止点同步保存完整状态；停止点导出EMA、norm与配置；不自动删除旧checkpoint |
 | 随机性 | seed42、训练key按全局update fold_in；数据按seed/sample index确定；每完成一次update游标增加64 |
 
-GPU类型优先8×H10080GB。其它已有GPU类型必须先通过同配方8卡验收；不要按空闲卡数改成4卡，也不要把global64静默改小。代码暂只支持单机8卡，不把跨主机的8卡数量冒充受支持拓扑。
+本页使用单机 8×H100 80GB、global64 的原配方。其他 GPU 型号需要在相同配方上验收显存、通信和完整恢复。新版另提供单机 16 卡/global128 配方。两种配方都由一个 JAX 进程管理本机全部设备。
 
 global64与70000停止点由用户指定，区别于作者原基准的batch/训练预算；“公开代码优先”不覆盖用户的这些明确要求。
 
@@ -145,7 +147,7 @@ bash experiments/exp007_streampi/launch.sh \
   --config "$RESOLVED/streampi-70k.json"
 ```
 
-入口采用单读取线程预取下一global batch，reader缓存不被多个线程并发修改；仅完成optimizer更新才提交数据cursor，预取内容在中断后可丢弃并重建。真实8卡运行中须测量数据等待。如果CPU读取成为瓶颈，Astra可以在保持索引、顺序、输入哈希及恢复语义的前提下优化；不得未经记录改变样本人口或随机协议。
+新版使用 PyTorch DataLoader 按窗口并行读取。8 卡配方默认每个训练进程共 4 个持久 worker，可在 configure 时用 `--loader-workers` 指定。完成一次更新后才推进全局样本游标。独立输入验收保留哈希，正式训练在 `metrics.jsonl` 记录 `loader_wait_s`、`host_pack_s` 和 `wall_s`。
 
 当前每次完整状态约为数十GiB，初始化/step1/每5000/最终共约16份；另有EMA导出和两个smoke目录。正式训练前准备至少约1TB可用产物空间并按实测重估，不算数据本身。默认不删除旧checkpoint；不足时先报告真实容量，不删除其它实验。主存还需容纳初始化权重和数据预取，先实测。
 

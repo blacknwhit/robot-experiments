@@ -1,4 +1,4 @@
-"""Single-host, eight-device JAX FSDP training. No torchrun/DDP wrapper."""
+"""Single-host JAX FSDP training with a process-parallel host DataLoader."""
 import argparse
 import contextlib
 import functools
@@ -28,21 +28,21 @@ def main():
     if cfg['mode']=='smoke' and not args.dry_run and (args.stop_after is None or target>20):
         raise ValueError('Smoke requires explicit --stop-after in 1..20; use the GPU-gated formal config for 70k')
     if args.dry_run:
-        print(json.dumps({'mode':cfg['mode'],'gpus':8,'per_device_batch':8,'accumulation':1,'global_batch':64,
-                          'stop':target,'schedule':cfg['learning_rate'],'execution':'one Python process; native JAX FSDP8',
-                          'identity':identity(cfg),'gpu_acceptance':'required on actual 8 GPUs before formal run'}));return
+        print(json.dumps({'mode':cfg['mode'],'gpus':cfg['gpus'],'per_device_batch':cfg['per_device_batch_size'],'accumulation':1,'global_batch':cfg['global_batch_size'],
+                          'stop':target,'schedule':cfg['learning_rate'],'execution':'one Python process; native JAX FSDP',
+                          'identity':identity(cfg),'gpu_acceptance':f"required on actual {cfg['gpus']} GPUs before formal run"}));return
     from environment import setup
     setup(cfg)
     import jax
     import numpy as np
     from openpi.training import sharding
-    from data import DemoStream,Processor,fingerprint
+    from data import DemoStream,Processor
+    from input_pipeline import Windows,batches
     from engine import make_config,train_step,prepare_donation
     from official_init import init_train_state
     import checkpoints
-    from concurrent.futures import ThreadPoolExecutor
-    if jax.process_count()!=1 or jax.device_count()!=8 or len(jax.local_devices())!=8:
-        raise ValueError('Requires one host/process with exactly 8 visible devices; do not wrap in torchrun')
+    if jax.process_count()!=1 or jax.device_count()!=cfg['gpus'] or len(jax.local_devices())!=cfg['gpus']:
+        raise ValueError('This single-host entry requires one process with all configured GPUs visible')
     if any(d.platform!='gpu' for d in jax.devices()):raise ValueError('Production entry requires actual GPUs')
     verify_assets(cfg)
     root=Path(cfg['run_root'])
@@ -64,7 +64,7 @@ def main():
             with claim.open('x') as f:json.dump({'identity':identity(cfg),'created_utc':datetime.now(timezone.utc).isoformat()},f)
         if (root/'FINISHED.json').exists():
             done=json.loads((root/'FINISHED.json').read_text())
-            if done['identity']!=identity(cfg) or marker is None or marker['step']!=70000:raise ValueError('Invalid completion state')
+            if done['identity']!=identity(cfg) or marker is None or marker['step']!=cfg['num_train_steps']:raise ValueError('Invalid completion state')
             checkpoints.verify(Path(done['export']),cfg)
             print('ALREADY_FINISHED');return
         mesh=sharding.make_mesh(cfg['fsdp_devices'])
@@ -77,42 +77,57 @@ def main():
         state=prepare_donation(state,state_shard)
         jax.block_until_ready(state)
         start=int(state.step)
-        if cursor!=start*64:raise ValueError('Data cursor differs from completed global updates')
+        size = cfg['global_batch_size']
+        if cursor!=start*size:raise ValueError('Data cursor differs from completed global updates')
         attempt={'utc':datetime.now(timezone.utc).isoformat(),'start_step':start,'next_sample':cursor,'identity':identity(cfg),
                  'restored_from':None if selected is None else str(selected),'skipped_checkpoints':skipped,
-                 'devices':[str(d) for d in jax.devices()],'global_batch':64,'fsdp_devices':8}
+                 'devices':[str(d) for d in jax.devices()],'global_batch':size,'fsdp_devices':cfg['fsdp_devices'],
+                 'loader_workers':cfg['reader']['num_workers'], 'loader_chunk':cfg['reader'].get('loader_chunk',4),
+                 'prefetch_batches':cfg['reader'].get('prefetch_batches',1)}
         with (root/'attempts.jsonl').open('a') as f:f.write(json.dumps(attempt)+'\n')
         print('TRAINING_ATTEMPT',json.dumps(attempt),flush=True)
         if selected is None:checkpoints.save(root/'checkpoints',state,rng,cursor,cfg)
-        step_fn=jax.jit(functools.partial(train_step,conf),in_shardings=(rep,state_shard,data_shard),
-                         out_shardings=(state_shard,rep),donate_argnums=(1,))
+        def compile_step(detailed):
+            return jax.jit(functools.partial(train_step, conf, detailed_metrics=detailed),
+                           in_shardings=(rep, state_shard, data_shard),
+                           out_shardings=(state_shard, rep), donate_argnums=(1,))
+        step_functions = {flag: compile_step(flag) for flag in (False, True)}
         stream=DemoStream(cfg);processor=Processor(cfg)
-        def next_batch(index):
-            # A single prefetch reader owns its caches. Only committed optimizer
-            # updates advance cursor, so discarded prefetched data are replayed.
-            with jax.default_device(jax.devices('cpu')[0]):
-                batch=processor.batch([stream.sample(index+i) for i in range(64)])
-                return jax.tree.map(np.asarray,batch)
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future=pool.submit(next_batch,cursor) if start<target else None
-            while int(state.step)<target:
-                batch=future.result();batch_hash=fingerprint(*batch)
-                future=pool.submit(next_batch,cursor+64) if int(state.step)+1<target else None
-                batch=jax.device_put(batch,data_shard);begin=time.monotonic()
-                with sharding.set_mesh(mesh):state,metrics=step_fn(rng,state,batch)
-                jax.block_until_ready(state)
+        windows = Windows(stream)
+        del stream
+        input_timing = {}
+        batch_iter = batches(windows, processor, cfg, cursor, target * size, timing=input_timing)
+        with contextlib.closing(batch_iter):
+            for step in range(start + 1, target + 1):
+                wall_start = time.monotonic()
+                batch = next(batch_iter)
+                data_ready = time.monotonic()
+                if batch[1].shape[0] != size:
+                    raise ValueError('Wrong global batch size')
+                batch = jax.device_put(batch, data_shard)
+                dispatched = time.monotonic()
+                # One normal executable for long runs. Full parameter-tree diagnostics
+                # belong to explicitly instrumented smoke runs, not every update.
+                detailed = cfg['mode'] == 'smoke'
+                with sharding.set_mesh(mesh):
+                    state, metrics = step_functions[detailed](rng, state, batch)
+                jax.block_until_ready((state,metrics))
                 values=jax.tree.map(lambda x:float(np.asarray(x)),metrics)
                 if not all(np.isfinite(x) for x in jax.tree.leaves(values)):raise FloatingPointError('Nonfinite loss/gradient/update')
-                if not all(x>0 for x in values['gradient_groups'].values()):raise ValueError('A model group has no gradient')
-                cursor+=64;step=int(state.step)
-                row={'step':step,'next_sample':cursor,'input_sha256':batch_hash,'seconds':time.monotonic()-begin,**values}
-                with (root/'metrics.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
-                if step==start+1 or step%cfg['log_interval']==0:print('UPDATE',json.dumps(row),flush=True)
+                if detailed and not all(x>0 for x in values['gradient_groups'].values()):raise ValueError('A model group has no gradient')
+                cursor += size
+                updated = time.monotonic()
                 if step==1 or step%cfg['save_interval']==0 or step==target:
                     _,receipt=checkpoints.save(root/'checkpoints',state,rng,cursor,cfg)
                     print('CHECKPOINT_COMPLETE',json.dumps(receipt|{'files':len(receipt['files'])}),flush=True)
+                row={'step':step, 'next_sample':cursor, 'actual_batch_size':size,
+                     'data_wait_and_pack_s':data_ready-wall_start,'h2d_dispatch_s':dispatched-data_ready,
+                     'seconds':updated-dispatched,'checkpoint_s':time.monotonic()-updated,
+                     'wall_s':time.monotonic()-wall_start,**input_timing,**values}
+                with (root/'metrics.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
+                if step==start+1 or step%cfg['log_interval']==0:print('UPDATE',json.dumps(row),flush=True)
         export=checkpoints.export(root/'exports',state,cfg)
-        result={'identity':identity(cfg),'step':int(state.step),'next_sample':cursor,'export':str(export),'formal_complete':int(state.step)==70000}
+        result={'identity':identity(cfg),'step':int(state.step),'next_sample':cursor,'export':str(export),'formal_complete':int(state.step)==cfg['num_train_steps']}
         name='FINISHED.json' if result['formal_complete'] else f'SMOKE_STOP_{int(state.step):06d}.json'
         (root/name).write_text(json.dumps(result,indent=2));print('RUN_COMPLETE',json.dumps(result),flush=True)
 if __name__=='__main__':main()

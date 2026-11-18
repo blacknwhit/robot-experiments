@@ -16,12 +16,12 @@ def prepare_donation(state,state_sharding):
     return dataclasses.replace(state,ema_params=ema)
 
 def make_config(cfg):
-    return train_config.TrainConfig(name='streampi_robocasa365',exp_name='8gpu64_70k',
+    return train_config.TrainConfig(name='streampi_robocasa365',exp_name=f"{cfg['gpus']}gpu_b{cfg['global_batch_size']}_{cfg['num_train_steps']}",
       model=pi0_config.Pi0Config(pi05=True,hist_horizon=3,action_horizon=50,discrete_state_input=True),
       weight_loader=weight_loaders.CheckpointWeightLoader(cfg['base_checkpoint']),
       optimizer=optimizer.AdamW(**cfg['optimizer']),lr_schedule=optimizer.CosineDecaySchedule(**cfg['learning_rate']),
       ema_decay=cfg['ema_decay'],seed=cfg['seed'],batch_size=cfg['global_batch_size'],fsdp_devices=cfg['fsdp_devices'],
-      wandb_enabled=False,num_workers=0)
+      wandb_enabled=False,num_workers=cfg['reader']['num_workers'])
 
 def _group(path):
     name = '/'.join(map(str,path))
@@ -38,7 +38,7 @@ def group_norms(values):
         sums[_group(path)] += jnp.sum(jnp.square(array))
     return {name:jnp.sqrt(value) for name,value in sums.items()}
 
-def train_step(conf, rng, state, batch):
+def train_step(conf, rng, state, batch, *, detailed_metrics=True):
     model = nnx.merge(state.model_def, state.params)
     model.train()
     obs, actions = batch
@@ -52,8 +52,8 @@ def train_step(conf, rng, state, batch):
     new_params = nnx.state(model)
     ema = jax.tree.map(lambda old,new:state.ema_decay*old+(1-state.ema_decay)*new,
                       state.ema_params,new_params)
-    metrics = {'loss':loss,'grad_norm':optax.global_norm(grads),
-               'gradient_groups':group_norms(grads),'update_groups':group_norms(updates),
-               'actual_parameter_delta_groups':group_norms(jax.tree.map(lambda new,old:new-old,new_params,state.params)),
-               'learning_rate':conf.lr_schedule.create()(state.step)}
+    metrics = {'loss':loss,'grad_norm':optax.global_norm(grads),'learning_rate':conf.lr_schedule.create()(state.step)}
+    if detailed_metrics:
+        metrics.update(gradient_groups=group_norms(grads), update_groups=group_norms(updates),
+                       actual_parameter_delta_groups=group_norms(jax.tree.map(lambda new,old:new-old,new_params,state.params)))
     return dataclasses.replace(state,step=state.step+1,params=new_params,opt_state=opt_state,ema_params=ema),metrics
